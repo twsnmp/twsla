@@ -1,0 +1,40 @@
+version: '3'
+
+vars:
+  VERSION: v0.0.1
+  COMMIT:
+    sh: git rev-parse --short HEAD
+
+tasks:
+  default:
+    cmds:
+      - task: mac_amd64
+      - task: mac_arm64
+      - task: windows
+      - task: linux_amd64
+      - task: linux_arm64
+  mac_amd64:
+    cmds:
+      - task: mkdir
+      - GOOS=darwin GOARCH=amd64 go build -o dist/twsla.darwin_amd64 -ldflags "-s -w -X github.com/twsnmp/twsla/cmd.version={{.VERSION}} -X github.com/twsnmp/twsla/cmd.commit={{.COMMIT}}" .
+  mac_arm64:
+    cmds:
+      - task: mkdir
+      - GOOS=darwin GOARCH=arm64 go build -o dist/twsla.darwin_arm64 -ldflags "-s -w -X github.com/twsnmp/twsla/cmd.version={{.VERSION}} -X github.com/twsnmp/twsla/cmd.commit={{.COMMIT}}" .
+  windows:
+    cmds:
+      - task: mkdir
+      - GOOS=darwin GOARCH=amd64 go build -o dist/twsla.exe -ldflags "-s -w -X github.com/twsnmp/twsla/cmd.version={{.VERSION}} -X github.com/twsnmp/twsla/cmd.commit={{.COMMIT}}" .
+  linux_amd64:
+    cmds:
+      - task: mkdir
+      - GOOS=linux GOARCH=amd64 go build -o dist/twsla.linux_amd64 -ldflags "-s -w -X github.com/twsnmp/twsla/cmd.version={{.VERSION}} -X github.com/twsnmp/twsla/cmd.commit={{.COMMIT}}" .
+  linux_arm64:
+    cmds:
+      - task: mkdir
+      - GOOS=linux GOARCH=arm64 go build -o dist/twsla.linux_arm64 -ldflags "-s -w -X github.com/twsnmp/twsla/cmd.version={{.VERSION}} -X github.com/twsnmp/twsla/cmd.commit={{.COMMIT}}" .
+  mkdir:
+    - mkdir -p dist
+  clean:
+    cmds:
+      - rm dist/*
