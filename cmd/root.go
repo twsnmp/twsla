@@ -18,15 +18,29 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"regexp"
+	"strings"
+	"time"
 
+	"github.com/araddon/dateparse"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/xhit/go-str2duration/v2"
+	"go.etcd.io/bbolt"
 )
 
 var cfgFile string
 var dataStore string
 var timeRange string
-var filter string
+var simpleFilter string
+var regexpFilter string
+
+// common data
+type errMsg error
+
+var db *bbolt.DB
+var teaProg *tea.Program
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -49,8 +63,8 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.twsla.yaml)")
 	rootCmd.PersistentFlags().StringVarP(&dataStore, "datastore", "d", "./twsla.db", "Bblot log db")
 	rootCmd.PersistentFlags().StringVarP(&timeRange, "timeRange", "t", "", "Time range")
-	rootCmd.PersistentFlags().StringVarP(&filter, "filter", "f", "", "Filter")
-
+	rootCmd.PersistentFlags().StringVarP(&simpleFilter, "filter", "f", "", "Simple filter")
+	rootCmd.PersistentFlags().StringVarP(&regexpFilter, "regex", "r", "", "Regexp filter")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -75,4 +89,68 @@ func initConfig() {
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
 	}
+}
+
+// openDB : open bbolt DB
+func openDB() error {
+	var err error
+	db, err = bbolt.Open(dataStore, 0600, &bbolt.Options{Timeout: 3 * time.Second})
+	if err != nil {
+		return err
+	}
+	return db.Update(func(tx *bbolt.Tx) error {
+		if _, err := tx.CreateBucketIfNotExists([]byte("logs")); err != nil {
+			return fmt.Errorf("create bucket: %s", err)
+		}
+		if _, err := tx.CreateBucketIfNotExists([]byte("delta")); err != nil {
+			return fmt.Errorf("create bucket: %s", err)
+		}
+		return nil
+	})
+}
+
+// getSimpleFilter : get filter from like test* test?k
+func getSimpleFilter(f string) *regexp.Regexp {
+	if f == "" {
+		return nil
+	}
+	f = strings.ReplaceAll(f, "*", ".*")
+	f = strings.ReplaceAll(f, "?", ".")
+	if r, err := regexp.Compile(f); err == nil {
+		return r
+	}
+	return nil
+}
+
+func getFilter(f string) *regexp.Regexp {
+	if f == "" {
+		return nil
+	}
+	if r, err := regexp.Compile(f); err == nil {
+		return r
+	}
+	return nil
+}
+
+func getTimeRange() (int64, int64) {
+	st := time.Unix(0, 0)
+	et := time.Now()
+	a := strings.SplitN(timeRange, ",", 2)
+	if len(a) == 1 && a[0] != "" {
+		if d, err := str2duration.ParseDuration(a[0]); err == nil {
+			st = et.Add(d * -1)
+		} else if t, err := dateparse.ParseAny(a[0]); err == nil {
+			st = t
+		}
+	} else {
+		if t, err := dateparse.ParseAny(a[0]); err == nil {
+			st = t
+			if t, err := dateparse.ParseAny(a[1]); err == nil {
+				et = t
+			} else if d, err := str2duration.ParseDuration(a[1]); err == nil {
+				et = st.Add(d)
+			}
+		}
+	}
+	return st.UnixNano(), et.UnixNano()
 }

@@ -36,6 +36,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/charmbracelet/bubbles/spinner"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/dustin/go-humanize"
 	"github.com/gravwell/gravwell/v3/timegrinder"
 	"github.com/spf13/cobra"
 	"github.com/viant/afs/scp"
@@ -60,9 +64,20 @@ type LogEnt struct {
 	Delta int
 }
 
+type ProcMsg struct {
+	Done  bool
+	Path  string
+	Bytes int64
+	Lines int
+	Skip  int
+}
+
 var stopImport bool
 var logCh chan *LogEnt
-var db *bbolt.DB
+var totalFiles int
+var totalLines int
+var totalBytes int64
+var st time.Time
 
 // importCmd represents the import command
 var importCmd = &cobra.Command{
@@ -72,7 +87,7 @@ var importCmd = &cobra.Command{
 	source is file | dir | scp | ssh
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
-		importFunc()
+		importMain()
 	},
 }
 
@@ -82,19 +97,33 @@ func init() {
 	importCmd.Flags().StringVarP(&source, "source", "s", "", "Log source")
 	importCmd.Flags().StringVarP(&command, "command", "c", "", "SSH Command")
 	importCmd.Flags().StringVarP(&sshKey, "key", "k", "", "SSH Key")
-	importCmd.Flags().StringVarP(&filePat, "fileName", "f", "", "File name pattern")
+	importCmd.Flags().StringVarP(&filePat, "filePat", "p", "", "File name pattern")
 }
 
-func importFunc() {
+func importMain() {
+	st = time.Now()
 	if err := openDB(); err != nil {
-		log.Panicln(err)
+		log.Fatalln(err)
 	}
 	defer db.Close()
-	var logCh = make(chan *LogEnt, 1000)
+	teaProg = tea.NewProgram(initialModel())
 	setupTimeGrinder()
+	logCh = make(chan *LogEnt, 1000)
 	var wg sync.WaitGroup
 	wg.Add(1)
+	go importSub(&wg)
+	wg.Add(1)
 	go logSaver(&wg)
+	if _, err := teaProg.Run(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	close(logCh)
+	wg.Wait()
+}
+
+func importSub(wg *sync.WaitGroup) {
+	defer wg.Done()
 	switch getSourceType() {
 	case "file":
 		importFromFile(source)
@@ -105,27 +134,10 @@ func importFunc() {
 	case "ssh":
 		importFromSSH()
 	default:
-		fmt.Println("source type error")
+		teaProg.Send(fmt.Errorf("invalid source"))
+		return
 	}
-	close(logCh)
-	wg.Wait()
-}
-
-func openDB() error {
-	var err error
-	db, err = bbolt.Open(dataStore, 0600, &bbolt.Options{Timeout: 3 * time.Second})
-	if err != nil {
-		return err
-	}
-	return db.Update(func(tx *bbolt.Tx) error {
-		if _, err := tx.CreateBucketIfNotExists([]byte("logs")); err != nil {
-			return fmt.Errorf("create bucket: %s", err)
-		}
-		if _, err := tx.CreateBucketIfNotExists([]byte("delta")); err != nil {
-			return fmt.Errorf("create bucket: %s", err)
-		}
-		return nil
-	})
+	teaProg.Send(ProcMsg{Done: true})
 }
 
 func getSourceType() string {
@@ -174,27 +186,17 @@ func setupTimeGrinder() error {
 	return nil
 }
 
-func getFileNameFilter() *regexp.Regexp {
-	if filePat == "" {
-		return nil
-	}
-	pat := filePat
-	pat = strings.ReplaceAll(pat, "*", ".*")
-	pat = strings.ReplaceAll(pat, "?", ".")
-	if f, err := regexp.Compile(pat); err == nil {
-		return f
-	}
-	return nil
-}
-
 func importFromFile(path string) {
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
-	case "zip":
+	case ".zip":
 		imortFromZIPFile(path)
 		return
-	case "gz", "tgz":
-		if strings.HasSuffix(path, "tar.gz") {
+	case ".tgz":
+		importFormTarGZFile(path)
+		return
+	case ".gz":
+		if strings.HasSuffix(path, ".tar.gz") {
 			importFormTarGZFile(path)
 			return
 		}
@@ -206,20 +208,21 @@ func importFromFile(path string) {
 	defer r.Close()
 	if ext == "gz" {
 		if gzr, err := gzip.NewReader(r); err == nil {
-			doImport(getSHA1(path), gzr)
+			doImport(path, gzr)
 		}
 		return
 	}
-	doImport(getSHA1(path), r)
+	doImport(path, r)
 }
 
 func imortFromZIPFile(path string) {
 	r, err := zip.OpenReader(path)
 	if err != nil {
+		teaProg.Send(err)
 		return
 	}
 	defer r.Close()
-	filter := getFileNameFilter()
+	filter := getSimpleFilter(filePat)
 	for _, f := range r.File {
 		p := filepath.Base(f.Name)
 		if filter != nil && !filter.MatchString(p) {
@@ -232,10 +235,10 @@ func imortFromZIPFile(path string) {
 		ext := strings.ToLower(filepath.Ext(f.Name))
 		if ext == "gz" {
 			if gzr, err := gzip.NewReader(r); err == nil {
-				doImport(getSHA1((path + f.Name)), gzr)
+				doImport(path+":"+f.Name, gzr)
 			}
 		} else {
-			doImport(getSHA1(path+f.Name), r)
+			doImport(path+":"+f.Name, r)
 		}
 	}
 }
@@ -243,14 +246,16 @@ func imortFromZIPFile(path string) {
 func importFormTarGZFile(path string) {
 	r, err := os.Open(path)
 	if err != nil {
+		teaProg.Send(err)
 		return
 	}
 	defer r.Close()
 	gzr, err := gzip.NewReader(r)
 	if err != nil {
+		teaProg.Send(err)
 		return
 	}
-	filter := getFileNameFilter()
+	filter := getSimpleFilter(filePat)
 	tgzr := tar.NewReader(gzr)
 	for {
 		f, err := tgzr.Next()
@@ -265,9 +270,9 @@ func importFormTarGZFile(path string) {
 			if err != nil {
 				continue
 			}
-			doImport(getSHA1(path+f.Name), igzr)
+			doImport(path+":"+f.Name, igzr)
 		} else {
-			doImport(getSHA1(path+f.Name), tgzr)
+			doImport(path+":"+f.Name, tgzr)
 		}
 	}
 }
@@ -279,7 +284,8 @@ func importFromDir() {
 	}
 	files, err := filepath.Glob(filepath.Join(source, pat))
 	if err != nil {
-		log.Panicln(err)
+		teaProg.Send(err)
+		return
 	}
 	for _, f := range files {
 		importFromFile(f)
@@ -295,6 +301,7 @@ func importFromSCP() {
 	}
 	u, err := url.Parse(source)
 	if err != nil {
+		teaProg.Send(err)
 		return
 	}
 	pass, ok := u.User.Password()
@@ -305,6 +312,7 @@ func importFromSCP() {
 	provider := scp.NewAuthProvider(auth, nil)
 	config, err := provider.ClientConfig()
 	if err != nil {
+		teaProg.Send(err)
 		return
 	}
 	sv := u.Host
@@ -315,13 +323,15 @@ func importFromSCP() {
 	sv += ":" + pt
 	service, err := scp.NewStorager(sv, time.Duration(time.Second)*3, config)
 	if err != nil {
+		teaProg.Send(err)
 		return
 	}
 	files, err := service.List(context.Background(), u.Path)
 	if err != nil {
+		teaProg.Send(err)
 		return
 	}
-	filter := getFileNameFilter()
+	filter := getSimpleFilter(filePat)
 	for _, file := range files {
 		path := file.Name()
 		if filter != nil && !filter.MatchString(path) {
@@ -343,6 +353,7 @@ func importFromSSH() {
 	}
 	u, err := url.Parse(source)
 	if err != nil {
+		teaProg.Send(err)
 		return
 	}
 	pass, ok := u.User.Password()
@@ -353,6 +364,7 @@ func importFromSSH() {
 	provider := scp.NewAuthProvider(auth, nil)
 	config, err := provider.ClientConfig()
 	if err != nil {
+		teaProg.Send(err)
 		return
 	}
 	sv := u.Host
@@ -363,35 +375,43 @@ func importFromSSH() {
 	sv += ":" + pt
 	conn, err := net.DialTimeout("tcp", sv, time.Duration(60)*time.Second)
 	if err != nil {
+		teaProg.Send(err)
 		return
 	}
 	if err := conn.SetDeadline(time.Now().Add(time.Second * time.Duration(120))); err != nil {
+		teaProg.Send(err)
 		return
 	}
 	c, ch, req, err := ssh.NewClientConn(conn, sv, config)
 	if err != nil {
+		teaProg.Send(err)
 		return
 	}
 	client := ssh.NewClient(c, ch, req)
 	defer client.Close()
 	session, err := client.NewSession()
 	if err != nil {
+		teaProg.Send(err)
 		return
 	}
 	defer session.Close()
 	stdout, err := session.Output(getCommand())
 	if err != nil {
+		teaProg.Send(err)
 		return
 	}
 	r := bytes.NewReader(stdout)
-	doImport(getSHA1(sv+command), r)
+	doImport(sv+":"+command, r)
 }
 
-func doImport(hash string, r io.Reader) {
+func doImport(path string, r io.Reader) {
+	totalFiles++
+	hash := getSHA1(path)
 	lastTime := int64(0)
 	readBytes := int64(0)
 	readLines := 0
 	skipLines := 0
+	i := 0
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		if stopImport {
@@ -404,15 +424,18 @@ func doImport(hash string, r io.Reader) {
 		}
 		t := ts.UnixNano()
 		readBytes += int64(len(l))
+		totalBytes += int64(len(l))
 		readLines++
+		totalLines++
 		if importFilter != nil && !importFilter.MatchString(l) {
 			skipLines++
 			continue
 		}
 		d := 0
 		if lastTime > 0 {
-			d = int(ts.UnixNano() - lastTime)
+			d = int(t - lastTime)
 		}
+		lastTime = t
 		logCh <- &LogEnt{
 			Time:  t,
 			Log:   l,
@@ -420,10 +443,27 @@ func doImport(hash string, r io.Reader) {
 			Hash:  hash,
 			Line:  readLines,
 		}
+		i++
+		if i%2000 == 0 {
+			teaProg.Send(ProcMsg{
+				Done:  false,
+				Path:  path,
+				Bytes: readBytes,
+				Lines: readLines,
+				Skip:  skipLines,
+			})
+		}
 	}
 	if err := scanner.Err(); err != nil {
 		log.Panicln(err)
 	}
+	teaProg.Send(ProcMsg{
+		Done:  false,
+		Path:  path,
+		Bytes: readBytes,
+		Lines: readLines,
+		Skip:  skipLines,
+	})
 }
 
 func logSaver(wg *sync.WaitGroup) {
@@ -467,4 +507,75 @@ func getCommand() string {
 		return command
 	}
 	return ""
+}
+
+type importModel struct {
+	spinner  spinner.Model
+	quitting bool
+	err      error
+	procMsg  ProcMsg
+}
+
+func initialModel() importModel {
+	s := spinner.New()
+	s.Spinner = spinner.Line
+	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#00efff"))
+	return importModel{spinner: s}
+}
+
+func (m importModel) Init() tea.Cmd {
+	return m.spinner.Tick
+}
+
+func (m importModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "q", "esc", "ctrl+c":
+			m.quitting = true
+			stopImport = true
+			return m, nil
+		default:
+			return m, nil
+		}
+	case errMsg:
+		m.err = msg
+		m.quitting = true
+		stopImport = true
+		return m, tea.Quit
+	case ProcMsg:
+		if msg.Done {
+			m.quitting = true
+			return m, tea.Quit
+		}
+		m.procMsg = msg
+		return m, nil
+	default:
+		var cmd tea.Cmd
+		m.spinner, cmd = m.spinner.Update(msg)
+		return m, cmd
+	}
+}
+
+var helpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#626262")).Render
+var errorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#c00000")).Render
+
+func (m importModel) View() string {
+	if m.err != nil {
+		return "\n" + errorStyle(m.err.Error()) + "\n"
+	}
+	str := fmt.Sprintf("\n%s Loading path=%s line=%s byte=%s\n  Total file=%s line=%s byte=%s time=%v",
+		m.spinner.View(),
+		m.procMsg.Path,
+		humanize.Comma(int64(m.procMsg.Lines)),
+		humanize.Bytes(uint64(m.procMsg.Bytes)),
+		humanize.Comma(int64(totalFiles)),
+		humanize.Comma(int64(totalLines)),
+		humanize.Bytes(uint64(totalBytes)),
+		time.Since(st),
+	)
+	if m.quitting {
+		return str + "\n"
+	}
+	return str + "\n\n" + helpStyle("Press q to quit") + "\n"
 }
