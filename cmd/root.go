@@ -41,6 +41,7 @@ type errMsg error
 
 var db *bbolt.DB
 var teaProg *tea.Program
+var st time.Time
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -114,8 +115,9 @@ func getSimpleFilter(f string) *regexp.Regexp {
 	if f == "" {
 		return nil
 	}
-	f = strings.ReplaceAll(f, "*", ".*")
-	f = strings.ReplaceAll(f, "?", ".")
+	f = regexp.QuoteMeta(f)
+	f = strings.ReplaceAll(f, "\\*", ".*")
+	f = strings.ReplaceAll(f, "\\?", ".")
 	if r, err := regexp.Compile(f); err == nil {
 		return r
 	}
@@ -139,13 +141,13 @@ func getTimeRange() (int64, int64) {
 	if len(a) == 1 && a[0] != "" {
 		if d, err := str2duration.ParseDuration(a[0]); err == nil {
 			st = et.Add(d * -1)
-		} else if t, err := dateparse.ParseAny(a[0]); err == nil {
+		} else if t, err := dateparse.ParseLocal(a[0]); err == nil {
 			st = t
 		}
 	} else {
-		if t, err := dateparse.ParseAny(a[0]); err == nil {
+		if t, err := dateparse.ParseLocal(a[0]); err == nil {
 			st = t
-			if t, err := dateparse.ParseAny(a[1]); err == nil {
+			if t, err := dateparse.ParseLocal(a[1]); err == nil {
 				et = t
 			} else if d, err := str2duration.ParseDuration(a[1]); err == nil {
 				et = st.Add(d)

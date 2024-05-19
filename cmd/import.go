@@ -64,7 +64,7 @@ type LogEnt struct {
 	Delta int
 }
 
-type ProcMsg struct {
+type ImportMsg struct {
 	Done  bool
 	Path  string
 	Bytes int64
@@ -77,7 +77,6 @@ var logCh chan *LogEnt
 var totalFiles int
 var totalLines int
 var totalBytes int64
-var st time.Time
 
 // importCmd represents the import command
 var importCmd = &cobra.Command{
@@ -106,7 +105,7 @@ func importMain() {
 		log.Fatalln(err)
 	}
 	defer db.Close()
-	teaProg = tea.NewProgram(initialModel())
+	teaProg = tea.NewProgram(initImportModel())
 	setupTimeGrinder()
 	logCh = make(chan *LogEnt, 1000)
 	var wg sync.WaitGroup
@@ -137,7 +136,7 @@ func importSub(wg *sync.WaitGroup) {
 		teaProg.Send(fmt.Errorf("invalid source"))
 		return
 	}
-	teaProg.Send(ProcMsg{Done: true})
+	teaProg.Send(ImportMsg{Done: true})
 }
 
 func getSourceType() string {
@@ -445,7 +444,7 @@ func doImport(path string, r io.Reader) {
 		}
 		i++
 		if i%2000 == 0 {
-			teaProg.Send(ProcMsg{
+			teaProg.Send(ImportMsg{
 				Done:  false,
 				Path:  path,
 				Bytes: readBytes,
@@ -457,7 +456,7 @@ func doImport(path string, r io.Reader) {
 	if err := scanner.Err(); err != nil {
 		log.Panicln(err)
 	}
-	teaProg.Send(ProcMsg{
+	teaProg.Send(ImportMsg{
 		Done:  false,
 		Path:  path,
 		Bytes: readBytes,
@@ -499,7 +498,7 @@ func saveLog(logList []*LogEnt) {
 func getSHA1(str string) string {
 	sha1 := sha1.New()
 	io.WriteString(sha1, str)
-	return hex.EncodeToString(sha1.Sum(nil))
+	return hex.EncodeToString(sha1.Sum(nil))[:8]
 }
 
 func getCommand() string {
@@ -513,10 +512,10 @@ type importModel struct {
 	spinner  spinner.Model
 	quitting bool
 	err      error
-	procMsg  ProcMsg
+	msg      ImportMsg
 }
 
-func initialModel() importModel {
+func initImportModel() importModel {
 	s := spinner.New()
 	s.Spinner = spinner.Line
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#00efff"))
@@ -543,12 +542,12 @@ func (m importModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.quitting = true
 		stopImport = true
 		return m, tea.Quit
-	case ProcMsg:
+	case ImportMsg:
 		if msg.Done {
 			m.quitting = true
 			return m, tea.Quit
 		}
-		m.procMsg = msg
+		m.msg = msg
 		return m, nil
 	default:
 		var cmd tea.Cmd
@@ -566,9 +565,9 @@ func (m importModel) View() string {
 	}
 	str := fmt.Sprintf("\n%s Loading path=%s line=%s byte=%s\n  Total file=%s line=%s byte=%s time=%v",
 		m.spinner.View(),
-		m.procMsg.Path,
-		humanize.Comma(int64(m.procMsg.Lines)),
-		humanize.Bytes(uint64(m.procMsg.Bytes)),
+		m.msg.Path,
+		humanize.Comma(int64(m.msg.Lines)),
+		humanize.Bytes(uint64(m.msg.Bytes)),
 		humanize.Comma(int64(totalFiles)),
 		humanize.Comma(int64(totalLines)),
 		humanize.Bytes(uint64(totalBytes)),
