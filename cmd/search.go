@@ -121,7 +121,6 @@ type searchModel struct {
 	done     bool
 	ready    bool
 	quitting bool
-	err      error
 	msg      SearchMsg
 }
 
@@ -172,16 +171,10 @@ func (m searchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewport.Width = msg.Width
 			m.viewport.Height = msg.Height - headerHeight
 		}
-	case errMsg:
-		m.err = msg
-		m.quitting = true
-		stopSearch = true
-		return m, tea.Quit
 	case SearchMsg:
 		if msg.Done {
 			m.viewport.SetContent(strings.Join(results, "\n"))
 			m.done = true
-			return m, nil
 		}
 		m.msg = msg
 		return m, nil
@@ -197,32 +190,14 @@ func (m searchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-var (
-	titleStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#FAFAFA")).
-			Background(lipgloss.Color("#7D56F4")).
-			PaddingLeft(2).
-			PaddingRight(2)
-
-	infoStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#FAFAFA")).
-			Background(lipgloss.Color("#7D56F4")).
-			PaddingLeft(2).
-			PaddingRight(2)
-)
-
 func (m searchModel) View() string {
-	if m.err != nil {
-		return "\n" + errorStyle(m.err.Error()) + "\n"
-	}
 	if m.done {
 		return fmt.Sprintf("%s\n%s", m.headerView(), m.viewport.View())
 	}
 	str := fmt.Sprintf("\n%s Searching line=%s hit=%s time=%v",
 		m.spinner.View(),
 		humanize.Comma(int64(m.msg.Lines)),
-		humanize.Comma(int64(m.msg.Lines)),
+		humanize.Comma(int64(m.msg.Hit)),
 		m.msg.Dur,
 	)
 	if m.quitting {
