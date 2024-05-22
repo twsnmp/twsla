@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"log"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -35,8 +34,8 @@ var timeRange string
 var simpleFilter string
 var regexpFilter string
 var extract string
-var delimiter string
 var interval int
+var pos int
 
 // common data
 type errMsg error
@@ -151,60 +150,33 @@ func getExtPat() *extPatEnt {
 	if extract == "" {
 		return nil
 	}
-	p := ""
-	s := ""
+	if pos < 1 {
+		pos = 1
+	}
 	e := extract
-	i := 1
-	a := strings.SplitN(extract, delimiter, 4)
-	switch len(a) {
-	case 4:
-		p = a[0]
-		s = a[1]
-		e = a[2]
-		i, _ = strconv.Atoi(a[3])
-	case 3:
-		if v, err := strconv.Atoi(a[2]); err != nil || v < 1 {
-			p = a[0]
-			e = a[1]
-			s = a[2]
-		} else {
-			p = a[0]
-			e = a[1]
-			i = v
-		}
-	case 2:
-		if v, err := strconv.Atoi(a[1]); err != nil || v < 1 {
-			p = a[0]
-			e = a[1]
-		} else {
-			e = a[0]
-			i = v
-		}
-	}
-	if i < 1 {
-		i = 1
-	}
-	e = strings.ToLower(e)
 	switch e {
 	case "num", "number":
-		p += `([-+0-9.]+)`
+		e = `([-+0-9.]+)`
 	case "ip":
-		p += `([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})`
+		e = `([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})`
 	case "mac":
-		p += `([0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2})`
+		e = `([0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2})`
 	case "email":
-		p += `([a-zA-Z0-9_.+-]+@[a-zA-Z0-9_.+-]+)`
-	case "word":
-		p += `(\S+)`
+		e = `([a-zA-Z0-9_.+-]+@[a-zA-Z0-9_.+-]+)`
 	default:
-		return nil
+		e = strings.ReplaceAll(e, "%{number}", `([-+0-9.]+)`)
+		e = strings.ReplaceAll(e, "%{ip}", `([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})`)
+		e = strings.ReplaceAll(e, "%{mac}", `([0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2})`)
+		e = strings.ReplaceAll(e, "%{email}", `([a-zA-Z0-9_.+-]+@[a-zA-Z0-9_.+-]+)`)
+		e = strings.ReplaceAll(e, "%{word}", `(\S+)`)
 	}
-	r, err := regexp.Compile(p + s)
+
+	r, err := regexp.Compile(e)
 	if err != nil {
 		log.Fatalln(err)
 	}
 	return &extPatEnt{
 		ExtReg: r,
-		Index:  i,
+		Index:  pos,
 	}
 }

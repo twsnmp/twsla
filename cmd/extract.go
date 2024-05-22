@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -36,34 +37,35 @@ import (
 	"go.etcd.io/bbolt"
 )
 
-// countCmd represents the count command
-var countCmd = &cobra.Command{
-	Use:   "count",
-	Short: "Count log",
-	Long:  `Count log`,
+// extractCmd represents the extract command
+var extractCmd = &cobra.Command{
+	Use:   "extract",
+	Short: "Extract data from log",
+	Long:  `Extract data from log`,
 	Run: func(cmd *cobra.Command, args []string) {
-		countMain()
+		extractMain()
 	},
 }
 
+var name string
+
 func init() {
-	rootCmd.AddCommand(countCmd)
-	countCmd.Flags().IntVarP(&interval, "interval", "i", 0, "Interval")
-	countCmd.Flags().IntVarP(&pos, "pos", "p", 1, "positon")
-	countCmd.Flags().StringVarP(&extract, "extract", "e", "", "Extract pattern")
-	countCmd.Flags().StringVarP(&name, "name", "n", "Key", "Name of Key")
+	rootCmd.AddCommand(extractCmd)
+	extractCmd.Flags().StringVarP(&extract, "extract", "e", "", "Extract pattern")
+	extractCmd.Flags().IntVarP(&pos, "pos", "p", 1, "positon")
+	extractCmd.Flags().StringVarP(&name, "name", "n", "Value", "Name of Value")
 }
 
-func countMain() {
+func extractMain() {
 	st = time.Now()
 	if err := openDB(); err != nil {
 		log.Fatalln(err)
 	}
 	defer db.Close()
-	teaProg = tea.NewProgram(initCountModel())
+	teaProg = tea.NewProgram(initExtractModel())
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go countSub(&wg)
+	go extractSub(&wg)
 	if _, err := teaProg.Run(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -71,15 +73,14 @@ func countMain() {
 	wg.Wait()
 }
 
-type countEnt struct {
-	Key   string
-	Count int
+type extractEnt struct {
+	Time  int64
+	Value string
 }
 
-var countList = []countEnt{}
+var extractList = []extractEnt{}
 
-func countSub(wg *sync.WaitGroup) {
-	var countMap = make(map[string]int)
+func extractSub(wg *sync.WaitGroup) {
 	defer wg.Done()
 	results = []string{}
 	filter := getFilter(regexpFilter)
@@ -87,7 +88,9 @@ func countSub(wg *sync.WaitGroup) {
 		filter = getSimpleFilter(simpleFilter)
 	}
 	extPat := getExtPat()
-	intv := int64(getInterval()) * 1000 * 1000 * 1000
+	if extPat == nil {
+		log.Fatalln("no extract pattern")
+	}
 	sti, eti := getTimeRange()
 	sk := fmt.Sprintf("%016x:", sti)
 	i := 0
@@ -107,18 +110,10 @@ func countSub(wg *sync.WaitGroup) {
 			l := string(v)
 			i++
 			if filter == nil || filter.MatchString(l) {
-				if extPat == nil {
-					d := t / intv
-					ck := time.Unix(0, d*intv).Format("2006/01/02 15:04")
-					countMap[ck]++
+				a := extPat.ExtReg.FindAllStringSubmatch(l, -1)
+				if len(a) >= extPat.Index {
+					extractList = append(extractList, extractEnt{Time: t, Value: a[extPat.Index-1][1]})
 					hit++
-				} else {
-					a := extPat.ExtReg.FindAllStringSubmatch(l, -1)
-					if len(a) >= extPat.Index {
-						ck := a[extPat.Index-1][1]
-						countMap[ck]++
-						hit++
-					}
 				}
 			}
 			if i%100 == 0 {
@@ -130,25 +125,10 @@ func countSub(wg *sync.WaitGroup) {
 		}
 		return nil
 	})
-	for k, v := range countMap {
-		countList = append(countList, countEnt{
-			Key:   k,
-			Count: v,
-		})
-	}
-	if extPat != nil {
-		sort.Slice(countList, func(i, j int) bool {
-			return countList[i].Count > countList[j].Count
-		})
-	} else {
-		sort.Slice(countList, func(i, j int) bool {
-			return countList[i].Key < countList[j].Key
-		})
-	}
 	teaProg.Send(SearchMsg{Done: true, Lines: i, Hit: hit, Dur: time.Since(st)})
 }
 
-type countModel struct {
+type extractModel struct {
 	spinner   spinner.Model
 	table     table.Model
 	done      bool
@@ -159,10 +139,10 @@ type countModel struct {
 	textInput textinput.Model
 }
 
-func initCountModel() countModel {
+func initExtractModel() extractModel {
 	columns := []table.Column{
+		{Title: "Time"},
 		{Title: name},
-		{Title: "Count"},
 	}
 	s := spinner.New()
 	s.Spinner = spinner.Line
@@ -189,16 +169,16 @@ func initCountModel() countModel {
 	ti.Focus()
 	ti.CharLimit = 156
 	ti.Width = 20
-	return countModel{spinner: s, table: t, textInput: ti}
+	return extractModel{spinner: s, table: t, textInput: ti}
 }
 
-func (m countModel) Init() tea.Cmd {
+func (m extractModel) Init() tea.Cmd {
 	return m.spinner.Tick
 }
 
-var rows = []table.Row{}
+var extractRows = []table.Row{}
 
-func (m countModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m extractModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.save {
 		return m.SaveUpdate(msg)
 	}
@@ -217,32 +197,32 @@ func (m countModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.save = true
 			}
 			return m, nil
-		case "c", "k":
+		case "t", "v":
 			if m.done {
 				k := msg.String()
 				if k == m.lastSort {
 					// Reverse
-					for i, j := 0, len(rows)-1; i < j; i, j = i+1, j-1 {
-						rows[i], rows[j] = rows[j], rows[i]
+					for i, j := 0, len(extractRows)-1; i < j; i, j = i+1, j-1 {
+						extractRows[i], extractRows[j] = extractRows[j], extractRows[i]
 					}
 				} else {
 					// Change sort key
 					m.lastSort = k
-					if k == "k" {
-						sort.Slice(countList, func(i, j int) bool {
-							return countList[i].Key < countList[j].Key
+					if k == "t" {
+						sort.Slice(extractList, func(i, j int) bool {
+							return extractList[i].Time < extractList[j].Time
 						})
 					} else {
-						sort.Slice(countList, func(i, j int) bool {
-							return countList[i].Count < countList[j].Count
+						sort.Slice(extractList, func(i, j int) bool {
+							return extractList[i].Value < extractList[j].Value
 						})
 					}
-					rows = []table.Row{}
-					for _, r := range countList {
-						rows = append(rows, []string{r.Key, fmt.Sprintf("%10s", humanize.Comma(int64(r.Count)))})
+					extractRows = []table.Row{}
+					for _, r := range extractList {
+						extractRows = append(extractRows, []string{time.Unix(0, r.Time).Format("2006/01/02T15:04:05.999"), r.Value})
 					}
 				}
-				m.table.SetRows(rows)
+				m.table.SetRows(extractRows)
 			}
 			return m, nil
 		default:
@@ -257,15 +237,15 @@ func (m countModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Done {
 			w := m.table.Width() - 4
 			columns := []table.Column{
-				{Title: name, Width: 7 * w / 10},
-				{Title: "Count", Width: 3 * w / 10},
+				{Title: "Time", Width: 4 * w / 10},
+				{Title: name, Width: 6 * w / 10},
 			}
 			m.table.SetColumns(columns)
-			rows = []table.Row{}
-			for _, r := range countList {
-				rows = append(rows, []string{r.Key, fmt.Sprintf("%10s", humanize.Comma(int64(r.Count)))})
+			extractRows = []table.Row{}
+			for _, r := range extractList {
+				extractRows = append(extractRows, []string{time.Unix(0, r.Time).Format("2006/01/02T15:04:05.999"), r.Value})
 			}
-			m.table.SetRows(rows)
+			m.table.SetRows(extractRows)
 			m.done = true
 		}
 		m.msg = msg
@@ -282,14 +262,14 @@ func (m countModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m countModel) SaveUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m extractModel) SaveUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEnter:
-			saveCountFile(m.textInput.Value())
+			saveExtractFile(m.textInput.Value())
 			m.save = false
 			return m, nil
 		case tea.KeyCtrlC, tea.KeyEsc:
@@ -300,7 +280,7 @@ func (m countModel) SaveUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.textInput, cmd = m.textInput.Update(msg)
 	return m, cmd
 }
-func (m countModel) View() string {
+func (m extractModel) View() string {
 	if m.save {
 		return fmt.Sprintf("Save file name?\n\n%s\n\n%s", m.textInput.View(), "(esc to quit)") + "\n"
 	}
@@ -319,24 +299,38 @@ func (m countModel) View() string {
 	return str + "\n\n" + helpStyle("Press q to quit") + "\n"
 }
 
-func (m countModel) headerView() string {
+func (m extractModel) headerView() string {
 	title := titleStyle.Render(fmt.Sprintf("Results %d/%d %d %v", m.msg.Hit, m.msg.Lines, len(countList), m.msg.Dur))
-	help := helpStyle("s: Save / c: Sort by count / k: Sort by Key / q : Quit") + "  "
+	help := helpStyle("s: Save / t: Sort by time / v: Sort by value / q : Quit") + "  "
 	gap := strings.Repeat(" ", max(0, m.table.Width()-lipgloss.Width(title)-lipgloss.Width(help)))
 	return lipgloss.JoinHorizontal(lipgloss.Center, title, gap, help)
 }
 
-func saveCountFile(path string) {
+func saveExtractFile(path string) {
+	ext := strings.ToLower(filepath.Ext(path))
+	switch ext {
+	case ".png", ".html":
+		// saveChart(path,ext)
+	case ".xlsx":
+		// saveExtractExcel(path)
+	default:
+		saveExtractCSVFile(path)
+	}
+}
+
+func saveExtractCSVFile(path string) {
+	// CSV
 	f, err := os.Create(path)
 	if err != nil {
 		log.Fatalln(err)
 	}
 	defer f.Close()
 	w := csv.NewWriter(f)
-	w.Write([]string{name, "Count"})
-	for _, r := range countList {
-		wr := []string{r.Key, fmt.Sprintf("%d", r.Count)}
+	w.Write([]string{"Time", name})
+	for _, r := range extractList {
+		wr := []string{time.Unix(0, r.Time).Format("2006/01/02T15:04:05.999"), r.Value}
 		w.Write(wr)
 	}
 	w.Flush()
+
 }
