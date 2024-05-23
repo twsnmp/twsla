@@ -89,6 +89,7 @@ func countSub(wg *sync.WaitGroup) {
 	if filter == nil {
 		filter = getSimpleFilter(simpleFilter)
 	}
+	not := getFilter(notFilter)
 	extPat := getExtPat()
 	intv := int64(getInterval()) * 1000 * 1000 * 1000
 	sti, eti := getTimeRange()
@@ -113,17 +114,19 @@ func countSub(wg *sync.WaitGroup) {
 			l := string(v)
 			i++
 			if filter == nil || filter.MatchString(l) {
-				if extPat == nil {
-					d := t / intv
-					ck := time.Unix(0, d*intv).Format("2006/01/02 15:04")
-					countMap[ck]++
-					hit++
-				} else {
-					a := extPat.ExtReg.FindAllStringSubmatch(l, -1)
-					if len(a) >= extPat.Index {
-						ck := a[extPat.Index-1][1]
+				if not == nil || !not.MatchString(l) {
+					if extPat == nil {
+						d := t / intv
+						ck := time.Unix(0, d*intv).Format("2006/01/02 15:04")
 						countMap[ck]++
 						hit++
+					} else {
+						a := extPat.ExtReg.FindAllStringSubmatch(l, -1)
+						if len(a) >= extPat.Index {
+							ck := a[extPat.Index-1][1]
+							countMap[ck]++
+							hit++
+						}
 					}
 				}
 			}

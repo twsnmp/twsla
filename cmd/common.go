@@ -33,6 +33,7 @@ var dataStore string
 var timeRange string
 var simpleFilter string
 var regexpFilter string
+var notFilter string
 var extract string
 var interval int
 var pos int

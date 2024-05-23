@@ -48,6 +48,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&timeRange, "timeRange", "t", "", "Time range")
 	rootCmd.PersistentFlags().StringVarP(&simpleFilter, "filter", "f", "", "Simple filter")
 	rootCmd.PersistentFlags().StringVarP(&regexpFilter, "regex", "r", "", "Regexp filter")
+	rootCmd.PersistentFlags().StringVarP(&notFilter, "not", "v", "", "Invert regexp filter")
 }
 
 // initConfig reads in config file and ENV variables if set.

@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
+	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -56,7 +57,6 @@ var searchCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(searchCmd)
-
 }
 
 func searchMain() {
@@ -83,6 +83,7 @@ func searchSub(wg *sync.WaitGroup) {
 	if filter == nil {
 		filter = getSimpleFilter(simpleFilter)
 	}
+	not := getFilter(notFilter)
 	sti, eti := getTimeRange()
 	sk := fmt.Sprintf("%016x:", sti)
 	i := 0
@@ -101,7 +102,9 @@ func searchSub(wg *sync.WaitGroup) {
 			l := string(v)
 			i++
 			if filter == nil || filter.MatchString(l) {
-				results = append(results, l)
+				if not == nil || !not.MatchString(l) {
+					results = append(results, l)
+				}
 			}
 			if i%100 == 0 {
 				teaProg.Send(SearchMsg{Lines: i, Hit: len(results), Dur: time.Since(st)})
@@ -116,19 +119,26 @@ func searchSub(wg *sync.WaitGroup) {
 }
 
 type searchModel struct {
-	spinner  spinner.Model
-	viewport viewport.Model
-	done     bool
-	ready    bool
-	quitting bool
-	msg      SearchMsg
+	spinner   spinner.Model
+	viewport  viewport.Model
+	done      bool
+	ready     bool
+	quitting  bool
+	msg       SearchMsg
+	save      bool
+	textInput textinput.Model
 }
 
 func initSearchModel() searchModel {
 	s := spinner.New()
 	s.Spinner = spinner.Line
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#00efff"))
-	return searchModel{spinner: s}
+	ti := textinput.New()
+	ti.Placeholder = "save file name"
+	ti.Focus()
+	ti.CharLimit = 156
+	ti.Width = 20
+	return searchModel{spinner: s, textInput: ti}
 }
 
 func (m searchModel) Init() tea.Cmd {
@@ -136,6 +146,9 @@ func (m searchModel) Init() tea.Cmd {
 }
 
 func (m searchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if m.save {
+		return m.SaveUpdate(msg)
+	}
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -145,6 +158,11 @@ func (m searchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.quitting = true
 			stopSearch = true
+			return m, nil
+		case "s":
+			if m.done {
+				m.save = true
+			}
 			return m, nil
 		case "r":
 			if m.done {
@@ -190,7 +208,29 @@ func (m searchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+func (m searchModel) SaveUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyEnter:
+			saveSearchFile(m.textInput.Value())
+			m.save = false
+			return m, nil
+		case tea.KeyCtrlC, tea.KeyEsc:
+			m.save = false
+			return m, nil
+		}
+	}
+	m.textInput, cmd = m.textInput.Update(msg)
+	return m, cmd
+}
+
 func (m searchModel) View() string {
+	if m.save {
+		return fmt.Sprintf("Save file name?\n\n%s\n\n%s", m.textInput.View(), "(esc to quit)") + "\n"
+	}
 	if m.done {
 		return fmt.Sprintf("%s\n%s", m.headerView(), m.viewport.View())
 	}
@@ -209,7 +249,18 @@ func (m searchModel) View() string {
 func (m searchModel) headerView() string {
 	title := titleStyle.Render(fmt.Sprintf("Results %d/%d %v", m.msg.Hit, m.msg.Lines, m.msg.Dur))
 	info := infoStyle.Render(fmt.Sprintf("%3.f%%", m.viewport.ScrollPercent()*100))
-	help := helpStyle("r: Reverse / q : Quit") + "  "
+	help := helpStyle("s: Save / r: Reverse / q : Quit") + "  "
 	gap := strings.Repeat(" ", max(0, m.viewport.Width-lipgloss.Width(title)-lipgloss.Width(info)-lipgloss.Width(help)))
 	return lipgloss.JoinHorizontal(lipgloss.Center, title, gap, help, info)
+}
+
+func saveSearchFile(path string) {
+	f, err := os.Create(path)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	defer f.Close()
+	for _, r := range results {
+		f.WriteString(r + "\n")
+	}
 }
