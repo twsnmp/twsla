@@ -47,13 +47,13 @@ var extractCmd = &cobra.Command{
 	},
 }
 
-var name string
+var nameExtract string
 
 func init() {
 	rootCmd.AddCommand(extractCmd)
 	extractCmd.Flags().StringVarP(&extract, "extract", "e", "", "Extract pattern")
 	extractCmd.Flags().IntVarP(&pos, "pos", "p", 1, "positon")
-	extractCmd.Flags().StringVarP(&name, "name", "n", "Value", "Name of Value")
+	extractCmd.Flags().StringVarP(&nameExtract, "name", "n", "Value", "Name of Value")
 }
 
 func extractMain() {
@@ -142,7 +142,7 @@ type extractModel struct {
 func initExtractModel() extractModel {
 	columns := []table.Column{
 		{Title: "Time"},
-		{Title: name},
+		{Title: nameExtract},
 	}
 	s := spinner.New()
 	s.Spinner = spinner.Line
@@ -238,7 +238,7 @@ func (m extractModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			w := m.table.Width() - 4
 			columns := []table.Column{
 				{Title: "Time", Width: 4 * w / 10},
-				{Title: name, Width: 6 * w / 10},
+				{Title: nameExtract, Width: 6 * w / 10},
 			}
 			m.table.SetColumns(columns)
 			extractRows = []table.Row{}
@@ -309,10 +309,8 @@ func (m extractModel) headerView() string {
 func saveExtractFile(path string) {
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
-	case ".png", ".html":
-		// saveChart(path,ext)
-	case ".xlsx":
-		// saveExtractExcel(path)
+	case ".png":
+		SaveExtractChart(path)
 	default:
 		saveExtractCSVFile(path)
 	}
@@ -326,7 +324,7 @@ func saveExtractCSVFile(path string) {
 	}
 	defer f.Close()
 	w := csv.NewWriter(f)
-	w.Write([]string{"Time", name})
+	w.Write([]string{"Time", nameExtract})
 	for _, r := range extractList {
 		wr := []string{time.Unix(0, r.Time).Format("2006/01/02T15:04:05.999"), r.Value}
 		w.Write(wr)

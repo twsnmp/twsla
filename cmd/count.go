@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -46,12 +47,14 @@ var countCmd = &cobra.Command{
 	},
 }
 
+var nameCount string
+
 func init() {
 	rootCmd.AddCommand(countCmd)
 	countCmd.Flags().IntVarP(&interval, "interval", "i", 0, "Interval")
 	countCmd.Flags().IntVarP(&pos, "pos", "p", 1, "positon")
 	countCmd.Flags().StringVarP(&extract, "extract", "e", "", "Extract pattern")
-	countCmd.Flags().StringVarP(&name, "name", "n", "Key", "Name of Key")
+	countCmd.Flags().StringVarP(&nameCount, "name", "n", "Key", "Name of Key")
 }
 
 func countMain() {
@@ -90,6 +93,9 @@ func countSub(wg *sync.WaitGroup) {
 	intv := int64(getInterval()) * 1000 * 1000 * 1000
 	sti, eti := getTimeRange()
 	sk := fmt.Sprintf("%016x:", sti)
+	if extPat == nil && nameCount == "Key" {
+		nameCount = "Time"
+	}
 	i := 0
 	hit := 0
 	db.View(func(tx *bbolt.Tx) error {
@@ -161,7 +167,7 @@ type countModel struct {
 
 func initCountModel() countModel {
 	columns := []table.Column{
-		{Title: name},
+		{Title: nameCount},
 		{Title: "Count"},
 	}
 	s := spinner.New()
@@ -257,7 +263,7 @@ func (m countModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Done {
 			w := m.table.Width() - 4
 			columns := []table.Column{
-				{Title: name, Width: 7 * w / 10},
+				{Title: nameCount, Width: 7 * w / 10},
 				{Title: "Count", Width: 3 * w / 10},
 			}
 			m.table.SetColumns(columns)
@@ -327,13 +333,28 @@ func (m countModel) headerView() string {
 }
 
 func saveCountFile(path string) {
+	extPat := getExtPat()
+	ext := strings.ToLower(filepath.Ext(path))
+	switch ext {
+	case ".png":
+		if extPat == nil {
+			SaveCountTimeChart(path)
+		} else {
+			SaveCountChart(path)
+		}
+	default:
+		saveCountCSVFile(path)
+	}
+}
+
+func saveCountCSVFile(path string) {
 	f, err := os.Create(path)
 	if err != nil {
 		log.Fatalln(err)
 	}
 	defer f.Close()
 	w := csv.NewWriter(f)
-	w.Write([]string{name, "Count"})
+	w.Write([]string{nameCount, "Count"})
 	for _, r := range countList {
 		wr := []string{r.Key, fmt.Sprintf("%d", r.Count)}
 		w.Write(wr)
