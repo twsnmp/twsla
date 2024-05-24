@@ -34,6 +34,7 @@ Use "twsla [command] --help" for more information about a command.
 ```
 ~$mkdir test
 ~$cd test
+~$export RUNEWIDTH_EASTASIAN=0
 ~$twsla import -s <Log file path>
 ~$twsla search
 ```
