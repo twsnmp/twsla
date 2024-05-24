@@ -24,6 +24,7 @@ import (
 	"context"
 	"crypto/sha1"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -533,9 +534,13 @@ func importFromTWSNMPSub(st, et int64) int64 {
 			skipLines++
 			continue
 		}
+		pl := parseTWSNMPLog(t, a[1])
+		if pl == "" {
+			pl = a[1]
+		}
 		logCh <- &LogEnt{
 			Time:  t,
-			Log:   a[1],
+			Log:   pl,
 			Delta: d,
 			Hash:  hash,
 			Line:  readLines,
@@ -559,6 +564,101 @@ func importFromTWSNMPSub(st, et int64) int64 {
 		Skip:  skipLines,
 	})
 	return lastTime
+}
+
+func parseTWSNMPLog(t int64, l string) string {
+	var sl = make(map[string]interface{})
+	if err := json.Unmarshal([]byte(l), &sl); err != nil {
+		return ""
+	}
+	var ok bool
+	var sv float64
+	var fac float64
+	var host string
+	var tag string
+	var message string
+	if sv, ok = sl["severity"].(float64); !ok {
+		return ""
+	}
+	if fac, ok = sl["facility"].(float64); !ok {
+		return ""
+	}
+	if host, ok = sl["hostname"].(string); !ok {
+		return ""
+	}
+	if tag, ok = sl["tag"].(string); !ok {
+		if tag, ok = sl["app_name"].(string); !ok {
+			return ""
+		}
+		message = ""
+		for i, k := range []string{"proc_id", "msg_id", "message", "structured_data"} {
+			if m, ok := sl[k].(string); ok && m != "" {
+				if i > 0 {
+					message += " "
+				}
+				message += m
+			}
+		}
+	} else {
+		if message, ok = sl["content"].(string); !ok {
+			return ""
+		}
+	}
+	return fmt.Sprintf("%s %s %s %s %s", time.Unix(0, t).Format(time.RFC3339Nano), host, getSyslogType(int(sv), int(fac)), tag, message)
+}
+
+var severityNames = []string{
+	"emerg",
+	"alert",
+	"crit",
+	"err",
+	"warning",
+	"notice",
+	"info",
+	"debug",
+}
+
+var facilityNames = []string{
+	"kern",
+	"user",
+	"mail",
+	"daemon",
+	"auth",
+	"syslog",
+	"lpr",
+	"news",
+	"uucp",
+	"cron",
+	"authpriv",
+	"ftp",
+	"ntp",
+	"logaudit",
+	"logalert",
+	"clock",
+	"local0",
+	"local1",
+	"local2",
+	"local3",
+	"local4",
+	"local5",
+	"local6",
+	"local7",
+}
+
+func getSyslogType(sv, fac int) string {
+	r := ""
+	if sv >= 0 && sv < len(severityNames) {
+		r += severityNames[sv]
+	} else {
+		r += "unknown"
+	}
+	r += ":"
+	if fac >= 0 && fac < len(facilityNames) {
+		r += facilityNames[fac]
+	} else {
+		r += "unknown"
+	}
+	return r
 }
 
 func doImport(path string, r io.Reader) {
