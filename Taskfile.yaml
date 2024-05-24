@@ -24,7 +24,7 @@ tasks:
   windows:
     cmds:
       - task: mkdir
-      - GOOS=darwin GOARCH=amd64 go build -o dist/twsla.exe -ldflags "-s -w -X github.com/twsnmp/twsla/cmd.version={{.VERSION}} -X github.com/twsnmp/twsla/cmd.commit={{.COMMIT}}" .
+      - GOOS=windows GOARCH=amd64 go build -o dist/twsla.exe -ldflags "-s -w -X github.com/twsnmp/twsla/cmd.version={{.VERSION}} -X github.com/twsnmp/twsla/cmd.commit={{.COMMIT}}" .
   linux_amd64:
     cmds:
       - task: mkdir
