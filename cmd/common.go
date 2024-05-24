@@ -89,6 +89,10 @@ func getSimpleFilter(f string) *regexp.Regexp {
 	f = regexp.QuoteMeta(f)
 	f = strings.ReplaceAll(f, "\\*", ".*")
 	f = strings.ReplaceAll(f, "\\?", ".")
+	if strings.HasSuffix(f, "\\$") {
+		f = strings.TrimRight(f, "\\$")
+		f += "$"
+	}
 	if r, err := regexp.Compile(f); err == nil {
 		return r
 	}

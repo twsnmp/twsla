@@ -140,10 +140,11 @@ func importSub(wg *sync.WaitGroup) {
 }
 
 func getSourceType() string {
-	if strings.HasPrefix(source, "twsnmp:") {
-		return "twsnmp"
-	} else if strings.HasPrefix(source, "scp:") {
+	if strings.HasPrefix(source, "scp:") {
 		return "scp"
+	}
+	if strings.HasPrefix(source, "ssh:") {
+		return "ssh"
 	}
 	s, err := os.Stat(source)
 	if err != nil {
@@ -205,7 +206,7 @@ func importFromFile(path string) {
 		log.Panicln(err)
 	}
 	defer r.Close()
-	if ext == "gz" {
+	if ext == ".gz" {
 		if gzr, err := gzip.NewReader(r); err == nil {
 			doImport(path, gzr)
 		}
@@ -232,7 +233,7 @@ func imortFromZIPFile(path string) {
 			continue
 		}
 		ext := strings.ToLower(filepath.Ext(f.Name))
-		if ext == "gz" {
+		if ext == ".gz" {
 			if gzr, err := gzip.NewReader(r); err == nil {
 				doImport(path+":"+f.Name, gzr)
 			}
@@ -267,7 +268,8 @@ func importFormTarGZFile(path string) {
 		if strings.HasSuffix(f.Name, ".gz") {
 			igzr, err := gzip.NewReader(tgzr)
 			if err != nil {
-				continue
+				teaProg.Send(err)
+				return
 			}
 			doImport(path+":"+f.Name, igzr)
 		} else {
@@ -325,22 +327,48 @@ func importFromSCP() {
 		teaProg.Send(err)
 		return
 	}
-	files, err := service.List(context.Background(), u.Path)
-	if err != nil {
-		teaProg.Send(err)
-		return
-	}
 	filter := getSimpleFilter(filePat)
-	for _, file := range files {
-		path := file.Name()
-		if filter != nil && !filter.MatchString(path) {
-			continue
-		}
-		r, err := service.Open(context.Background(), path)
+	if filter != nil {
+		files, err := service.List(context.Background(), u.Path)
 		if err != nil {
-			continue
+			teaProg.Send(err)
+			return
 		}
-		doImport(source+path, r)
+		for _, file := range files {
+			path := file.Name()
+			if !filter.MatchString(path) {
+				continue
+			}
+			r, err := service.Open(context.Background(), filepath.Join(u.Path, path))
+			if err != nil {
+				teaProg.Send(err)
+				return
+			}
+			ext := strings.ToLower(filepath.Ext(u.Path))
+			if ext == ".gz" {
+				if gzr, err := gzip.NewReader(r); err == nil {
+					doImport(source+path, gzr)
+				}
+			} else {
+				doImport(source+path, r)
+			}
+			r.Close()
+		}
+	} else {
+		r, err := service.Open(context.Background(), u.Path)
+		if err != nil {
+			teaProg.Send(err)
+			return
+		}
+		ext := strings.ToLower(filepath.Ext(u.Path))
+		if ext == ".gz" {
+			if gzr, err := gzip.NewReader(r); err == nil {
+				doImport(source, gzr)
+			}
+		} else {
+			doImport(source, r)
+		}
+		r.Close()
 	}
 }
 
