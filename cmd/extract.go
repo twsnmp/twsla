@@ -305,7 +305,7 @@ func (m extractModel) View() string {
 }
 
 func (m extractModel) headerView() string {
-	title := titleStyle.Render(fmt.Sprintf("Results %d/%d %d %v", m.msg.Hit, m.msg.Lines, len(extractList), m.msg.Dur))
+	title := titleStyle.Render(fmt.Sprintf("Results %d/%d/%d %v", len(extractList), m.msg.Hit, m.msg.Lines, m.msg.Dur))
 	help := helpStyle("s: Save / t: Sort by time / v: Sort by value / q : Quit") + "  "
 	gap := strings.Repeat(" ", max(0, m.table.Width()-lipgloss.Width(title)-lipgloss.Width(help)))
 	return lipgloss.JoinHorizontal(lipgloss.Center, title, gap, help)

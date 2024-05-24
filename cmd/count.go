@@ -330,7 +330,7 @@ func (m countModel) View() string {
 }
 
 func (m countModel) headerView() string {
-	title := titleStyle.Render(fmt.Sprintf("Results %d/%d %d %v", m.msg.Hit, m.msg.Lines, len(countList), m.msg.Dur))
+	title := titleStyle.Render(fmt.Sprintf("Results %d/%d/%d %v", len(countList), m.msg.Hit, m.msg.Lines, m.msg.Dur))
 	help := helpStyle("s: Save / c: Sort by count / k: Sort by Key / q : Quit") + "  "
 	gap := strings.Repeat(" ", max(0, m.table.Width()-lipgloss.Width(title)-lipgloss.Width(help)))
 	return lipgloss.JoinHorizontal(lipgloss.Center, title, gap, help)

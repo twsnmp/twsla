@@ -375,9 +375,9 @@ func (m tfidfModel) View() string {
 	}
 	st := "Searching"
 	if m.msg.CLines > 0 {
-		st = "Calc"
+		st = "Checking"
 	} else if m.msg.ALines > 0 {
-		st = "Add"
+		st = "Adding"
 	}
 	str := fmt.Sprintf("\n%s %s line=%s hit=%s add=%s calc=%s results=%s time=%v",
 		st,
