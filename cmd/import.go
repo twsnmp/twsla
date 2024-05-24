@@ -32,6 +32,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -132,6 +133,8 @@ func importSub(wg *sync.WaitGroup) {
 		importFromSCP()
 	case "ssh":
 		importFromSSH()
+	case "twsnmp":
+		importFromTWSNMP()
 	default:
 		teaProg.Send(fmt.Errorf("invalid source"))
 		return
@@ -145,6 +148,9 @@ func getSourceType() string {
 	}
 	if strings.HasPrefix(source, "ssh:") {
 		return "ssh"
+	}
+	if strings.HasPrefix(source, "twsnmp:") {
+		return "twsnmp"
 	}
 	s, err := os.Stat(source)
 	if err != nil {
@@ -317,11 +323,9 @@ func importFromSCP() {
 		return
 	}
 	sv := u.Host
-	pt := u.Port()
-	if pt == "" {
-		pt = "22"
+	if !strings.Contains(sv, ":") {
+		sv += ":22"
 	}
-	sv += ":" + pt
 	service, err := scp.NewStorager(sv, time.Duration(time.Second)*3, config)
 	if err != nil {
 		teaProg.Send(err)
@@ -395,11 +399,9 @@ func importFromSSH() {
 		return
 	}
 	sv := u.Host
-	pt := u.Port()
-	if pt == "" {
-		pt = "22"
+	if !strings.Contains(sv, ":") {
+		sv += ":22"
 	}
-	sv += ":" + pt
 	conn, err := net.DialTimeout("tcp", sv, time.Duration(60)*time.Second)
 	if err != nil {
 		teaProg.Send(err)
@@ -431,11 +433,140 @@ func importFromSSH() {
 	doImport(sv+":"+command, r)
 }
 
+func importFromTWSNMP() {
+	st, et := getTimeRange()
+	for ct := st; ct > 0 && ct < et; {
+		ct = importFromTWSNMPSub(ct, et)
+	}
+}
+
+func importFromTWSNMPSub(st, et int64) int64 {
+	if sshKey == "" {
+		sshKey = filepath.Join(os.Getenv("HOME"), ".ssh", "id_rsa")
+	} else if strings.HasPrefix(sshKey, "~/") {
+		sshKey = strings.Replace(sshKey, "~/", os.Getenv("HOME"), 1)
+	}
+	u, err := url.Parse(strings.Replace(source, "twsnmp:", "ssh:", 1))
+	if err != nil {
+		teaProg.Send(err)
+		return 0
+	}
+	pass, ok := u.User.Password()
+	if !ok {
+		pass = ""
+	}
+	auth := scp.NewKeyAuth(sshKey, u.User.Username(), pass)
+	provider := scp.NewAuthProvider(auth, nil)
+	config, err := provider.ClientConfig()
+	if err != nil {
+		teaProg.Send(err)
+		return 0
+	}
+	sv := u.Host
+	if !strings.Contains(sv, ":") {
+		sv += ":22"
+	}
+	conn, err := net.DialTimeout("tcp", sv, time.Duration(60)*time.Second)
+	if err != nil {
+		teaProg.Send(err)
+		return 0
+	}
+	if err := conn.SetDeadline(time.Now().Add(time.Second * time.Duration(120))); err != nil {
+		teaProg.Send(err)
+		return 0
+	}
+	c, ch, req, err := ssh.NewClientConn(conn, sv, config)
+	if err != nil {
+		teaProg.Send(err)
+		return 0
+	}
+	client := ssh.NewClient(c, ch, req)
+	defer client.Close()
+	session, err := client.NewSession()
+	if err != nil {
+		teaProg.Send(err)
+		return 0
+	}
+	defer session.Close()
+	cmd := fmt.Sprintf("get syslog %d 1000", st)
+	stdout, err := session.Output(cmd)
+	if err != nil {
+		teaProg.Send(err)
+		return 0
+	}
+	r := bytes.NewReader(stdout)
+	totalFiles++
+	hash := getSHA1(sv + ":" + cmd)
+	lastTime := int64(0)
+	readBytes := int64(0)
+	readLines := 0
+	skipLines := 0
+	i := 0
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		if stopImport {
+			return 0
+		}
+		l := scanner.Text()
+		a := strings.SplitN(l, "\t", 2)
+		if len(a) != 2 {
+			continue
+		}
+		t, err := strconv.ParseInt(a[0], 10, 64)
+		if err != nil {
+			continue
+		}
+		readBytes += int64(len(l))
+		totalBytes += int64(len(l))
+		readLines++
+		totalLines++
+		if importFilter != nil && !importFilter.MatchString(l) {
+			skipLines++
+			continue
+		}
+		d := 0
+		if lastTime > 0 {
+			d = int(t - lastTime)
+		}
+		lastTime = t
+		if st > t || et < t {
+			skipLines++
+			continue
+		}
+		logCh <- &LogEnt{
+			Time:  t,
+			Log:   a[1],
+			Delta: d,
+			Hash:  hash,
+			Line:  readLines,
+		}
+		i++
+		if i%2000 == 0 {
+			teaProg.Send(ImportMsg{
+				Done:  false,
+				Path:  sv + ":" + cmd,
+				Bytes: readBytes,
+				Lines: readLines,
+				Skip:  skipLines,
+			})
+		}
+	}
+	teaProg.Send(ImportMsg{
+		Done:  false,
+		Path:  sv + ":" + cmd,
+		Bytes: readBytes,
+		Lines: readLines,
+		Skip:  skipLines,
+	})
+	return lastTime
+}
+
 func doImport(path string, r io.Reader) {
 	totalFiles++
 	hash := getSHA1(path)
 	lastTime := int64(0)
 	readBytes := int64(0)
+	st, et := getTimeRange()
 	readLines := 0
 	skipLines := 0
 	i := 0
@@ -463,6 +594,10 @@ func doImport(path string, r io.Reader) {
 			d = int(t - lastTime)
 		}
 		lastTime = t
+		if st > t || et < t {
+			skipLines++
+			continue
+		}
 		logCh <- &LogEnt{
 			Time:  t,
 			Log:   l,
