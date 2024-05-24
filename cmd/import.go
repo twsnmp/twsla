@@ -83,8 +83,8 @@ var importCmd = &cobra.Command{
 	Use:   "import",
 	Short: "Import log from source",
 	Long: `Import log from source
-	source is file | dir | scp | ssh
-	`,
+source is file | dir | scp | ssh | twsnmp
+`,
 	Run: func(cmd *cobra.Command, args []string) {
 		importMain()
 	},

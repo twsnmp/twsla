@@ -48,8 +48,10 @@ type SearchMsg struct {
 // searchCmd represents the search command
 var searchCmd = &cobra.Command{
 	Use:   "search",
-	Short: "Search log ",
-	Long:  `Search log from DB`,
+	Short: "Search logs.",
+	Long: `Search logs.
+Simple filters, regular expression filters, and exclusion filters can be specified.
+`,
 	Run: func(cmd *cobra.Command, args []string) {
 		searchMain()
 	},

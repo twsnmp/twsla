@@ -41,7 +41,10 @@ import (
 var extractCmd = &cobra.Command{
 	Use:   "extract",
 	Short: "Extract data from log",
-	Long:  `Extract data from log`,
+	Long: `Extract data from the log.
+Numeric data, IP addresses, MAC addresses, email addresses
+words, etc. can be extracted.
+`,
 	Run: func(cmd *cobra.Command, args []string) {
 		extractMain()
 	},
@@ -52,8 +55,8 @@ var nameExtract string
 func init() {
 	rootCmd.AddCommand(extractCmd)
 	extractCmd.Flags().StringVarP(&extract, "extract", "e", "", "Extract pattern")
-	extractCmd.Flags().IntVarP(&pos, "pos", "p", 1, "positon")
-	extractCmd.Flags().StringVarP(&nameExtract, "name", "n", "Value", "Name of Value")
+	extractCmd.Flags().IntVarP(&pos, "pos", "p", 1, "Specify variable location")
+	extractCmd.Flags().StringVarP(&nameExtract, "name", "n", "Value", "Name of value")
 }
 
 func extractMain() {
@@ -82,7 +85,6 @@ var extractList = []extractEnt{}
 
 func extractSub(wg *sync.WaitGroup) {
 	defer wg.Done()
-	results = []string{}
 	filter := getFilter(regexpFilter)
 	if filter == nil {
 		filter = getSimpleFilter(simpleFilter)
@@ -303,7 +305,7 @@ func (m extractModel) View() string {
 }
 
 func (m extractModel) headerView() string {
-	title := titleStyle.Render(fmt.Sprintf("Results %d/%d %d %v", m.msg.Hit, m.msg.Lines, len(countList), m.msg.Dur))
+	title := titleStyle.Render(fmt.Sprintf("Results %d/%d %d %v", m.msg.Hit, m.msg.Lines, len(extractList), m.msg.Dur))
 	help := helpStyle("s: Save / t: Sort by time / v: Sort by value / q : Quit") + "  "
 	gap := strings.Repeat(" ", max(0, m.table.Width()-lipgloss.Width(title)-lipgloss.Width(help)))
 	return lipgloss.JoinHorizontal(lipgloss.Center, title, gap, help)

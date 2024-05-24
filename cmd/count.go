@@ -41,7 +41,9 @@ import (
 var countCmd = &cobra.Command{
 	Use:   "count",
 	Short: "Count log",
-	Long:  `Count log`,
+	Long: `Count the number of logs.
+Number of logs per specified time
+Number of occurrences of items extracted from the log`,
 	Run: func(cmd *cobra.Command, args []string) {
 		countMain()
 	},
@@ -51,10 +53,10 @@ var nameCount string
 
 func init() {
 	rootCmd.AddCommand(countCmd)
-	countCmd.Flags().IntVarP(&interval, "interval", "i", 0, "Interval")
-	countCmd.Flags().IntVarP(&pos, "pos", "p", 1, "positon")
+	countCmd.Flags().IntVarP(&interval, "interval", "i", 0, "Specify the aggregation interval in seconds.")
+	countCmd.Flags().IntVarP(&pos, "pos", "p", 1, "Specify variable location")
 	countCmd.Flags().StringVarP(&extract, "extract", "e", "", "Extract pattern")
-	countCmd.Flags().StringVarP(&nameCount, "name", "n", "Key", "Name of Key")
+	countCmd.Flags().StringVarP(&nameCount, "name", "n", "Key", "Name of key")
 }
 
 func countMain() {
@@ -84,7 +86,6 @@ var countList = []countEnt{}
 func countSub(wg *sync.WaitGroup) {
 	var countMap = make(map[string]int)
 	defer wg.Done()
-	results = []string{}
 	filter := getFilter(regexpFilter)
 	if filter == nil {
 		filter = getSimpleFilter(simpleFilter)
