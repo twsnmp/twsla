@@ -174,6 +174,11 @@ func (m searchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.viewport.SetContent(strings.Join(results, "\n"))
 			}
 			return m, nil
+		case "d":
+			if m.done {
+				m.viewport.SetContent(strings.Join(results, "\n"))
+			}
+			return m, nil
 		default:
 			if !m.done {
 				return m, nil

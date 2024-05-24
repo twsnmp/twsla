@@ -3,6 +3,7 @@ module github.com/twsnmp/twsla
 go 1.22.3
 
 require (
+	github.com/0xrawsec/golang-evtx v1.2.9
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
 	github.com/charmbracelet/bubbles v0.18.0
 	github.com/charmbracelet/bubbletea v0.26.2
@@ -21,6 +22,7 @@ require (
 )
 
 require (
+	github.com/0xrawsec/golang-utils v1.3.0 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/blend/go-sdk v1.20220411.3 // indirect

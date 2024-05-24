@@ -38,6 +38,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/0xrawsec/golang-evtx/evtx"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -198,6 +199,9 @@ func importFromFile(path string) {
 	switch ext {
 	case ".zip":
 		imortFromZIPFile(path)
+		return
+	case ".evtx":
+		importFromWindowsEvtx(path)
 		return
 	case ".tgz":
 		importFormTarGZFile(path)
@@ -661,6 +665,121 @@ func getSyslogType(sv, fac int) string {
 	return r
 }
 
+func importFromWindowsEvtx(path string) {
+	r, err := os.Open(path)
+	if err != nil {
+		teaProg.Send(err)
+		return
+	}
+	defer r.Close()
+	ef, err := evtx.New(r)
+	if err == nil {
+		err = ef.Header.Verify()
+	}
+	if err != nil {
+		err = ef.Header.Repair(r)
+		if err != nil {
+			teaProg.Send(err)
+			return
+		}
+	}
+	totalFiles++
+	hash := getSHA1(path)
+	readBytes := int64(0)
+	st, et := getTimeRange()
+	readLines := 0
+	skipLines := 0
+	i := 0
+	comPath := evtx.Path("/Event/System/Computer")
+	levelPath := evtx.Path("/Event/System/Level")
+	providerPath := evtx.Path("/Event/System/Provider/Name")
+	for e := range ef.FastEvents() {
+		if stopImport {
+			return
+		}
+		i++
+		if i%2000 == 0 {
+			teaProg.Send(ImportMsg{
+				Done:  false,
+				Path:  path,
+				Bytes: readBytes,
+				Lines: readLines,
+				Skip:  skipLines,
+			})
+		}
+		if e == nil {
+			skipLines++
+			continue
+		}
+		readLines++
+		totalLines++
+		eid, err1 := e.GetInt(&evtx.EventIDPath)
+		if err1 != nil {
+			eid, err = e.GetInt(&evtx.EventIDPath2)
+			if err != nil {
+				skipLines++
+				continue
+			}
+		}
+		erid, err := e.GetInt(&evtx.EventRecordIDPath)
+		if err != nil {
+			skipLines++
+			continue
+		}
+		syst, err := e.GetTime(&evtx.SystemTimePath)
+		if err != nil {
+			skipLines++
+			continue
+		}
+		ch, err := e.GetString(&evtx.ChannelPath)
+		if err != nil {
+			ch = ""
+		}
+		level, err := e.GetInt(&levelPath)
+		if err != nil {
+			level = 0
+		}
+		provider, err := e.GetString(&providerPath)
+		if err != nil {
+			provider = ""
+		}
+		com, err := e.GetString(&comPath)
+		if err != nil {
+			com = ""
+		}
+		user, err := e.GetString(&evtx.UserIDPath)
+		if err != nil {
+			user = ""
+		}
+		t := syst.UnixNano()
+		l := fmt.Sprintf("%s EventID=%d RecordID=%d Channel=%s Provider=%s Level=%d Computer=%s UserID=%s",
+			syst.Format(time.RFC3339Nano), int64(eid), int(erid), ch, provider, level, com, user)
+		readBytes += int64(len(l))
+		totalBytes += int64(len(l))
+		if importFilter != nil && !importFilter.MatchString(l) {
+			skipLines++
+			continue
+		}
+		if st > t || et < t {
+			skipLines++
+			continue
+		}
+		logCh <- &LogEnt{
+			Time: t,
+			Log:  l,
+			Hash: hash,
+			Line: readLines,
+		}
+	}
+	teaProg.Send(ImportMsg{
+		Done:  false,
+		Path:  path,
+		Bytes: readBytes,
+		Lines: readLines,
+		Skip:  skipLines,
+	})
+}
+
 func doImport(path string, r io.Reader) {
 	totalFiles++
 	hash := getSHA1(path)
@@ -715,9 +834,6 @@ func doImport(path string, r io.Reader) {
 				Skip:  skipLines,
 			})
 		}
-	}
-	if err := scanner.Err(); err != nil {
-		log.Panicln(err)
 	}
 	teaProg.Send(ImportMsg{
 		Done:  false,
