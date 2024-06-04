@@ -29,7 +29,10 @@ var cfgFile string
 var rootCmd = &cobra.Command{
 	Use:   "twsla",
 	Short: "Simple Log Analyzer",
-	Long:  `Simple Log Analyzer by TWSNMP`,
+	Long: `Simple Log Analyzer by TWSNMP
+Set the environment variable.
+RUNEWIDTH_EASTASIAN=0
+`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

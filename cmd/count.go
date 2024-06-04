@@ -59,8 +59,13 @@ func init() {
 	countCmd.Flags().StringVarP(&nameCount, "name", "n", "Key", "Name of key")
 }
 
+var timeMode = false
+var mean = 0
+
 func countMain() {
 	st = time.Now()
+	extPat := getExtPat()
+	timeMode = extPat == nil
 	if err := openDB(); err != nil {
 		log.Fatalln(err)
 	}
@@ -79,6 +84,7 @@ func countMain() {
 type countEnt struct {
 	Key   string
 	Count int
+	Delta int
 }
 
 var countList = []countEnt{}
@@ -95,7 +101,7 @@ func countSub(wg *sync.WaitGroup) {
 	intv := int64(getInterval()) * 1000 * 1000 * 1000
 	sti, eti := getTimeRange()
 	sk := fmt.Sprintf("%016x:", sti)
-	if extPat == nil && nameCount == "Key" {
+	if timeMode && nameCount == "Key" {
 		nameCount = "Time"
 	}
 	i := 0
@@ -116,7 +122,7 @@ func countSub(wg *sync.WaitGroup) {
 			i++
 			if filter == nil || filter.MatchString(l) {
 				if not == nil || !not.MatchString(l) {
-					if extPat == nil {
+					if timeMode {
 						d := t / intv
 						ck := time.Unix(0, d*intv).Format("2006/01/02 15:04")
 						countMap[ck]++
@@ -146,14 +152,31 @@ func countSub(wg *sync.WaitGroup) {
 			Count: v,
 		})
 	}
-	if extPat != nil {
-		sort.Slice(countList, func(i, j int) bool {
-			return countList[i].Count > countList[j].Count
-		})
-	} else {
+	if timeMode {
 		sort.Slice(countList, func(i, j int) bool {
 			return countList[i].Key < countList[j].Key
 		})
+		last := int64(0)
+		mean = 0
+		for i := 0; i < len(countList); i++ {
+			if t, err := time.Parse("2006/01/02 15:04", countList[i].Key); err == nil {
+				if i > 0 {
+					countList[i].Delta = int(t.Unix() - last)
+				}
+				last = t.Unix()
+			}
+			mean += countList[i].Delta
+		}
+		if len(countList) > 0 {
+			mean /= len(countList)
+		}
+	} else {
+		sort.Slice(countList, func(i, j int) bool {
+			return countList[i].Count > countList[j].Count
+		})
+	}
+	if len(countList) > 0 {
+		mean = hit / len(countList)
 	}
 	teaProg.Send(SearchMsg{Done: true, Lines: i, Hit: hit, Dur: time.Since(st)})
 }
@@ -173,6 +196,9 @@ func initCountModel() countModel {
 	columns := []table.Column{
 		{Title: nameCount},
 		{Title: "Count"},
+	}
+	if timeMode {
+		columns = append(columns, table.Column{Title: "Delta"})
 	}
 	s := spinner.New()
 	s.Spinner = spinner.Line
@@ -227,7 +253,7 @@ func (m countModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.save = true
 			}
 			return m, nil
-		case "c", "k":
+		case "c", "k", "d", "t":
 			if m.done {
 				k := msg.String()
 				if k == m.lastSort {
@@ -238,9 +264,13 @@ func (m countModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					// Change sort key
 					m.lastSort = k
-					if k == "k" {
+					if k == "k" || k == "t" {
 						sort.Slice(countList, func(i, j int) bool {
 							return countList[i].Key < countList[j].Key
+						})
+					} else if k == "d" && timeMode {
+						sort.Slice(countList, func(i, j int) bool {
+							return countList[i].Delta < countList[j].Delta
 						})
 					} else {
 						sort.Slice(countList, func(i, j int) bool {
@@ -249,7 +279,15 @@ func (m countModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 					rows = []table.Row{}
 					for _, r := range countList {
-						rows = append(rows, []string{r.Key, fmt.Sprintf("%10s", humanize.Comma(int64(r.Count)))})
+						if timeMode {
+							rows = append(rows, []string{
+								r.Key,
+								fmt.Sprintf("%10s", humanize.Comma(int64(r.Count))),
+								time.Duration(time.Second * time.Duration(r.Delta)).String(),
+							})
+						} else {
+							rows = append(rows, []string{r.Key, fmt.Sprintf("%10s", humanize.Comma(int64(r.Count)))})
+						}
 					}
 				}
 				m.table.SetRows(rows)
@@ -266,14 +304,32 @@ func (m countModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case SearchMsg:
 		if msg.Done {
 			w := m.table.Width() - 4
-			columns := []table.Column{
-				{Title: nameCount, Width: 7 * w / 10},
-				{Title: "Count", Width: 3 * w / 10},
+			if timeMode {
+				w -= 2
+				columns := []table.Column{
+					{Title: nameCount, Width: 5 * w / 10},
+					{Title: "Count", Width: 3 * w / 10},
+					{Title: "Delta", Width: 2 * w / 10},
+				}
+				m.table.SetColumns(columns)
+			} else {
+				columns := []table.Column{
+					{Title: nameCount, Width: 7 * w / 10},
+					{Title: "Count", Width: 3 * w / 10},
+				}
+				m.table.SetColumns(columns)
 			}
-			m.table.SetColumns(columns)
 			rows = []table.Row{}
 			for _, r := range countList {
-				rows = append(rows, []string{r.Key, fmt.Sprintf("%10s", humanize.Comma(int64(r.Count)))})
+				if timeMode {
+					rows = append(rows, []string{
+						r.Key,
+						fmt.Sprintf("%10s", humanize.Comma(int64(r.Count))),
+						time.Duration(time.Second * time.Duration(r.Delta)).String(),
+					})
+				} else {
+					rows = append(rows, []string{r.Key, fmt.Sprintf("%10s", humanize.Comma(int64(r.Count)))})
+				}
 			}
 			m.table.SetRows(rows)
 			m.done = true
@@ -330,18 +386,23 @@ func (m countModel) View() string {
 }
 
 func (m countModel) headerView() string {
-	title := titleStyle.Render(fmt.Sprintf("Results %d/%d/%d %v", len(countList), m.msg.Hit, m.msg.Lines, m.msg.Dur))
-	help := helpStyle("s: Save / c: Sort by count / k: Sort by Key / q : Quit") + "  "
+	ms := ""
+	if timeMode {
+		ms = fmt.Sprintf(" d:%s", time.Duration(time.Second*time.Duration(mean)).String())
+	} else {
+		ms = fmt.Sprintf(" m:%d", mean)
+	}
+	title := titleStyle.Render(fmt.Sprintf("Results %d/%d/%d s:%v%s", len(countList), m.msg.Hit, m.msg.Lines, m.msg.Dur.Truncate(time.Millisecond), ms))
+	help := helpStyle("s: Save / c,k,d: Sort / q : Quit") + "  "
 	gap := strings.Repeat(" ", max(0, m.table.Width()-lipgloss.Width(title)-lipgloss.Width(help)))
 	return lipgloss.JoinHorizontal(lipgloss.Center, title, gap, help)
 }
 
 func saveCountFile(path string) {
-	extPat := getExtPat()
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
 	case ".png":
-		if extPat == nil {
+		if timeMode {
 			SaveCountTimeChart(path)
 		} else {
 			SaveCountChart(path)
@@ -358,9 +419,17 @@ func saveCountCSVFile(path string) {
 	}
 	defer f.Close()
 	w := csv.NewWriter(f)
-	w.Write([]string{nameCount, "Count"})
+	if timeMode {
+		w.Write([]string{nameCount, "Count", "Delta", "Delta(sec)"})
+	} else {
+		w.Write([]string{nameCount, "Count"})
+	}
 	for _, r := range countList {
 		wr := []string{r.Key, fmt.Sprintf("%d", r.Count)}
+		if timeMode {
+			wr = append(wr, time.Duration(time.Second*time.Duration(r.Delta)).String())
+			wr = append(wr, fmt.Sprintf("%d", r.Delta))
+		}
 		w.Write(wr)
 	}
 	w.Flush()
