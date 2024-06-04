@@ -396,7 +396,7 @@ func (m tfidfModel) View() string {
 }
 
 func (m tfidfModel) headerView() string {
-	title := titleStyle.Render(fmt.Sprintf("Results %d/%d %d %v", m.msg.Hit, m.msg.Lines, len(tfidfList), m.msg.Dur))
+	title := titleStyle.Render(fmt.Sprintf("Results %d/%d %d s:%s", m.msg.Hit, m.msg.Lines, len(tfidfList), m.msg.Dur.Truncate(time.Millisecond)))
 	help := helpStyle("s: Save / i: Min / e: Mean / a: Max / q : Quit") + "  "
 	gap := strings.Repeat(" ", max(0, m.table.Width()-lipgloss.Width(title)-lipgloss.Width(help)))
 	return lipgloss.JoinHorizontal(lipgloss.Center, title, gap, help)

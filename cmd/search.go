@@ -254,7 +254,7 @@ func (m searchModel) View() string {
 }
 
 func (m searchModel) headerView() string {
-	title := titleStyle.Render(fmt.Sprintf("Results %d/%d %v", m.msg.Hit, m.msg.Lines, m.msg.Dur))
+	title := titleStyle.Render(fmt.Sprintf("Results %d/%d s:%s", m.msg.Hit, m.msg.Lines, m.msg.Dur.Truncate(time.Millisecond)))
 	info := infoStyle.Render(fmt.Sprintf("%3.f%%", m.viewport.ScrollPercent()*100))
 	help := helpStyle("s: Save / r: Reverse / q : Quit") + "  "
 	gap := strings.Repeat(" ", max(0, m.viewport.Width-lipgloss.Width(title)-lipgloss.Width(info)-lipgloss.Width(help)))
