@@ -60,7 +60,7 @@ func init() {
 }
 
 var timeMode = false
-var mean = 0
+var mean float64
 
 func countMain() {
 	st = time.Now()
@@ -165,18 +165,18 @@ func countSub(wg *sync.WaitGroup) {
 				}
 				last = t.Unix()
 			}
-			mean += countList[i].Delta
+			mean += float64(countList[i].Delta)
 		}
-		if len(countList) > 0 {
-			mean /= len(countList)
+		if len(countList) > 1 {
+			mean /= float64(len(countList) - 1)
 		}
 	} else {
 		sort.Slice(countList, func(i, j int) bool {
 			return countList[i].Count > countList[j].Count
 		})
-	}
-	if len(countList) > 0 {
-		mean = hit / len(countList)
+		if len(countList) > 0 {
+			mean = float64(hit) / float64(len(countList))
+		}
 	}
 	teaProg.Send(SearchMsg{Done: true, Lines: i, Hit: hit, Dur: time.Since(st)})
 }
@@ -390,7 +390,7 @@ func (m countModel) headerView() string {
 	if timeMode {
 		ms = fmt.Sprintf(" d:%s", time.Duration(time.Second*time.Duration(mean)).String())
 	} else {
-		ms = fmt.Sprintf(" m:%d", mean)
+		ms = fmt.Sprintf(" m:%.3f", mean)
 	}
 	title := titleStyle.Render(fmt.Sprintf("Results %d/%d/%d s:%v%s", len(countList), m.msg.Hit, m.msg.Lines, m.msg.Dur.Truncate(time.Millisecond), ms))
 	help := helpStyle("s: Save / c,k,d: Sort / q : Quit") + "  "

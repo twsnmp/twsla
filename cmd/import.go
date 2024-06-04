@@ -864,7 +864,7 @@ func saveLog(logList []*LogEnt) {
 		bl := tx.Bucket([]byte("logs"))
 		bd := tx.Bucket([]byte("delta"))
 		for _, l := range logList {
-			id := fmt.Sprintf("%016x:%s:%d", l.Time, l.Hash, l.Line)
+			id := fmt.Sprintf("%016x:%s:%x", l.Time, l.Hash, l.Line)
 			bl.Put([]byte(id), []byte(l.Log))
 			if l.Delta < 0 {
 				bd.Put([]byte(id), []byte(fmt.Sprintf("%d", l.Delta)))
@@ -877,7 +877,7 @@ func saveLog(logList []*LogEnt) {
 func getSHA1(str string) string {
 	sha1 := sha1.New()
 	io.WriteString(sha1, str)
-	return hex.EncodeToString(sha1.Sum(nil))[:8]
+	return hex.EncodeToString(sha1.Sum(nil))[:2]
 }
 
 func getCommand() string {

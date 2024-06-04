@@ -79,6 +79,9 @@ func extractMain() {
 type extractEnt struct {
 	Time  int64
 	Value string
+	Val   float64
+	Delta float64
+	PS    float64
 }
 
 var extractList = []extractEnt{}
@@ -130,6 +133,22 @@ func extractSub(wg *sync.WaitGroup) {
 		}
 		return nil
 	})
+	for i := 0; i < len(extractList); i++ {
+		if v, err := strconv.ParseFloat(extractList[i].Value, 64); err == nil {
+			extractList[i].Val = v
+			mean += v
+		}
+		if i > 0 {
+			extractList[i].Delta = extractList[i].Val - extractList[i-1].Val
+			dt := extractList[i].Time - extractList[i-1].Time
+			if dt > 0 {
+				extractList[i].PS = (extractList[i].Delta * 1000 * 1000 * 1000) / float64(dt)
+			}
+		}
+	}
+	if len(extractList) > 0 {
+		mean /= float64(len(extractList))
+	}
 	teaProg.Send(SearchMsg{Done: true, Lines: i, Hit: hit, Dur: time.Since(st)})
 }
 
@@ -202,7 +221,7 @@ func (m extractModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.save = true
 			}
 			return m, nil
-		case "t", "v":
+		case "t", "v", "d", "p":
 			if m.done {
 				k := msg.String()
 				if k == m.lastSort {
@@ -217,6 +236,14 @@ func (m extractModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						sort.Slice(extractList, func(i, j int) bool {
 							return extractList[i].Time < extractList[j].Time
 						})
+					} else if k == "d" {
+						sort.Slice(extractList, func(i, j int) bool {
+							return extractList[i].Delta < extractList[j].Delta
+						})
+					} else if k == "p" {
+						sort.Slice(extractList, func(i, j int) bool {
+							return extractList[i].PS < extractList[j].PS
+						})
 					} else {
 						sort.Slice(extractList, func(i, j int) bool {
 							return extractList[i].Value < extractList[j].Value
@@ -224,7 +251,12 @@ func (m extractModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 					extractRows = []table.Row{}
 					for _, r := range extractList {
-						extractRows = append(extractRows, []string{time.Unix(0, r.Time).Format("2006/01/02T15:04:05.999"), r.Value})
+						extractRows = append(extractRows, []string{
+							time.Unix(0, r.Time).Format("2006/01/02T15:04:05.999"),
+							r.Value,
+							humanize.FormatFloat("#,###.###", r.Delta),
+							humanize.FormatFloat("#,###.###", r.PS),
+						})
 					}
 				}
 				m.table.SetRows(extractRows)
@@ -240,15 +272,22 @@ func (m extractModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.table.SetHeight(msg.Height - 6)
 	case SearchMsg:
 		if msg.Done {
-			w := m.table.Width() - 4
+			w := m.table.Width() - 8
 			columns := []table.Column{
-				{Title: "Time", Width: 4 * w / 10},
-				{Title: nameExtract, Width: 6 * w / 10},
+				{Title: "Time", Width: 3 * w / 10},
+				{Title: nameExtract, Width: 5 * w / 10},
+				{Title: "Delta", Width: 1 * w / 10},
+				{Title: "PS", Width: 1 * w / 10},
 			}
 			m.table.SetColumns(columns)
 			extractRows = []table.Row{}
 			for _, r := range extractList {
-				extractRows = append(extractRows, []string{time.Unix(0, r.Time).Format("2006/01/02T15:04:05.999"), r.Value})
+				extractRows = append(extractRows, []string{
+					time.Unix(0, r.Time).Format("2006/01/02T15:04:05.999"),
+					r.Value,
+					humanize.FormatFloat("#,###.###", r.Delta),
+					humanize.FormatFloat("#,###.###", r.PS),
+				})
 			}
 			m.table.SetRows(extractRows)
 			m.done = true
@@ -305,8 +344,9 @@ func (m extractModel) View() string {
 }
 
 func (m extractModel) headerView() string {
-	title := titleStyle.Render(fmt.Sprintf("Results %d/%d/%d s:%s", len(extractList), m.msg.Hit, m.msg.Lines, m.msg.Dur.Truncate(time.Millisecond)))
-	help := helpStyle("s: Save / t: Sort by time / v: Sort by value / q : Quit") + "  "
+	title := titleStyle.Render(fmt.Sprintf("Results %d/%d/%d s:%s m:%s",
+		len(extractList), m.msg.Hit, m.msg.Lines, m.msg.Dur.Truncate(time.Millisecond), humanize.FormatFloat("#,###.###", mean)))
+	help := helpStyle("s: Save / t,v,d,p: Sort / q : Quit") + "  "
 	gap := strings.Repeat(" ", max(0, m.table.Width()-lipgloss.Width(title)-lipgloss.Width(help)))
 	return lipgloss.JoinHorizontal(lipgloss.Center, title, gap, help)
 }
@@ -329,9 +369,14 @@ func saveExtractCSVFile(path string) {
 	}
 	defer f.Close()
 	w := csv.NewWriter(f)
-	w.Write([]string{"Time", nameExtract})
+	w.Write([]string{"Time", nameExtract, "Delta", "PS"})
 	for _, r := range extractList {
-		wr := []string{time.Unix(0, r.Time).Format("2006/01/02T15:04:05.999"), r.Value}
+		wr := []string{
+			time.Unix(0, r.Time).Format("2006/01/02T15:04:05.999"),
+			r.Value,
+			fmt.Sprintf("%.3f", r.Delta),
+			fmt.Sprintf("%.3f", r.PS),
+		}
 		w.Write(wr)
 	}
 	w.Flush()
