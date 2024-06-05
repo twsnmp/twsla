@@ -61,11 +61,10 @@ func init() {
 
 type tfidfMsg struct {
 	Done   bool
+	Phase  string
 	Lines  int
 	Hit    int
-	ALines int
-	CLines int
-	CHit   int
+	PLines int
 	Dur    time.Duration
 }
 
@@ -128,7 +127,7 @@ func tfidfSub(wg *sync.WaitGroup) {
 				}
 			}
 			if lines%100 == 0 {
-				teaProg.Send(tfidfMsg{Lines: lines, Hit: hit, Dur: time.Since(st)})
+				teaProg.Send(tfidfMsg{Phase: "Search", Lines: lines, Hit: hit, Dur: time.Since(st)})
 			}
 			if stopSearch {
 				break
@@ -137,17 +136,13 @@ func tfidfSub(wg *sync.WaitGroup) {
 		return nil
 	})
 	// TF-IDF
-	aLines := 0
 	tfidf := tf_idf.New(
 		tf_idf.WithDefaultStopWords(),
 	)
-	cLines := 0
-	cHit := 0
 	for i, l := range results {
-		aLines++
 		tfidf.AddDocument(l)
 		if i%100 == 0 {
-			teaProg.Send(tfidfMsg{ALines: aLines, CLines: cLines, CHit: cHit, Lines: lines, Hit: hit, Dur: time.Since(st)})
+			teaProg.Send(tfidfMsg{Phase: "Add", PLines: i, Lines: lines, Hit: hit, Dur: time.Since(st)})
 		}
 		if stopSearch {
 			break
@@ -156,7 +151,6 @@ func tfidfSub(wg *sync.WaitGroup) {
 	for i, l1 := range results {
 		sims := []float64{}
 		done := true
-		cLines++
 		c := 0
 		for j, l2 := range results {
 			if i == j {
@@ -177,7 +171,6 @@ func tfidfSub(wg *sync.WaitGroup) {
 			min, _ := stats.Min(sims)
 			max, _ := stats.Max(sims)
 			mean, _ := stats.Mean(sims)
-			cHit++
 			tfidfList = append(tfidfList, tfidfEnt{
 				Log:  i,
 				Min:  min,
@@ -186,19 +179,20 @@ func tfidfSub(wg *sync.WaitGroup) {
 			})
 		}
 		if i%100 == 0 {
-			teaProg.Send(tfidfMsg{ALines: aLines, CLines: cLines, CHit: cHit, Lines: lines, Hit: hit, Dur: time.Since(st)})
+			teaProg.Send(tfidfMsg{Phase: "Check", PLines: i, Lines: lines, Hit: hit, Dur: time.Since(st)})
 		}
 		if stopSearch {
 			break
 		}
 	}
-	teaProg.Send(tfidfMsg{Done: true, ALines: aLines, CLines: cLines, CHit: cHit, Lines: lines, Hit: hit, Dur: time.Since(st)})
+	teaProg.Send(tfidfMsg{Done: true, Phase: "Done", PLines: hit, Lines: lines, Hit: hit, Dur: time.Since(st)})
 }
 
 type tfidfModel struct {
 	spinner   spinner.Model
 	table     table.Model
 	done      bool
+	log       string
 	quitting  bool
 	msg       tfidfMsg
 	lastSort  string
@@ -304,6 +298,16 @@ func (m tfidfModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.table.SetRows(tfidfRows)
 			}
 			return m, nil
+		case "enter":
+			if m.done {
+				if m.log == "" {
+					w := m.table.Width()
+					s := m.table.SelectedRow()[0]
+					m.log = wrapString(s, w)
+				} else {
+					m.log = ""
+				}
+			}
 		default:
 			if !m.done {
 				return m, nil
@@ -316,7 +320,7 @@ func (m tfidfModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Done {
 			w := m.table.Width() - 6
 			columns := []table.Column{
-				{Title: "Time", Width: 7 * w / 10},
+				{Title: "Log", Width: 7 * w / 10},
 				{Title: "Min", Width: 1 * w / 10},
 				{Title: "Mean", Width: 1 * w / 10},
 				{Title: "Max", Width: 1 * w / 10},
@@ -371,22 +375,17 @@ func (m tfidfModel) View() string {
 		return fmt.Sprintf("Save file name?\n\n%s\n\n%s", m.textInput.View(), "(esc to quit)") + "\n"
 	}
 	if m.done {
+		if m.log != "" {
+			return m.log
+		}
 		return fmt.Sprintf("%s\n%s\n", m.headerView(), baseStyle.Render(m.table.View()))
 	}
-	st := "Searching"
-	if m.msg.CLines > 0 {
-		st = "Checking"
-	} else if m.msg.ALines > 0 {
-		st = "Adding"
-	}
-	str := fmt.Sprintf("\n%s %s line=%s hit=%s add=%s calc=%s results=%s time=%v",
-		st,
+	str := fmt.Sprintf("\n%s %s line=%s hit=%s process=%s time=%v",
+		m.msg.Phase,
 		m.spinner.View(),
 		humanize.Comma(int64(m.msg.Lines)),
 		humanize.Comma(int64(m.msg.Hit)),
-		humanize.Comma(int64(m.msg.ALines)),
-		humanize.Comma(int64(m.msg.CLines)),
-		humanize.Comma(int64(m.msg.CHit)),
+		humanize.Comma(int64(m.msg.PLines)),
 		m.msg.Dur,
 	)
 	if m.quitting {
@@ -396,8 +395,8 @@ func (m tfidfModel) View() string {
 }
 
 func (m tfidfModel) headerView() string {
-	title := titleStyle.Render(fmt.Sprintf("Results %d/%d %d s:%s", m.msg.Hit, m.msg.Lines, len(tfidfList), m.msg.Dur.Truncate(time.Millisecond)))
-	help := helpStyle("s: Save / i: Min / e: Mean / a: Max / q : Quit") + "  "
+	title := titleStyle.Render(fmt.Sprintf("Results %d/%d/%d s:%s", len(tfidfList), m.msg.Hit, m.msg.Lines, m.msg.Dur.Truncate(time.Millisecond)))
+	help := helpStyle("enter: Show / s: Save / i,e,a: Sort / q : Quit") + "  "
 	gap := strings.Repeat(" ", max(0, m.table.Width()-lipgloss.Width(title)-lipgloss.Width(help)))
 	return lipgloss.JoinHorizontal(lipgloss.Center, title, gap, help)
 }

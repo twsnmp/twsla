@@ -185,3 +185,18 @@ func getExtPat() *extPatEnt {
 		Index:  pos,
 	}
 }
+
+func wrapString(s string, w int) string {
+	r := ""
+	a := strings.Split(s, "")
+	ln := 0
+	for _, ss := range a {
+		if w < len(ss)+ln {
+			r += "\n"
+			ln = 0
+		}
+		ln += len(ss)
+		r += ss
+	}
+	return r
+}

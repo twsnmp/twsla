@@ -8,6 +8,7 @@ require (
 	github.com/charmbracelet/bubbles v0.18.0
 	github.com/charmbracelet/bubbletea v0.26.2
 	github.com/charmbracelet/lipgloss v0.10.0
+	github.com/codegaudi/go-iforest v0.0.1
 	github.com/dkgv/go-tf-idf v0.0.0-20220422104447-dad26aa7b2f4
 	github.com/dustin/go-humanize v1.0.1
 	github.com/gravwell/gravwell/v3 v3.8.31
