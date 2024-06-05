@@ -40,6 +40,7 @@ import (
 
 var tfidfThreshold float64
 var tfidfCount int
+var tfidfTop int
 
 // tfidfCmd represents the tfidf command
 var tfidfCmd = &cobra.Command{
@@ -57,6 +58,7 @@ func init() {
 	rootCmd.AddCommand(tfidfCmd)
 	tfidfCmd.Flags().Float64VarP(&tfidfThreshold, "limit", "l", 0.5, "Similarity threshold between logs")
 	tfidfCmd.Flags().IntVarP(&tfidfCount, "count", "c", 0, "Number of threshold crossings to exclude")
+	tfidfCmd.Flags().IntVarP(&tfidfTop, "top", "n", 0, "Top N")
 }
 
 type tfidfMsg struct {
@@ -100,6 +102,10 @@ func tfidfSub(wg *sync.WaitGroup) {
 	filter := getFilter(regexpFilter)
 	if filter == nil {
 		filter = getSimpleFilter(simpleFilter)
+	}
+	if tfidfTop > 0 {
+		tfidfThreshold = 1.0
+		tfidfCount = 1
 	}
 	not := getFilter(notFilter)
 	sti, eti := getTimeRange()
@@ -177,6 +183,13 @@ func tfidfSub(wg *sync.WaitGroup) {
 				Mean: mean,
 				Max:  max,
 			})
+			if tfidfTop > 0 && tfidfTop < len(tfidfList) {
+				sort.Slice(tfidfList, func(a, b int) bool {
+					return tfidfList[a].Max < tfidfList[b].Max
+				})
+				tfidfList = tfidfList[:tfidfTop]
+				tfidfThreshold = tfidfList[len(tfidfList)-1].Max
+			}
 		}
 		if i%100 == 0 {
 			teaProg.Send(tfidfMsg{Phase: "Check", PLines: i, Lines: lines, Hit: hit, Dur: time.Since(st)})
