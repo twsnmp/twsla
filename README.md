@@ -4,10 +4,15 @@ Simple Log Analyzer by TWSNMP
 
 ## Usage
 ```
+Simple Log Analyzer by TWSNMP
+Set the environment variable.
+RUNEWIDTH_EASTASIAN=0
+
 Usage:
   twsla [command]
 
 Available Commands:
+  anomaly     Anomaly log detection
   completion  Generate the autocompletion script for the specified shell
   count       Count log
   extract     Extract data from log
