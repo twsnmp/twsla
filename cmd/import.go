@@ -55,6 +55,7 @@ var command string
 var filePat string
 var sshKey string
 var utc bool
+var jsonMode bool
 
 var tg *timegrinder.TimeGrinder
 var importFilter *regexp.Regexp
@@ -96,6 +97,7 @@ source is file | dir | scp | ssh | twsnmp
 func init() {
 	rootCmd.AddCommand(importCmd)
 	importCmd.Flags().BoolVar(&utc, "utc", false, "Force UTC")
+	importCmd.Flags().BoolVar(&jsonMode, "json", false, "Parse JSON windows evtx")
 	importCmd.Flags().StringVarP(&source, "source", "s", "", "Log source")
 	importCmd.Flags().StringVarP(&command, "command", "c", "", "SSH Command")
 	importCmd.Flags().StringVarP(&sshKey, "key", "k", "", "SSH Key")
@@ -248,6 +250,15 @@ func imortFromZIPFile(path string) {
 			if gzr, err := gzip.NewReader(r); err == nil {
 				doImport(path+":"+f.Name, gzr)
 			}
+		} else if ext == ".evtx" {
+			w, err := os.CreateTemp("", "winlog*.evtx")
+			if err != nil {
+				log.Fatalln(err)
+			}
+			defer os.Remove(w.Name())
+			io.Copy(w, r)
+			w.Close()
+			importFromWindowsEvtx(w.Name())
 		} else {
 			doImport(path+":"+f.Name, r)
 		}
@@ -665,6 +676,23 @@ func getSyslogType(sv, fac int) string {
 	return r
 }
 
+type winLogEnt struct {
+	Name   string
+	String bool
+	Path   evtx.GoEvtxPath
+}
+
+var winLogList = []winLogEnt{
+	{Name: "EventID", Path: evtx.EventIDPath},
+	{Name: "EventID", Path: evtx.EventIDPath2},
+	{Name: "Level", Path: evtx.Path("/Event/System/Level")},
+	{Name: "RecordID", Path: evtx.EventRecordIDPath},
+	{Name: "Channel", Path: evtx.ChannelPath, String: true},
+	{Name: "Provider", Path: evtx.Path("/Event/System/Provider/Name"), String: true},
+	{Name: "Computer", Path: evtx.Path("/Event/System/Computer"), String: true},
+	{Name: "UserID", Path: evtx.UserIDPath, String: true},
+}
+
 func importFromWindowsEvtx(path string) {
 	r, err := os.Open(path)
 	if err != nil {
@@ -690,9 +718,6 @@ func importFromWindowsEvtx(path string) {
 	readLines := 0
 	skipLines := 0
 	i := 0
-	comPath := evtx.Path("/Event/System/Computer")
-	levelPath := evtx.Path("/Event/System/Level")
-	providerPath := evtx.Path("/Event/System/Provider/Name")
 	for e := range ef.FastEvents() {
 		if stopImport {
 			return
@@ -713,47 +738,39 @@ func importFromWindowsEvtx(path string) {
 		}
 		readLines++
 		totalLines++
-		eid, err1 := e.GetInt(&evtx.EventIDPath)
-		if err1 != nil {
-			eid, err = e.GetInt(&evtx.EventIDPath2)
-			if err != nil {
-				skipLines++
-				continue
-			}
-		}
-		erid, err := e.GetInt(&evtx.EventRecordIDPath)
-		if err != nil {
-			skipLines++
-			continue
-		}
 		syst, err := e.GetTime(&evtx.SystemTimePath)
 		if err != nil {
 			skipLines++
 			continue
 		}
-		ch, err := e.GetString(&evtx.ChannelPath)
-		if err != nil {
-			ch = ""
-		}
-		level, err := e.GetInt(&levelPath)
-		if err != nil {
-			level = 0
-		}
-		provider, err := e.GetString(&providerPath)
-		if err != nil {
-			provider = ""
-		}
-		com, err := e.GetString(&comPath)
-		if err != nil {
-			com = ""
-		}
-		user, err := e.GetString(&evtx.UserIDPath)
-		if err != nil {
-			user = ""
-		}
 		t := syst.UnixNano()
-		l := fmt.Sprintf("%s EventID=%d RecordID=%d Channel=%s Provider=%s Level=%d Computer=%s UserID=%s",
-			syst.Format(time.RFC3339Nano), int64(eid), int(erid), ch, provider, level, com, user)
+		l := ""
+		if jsonMode {
+			j, err := json.MarshalIndent(e, "", " ")
+			if err != nil {
+				skipLines++
+				continue
+			}
+			l = string(j)
+			l = strings.TrimSpace(l)
+			l = strings.ReplaceAll(l, "\"", "")
+			l = strings.ReplaceAll(l, "\\\\", "/")
+		} else {
+			a := []string{}
+			a = append(a, syst.Format("2006-01-02T15:04:05.000"))
+			for _, w := range winLogList {
+				if w.String {
+					if s, err := e.GetString(&w.Path); err == nil {
+						a = append(a, fmt.Sprintf("%s=%s", w.Name, s))
+					}
+				} else {
+					if v, err := e.GetInt(&w.Path); err == nil {
+						a = append(a, fmt.Sprintf("%s=%d", w.Name, v))
+					}
+				}
+			}
+			l = strings.Join(a, " ")
+		}
 		readBytes += int64(len(l))
 		totalBytes += int64(len(l))
 		if importFilter != nil && !importFilter.MatchString(l) {

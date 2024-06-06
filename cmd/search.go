@@ -186,19 +186,20 @@ func (m searchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.WindowSizeMsg:
 		headerHeight := lipgloss.Height(m.headerView())
-
 		if !m.ready {
 			m.ready = true
 			m.viewport = viewport.New(msg.Width, msg.Height-headerHeight)
-			m.viewport.YPosition = headerHeight
 			m.viewport.YPosition = headerHeight + 1
+			m.viewport.SetContent(strings.Join(results, "\n"))
 		} else {
 			m.viewport.Width = msg.Width
 			m.viewport.Height = msg.Height - headerHeight
 		}
 	case SearchMsg:
 		if msg.Done {
-			m.viewport.SetContent(strings.Join(results, "\n"))
+			if m.ready {
+				m.viewport.SetContent(strings.Join(results, "\n"))
+			}
 			m.done = true
 		}
 		m.msg = msg
