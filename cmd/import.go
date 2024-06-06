@@ -174,7 +174,7 @@ func setupTimeGrinder() error {
 	if err != nil {
 		return err
 	}
-	if utc {
+	if !utc {
 		tg.SetLocalTime()
 	}
 	// [Sun Oct 09 00:36:03 2022]
