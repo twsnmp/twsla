@@ -89,9 +89,7 @@ var extractList = []extractEnt{}
 func extractSub(wg *sync.WaitGroup) {
 	defer wg.Done()
 	filter := getFilter(regexpFilter)
-	if filter == nil {
-		filter = getSimpleFilter(simpleFilter)
-	}
+	filterS := getSimpleFilter(simpleFilter)
 	not := getFilter(notFilter)
 	extPat := getExtPat()
 	if extPat == nil {
@@ -116,11 +114,13 @@ func extractSub(wg *sync.WaitGroup) {
 			l := string(v)
 			i++
 			if filter == nil || filter.MatchString(l) {
-				if not == nil || !not.MatchString(l) {
-					a := extPat.ExtReg.FindAllStringSubmatch(l, -1)
-					if len(a) >= extPat.Index {
-						extractList = append(extractList, extractEnt{Time: t, Value: a[extPat.Index-1][1]})
-						hit++
+				if filterS == nil || filterS.MatchString(l) {
+					if not == nil || !not.MatchString(l) {
+						a := extPat.ExtReg.FindAllStringSubmatch(l, -1)
+						if len(a) >= extPat.Index {
+							extractList = append(extractList, extractEnt{Time: t, Value: a[extPat.Index-1][1]})
+							hit++
+						}
 					}
 				}
 			}

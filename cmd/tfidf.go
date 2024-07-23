@@ -100,9 +100,7 @@ func tfidfSub(wg *sync.WaitGroup) {
 	defer wg.Done()
 	results = []string{}
 	filter := getFilter(regexpFilter)
-	if filter == nil {
-		filter = getSimpleFilter(simpleFilter)
-	}
+	filterS := getSimpleFilter(simpleFilter)
 	if tfidfTop > 0 {
 		tfidfThreshold = 1.0
 		tfidfCount = 1
@@ -127,9 +125,11 @@ func tfidfSub(wg *sync.WaitGroup) {
 			l := string(v)
 			lines++
 			if filter == nil || filter.MatchString(l) {
-				if not == nil || !not.MatchString(l) {
-					hit++
-					results = append(results, l)
+				if filterS == nil || filterS.MatchString(l) {
+					if not == nil || !not.MatchString(l) {
+						hit++
+						results = append(results, l)
+					}
 				}
 			}
 			if lines%100 == 0 {

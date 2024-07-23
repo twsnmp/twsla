@@ -82,9 +82,7 @@ func searchSub(wg *sync.WaitGroup) {
 	defer wg.Done()
 	results = []string{}
 	filter := getFilter(regexpFilter)
-	if filter == nil {
-		filter = getSimpleFilter(simpleFilter)
-	}
+	filterS := getSimpleFilter(simpleFilter)
 	not := getFilter(notFilter)
 	sti, eti := getTimeRange()
 	sk := fmt.Sprintf("%016x:", sti)
@@ -104,8 +102,10 @@ func searchSub(wg *sync.WaitGroup) {
 			l := string(v)
 			i++
 			if filter == nil || filter.MatchString(l) {
-				if not == nil || !not.MatchString(l) {
-					results = append(results, l)
+				if filterS == nil || filterS.MatchString(l) {
+					if not == nil || !not.MatchString(l) {
+						results = append(results, l)
+					}
 				}
 			}
 			if i%100 == 0 {

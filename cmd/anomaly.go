@@ -101,11 +101,9 @@ func anomalySub(wg *sync.WaitGroup) {
 	defer wg.Done()
 	results = []string{}
 	filter := getFilter(regexpFilter)
-	if filter == nil {
-		filter = getSimpleFilter(simpleFilter)
-	}
+	filterS := getSimpleFilter(simpleFilter)
 	not := getFilter(notFilter)
-	if filter == nil && anomalyMode == "number" && extract != "" {
+	if filter == nil && filterS == nil && anomalyMode == "number" && extract != "" {
 		filter = getSimpleFilter(extract)
 	}
 	sti, eti := getTimeRange()
@@ -125,10 +123,12 @@ func anomalySub(wg *sync.WaitGroup) {
 			l := string(v)
 			lines++
 			if filter == nil || filter.MatchString(l) {
-				if not == nil || !not.MatchString(l) {
-					hit++
-					results = append(results, l)
-					times = append(times, t)
+				if filterS == nil || filterS.MatchString(l) {
+					if not == nil || !not.MatchString(l) {
+						hit++
+						results = append(results, l)
+						times = append(times, t)
+					}
 				}
 			}
 			if lines%100 == 0 {
