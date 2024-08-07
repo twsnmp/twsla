@@ -15,6 +15,7 @@ Available Commands:
   anomaly     Anomaly log detection
   completion  Generate the autocompletion script for the specified shell
   count       Count log
+  delay       Search for delays in the access log
   extract     Extract data from log
   help        Help about any command
   import      Import log from source
