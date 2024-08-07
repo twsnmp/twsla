@@ -134,3 +134,38 @@ func SaveExtractChart(path string) {
 		graph.Render(chart.PNG, f)
 	}
 }
+
+func SaveDelayTimeChart(path string) {
+	x := []time.Time{}
+	y := []float64{}
+	for _, e := range delayList {
+		t := time.Unix(0, e.Time)
+		x = append(x, t)
+		y = append(y, float64(e.Delay))
+	}
+	graph := chart.Chart{
+		XAxis: chart.XAxis{
+			Name:           "Time",
+			ValueFormatter: chart.TimeValueFormatterWithFormat("01/02 15:04"),
+		},
+		YAxis: chart.YAxis{
+			Name: "Delay",
+			ValueFormatter: func(v interface{}) string {
+				if vf, isFloat := v.(float64); isFloat {
+					return fmt.Sprintf("%d", int64(vf))
+				}
+				return ""
+			},
+		},
+		Series: []chart.Series{
+			chart.TimeSeries{
+				XValues: x,
+				YValues: y,
+			},
+		},
+	}
+
+	if f, err := os.Create(path); err == nil {
+		graph.Render(chart.PNG, f)
+	}
+}
