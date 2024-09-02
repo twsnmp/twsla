@@ -44,6 +44,8 @@ var sshKey string
 var utc bool
 var jsonMode bool
 var apiMode bool
+var apiTLS bool
+var apiSkip bool
 var logType string
 
 var tg *timegrinder.TimeGrinder
@@ -88,6 +90,8 @@ func init() {
 	importCmd.Flags().BoolVar(&utc, "utc", false, "Force UTC")
 	importCmd.Flags().BoolVar(&jsonMode, "json", false, "Parse JSON windows evtx")
 	importCmd.Flags().BoolVar(&apiMode, "api", false, "TWSNMP FC API Mode")
+	importCmd.Flags().BoolVar(&apiTLS, "tls", false, "TWSNMP FC API TLS")
+	importCmd.Flags().BoolVar(&apiSkip, "skip", true, "TWSNMP FC API Skip Cert verify")
 	importCmd.Flags().StringVarP(&source, "source", "s", "", "Log source")
 	importCmd.Flags().StringVarP(&command, "command", "c", "", "SSH Command")
 	importCmd.Flags().StringVarP(&sshKey, "key", "k", "", "SSH Key")

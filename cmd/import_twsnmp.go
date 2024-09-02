@@ -19,6 +19,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -28,18 +29,27 @@ import (
 	"strings"
 	"time"
 
+	"github.com/twsnmp/twsnmpfc/client"
 	"github.com/viant/afs/scp"
 	"golang.org/x/crypto/ssh"
 )
 
 func importFromTWSNMP() {
+	if apiMode {
+		importFromTWSNMPByAPI()
+		return
+	}
+	importFromTWSNMPBySSH()
+}
+
+func importFromTWSNMPBySSH() {
 	st, et := getTimeRange()
-	for ct := st; ct > 0 && ct < et; {
-		ct = importFromTWSNMPSub(ct, et)
+	for ct := st; ct >= 0 && ct < et && !stopImport; {
+		ct = importFromTWSNMPSSHSub(ct, et)
 	}
 }
 
-func importFromTWSNMPSub(st, et int64) int64 {
+func importFromTWSNMPSSHSub(st, et int64) int64 {
 	if sshKey == "" {
 		sshKey = filepath.Join(os.Getenv("HOME"), ".ssh", "id_rsa")
 	} else if strings.HasPrefix(sshKey, "~/") {
@@ -87,7 +97,17 @@ func importFromTWSNMPSub(st, et int64) int64 {
 		return 0
 	}
 	defer session.Close()
-	cmd := fmt.Sprintf("get syslog %d 1000", st)
+	plog := false
+	cmd := fmt.Sprintf("get %s %d 1000", logType, st)
+	if strings.HasPrefix(logType, "polling:") {
+		tmp := strings.SplitN(logType, ":", 2)
+		if len(tmp) != 2 {
+			teaProg.Send(fmt.Errorf(""))
+			return 0
+		}
+		cmd = fmt.Sprintf("get plog %s csv", tmp[1])
+		plog = true
+	}
 	stdout, err := session.Output(cmd)
 	if err != nil {
 		teaProg.Send(err)
@@ -107,13 +127,28 @@ func importFromTWSNMPSub(st, et int64) int64 {
 			return 0
 		}
 		l := scanner.Text()
-		a := strings.SplitN(l, "\t", 2)
-		if len(a) != 2 {
-			continue
-		}
-		t, err := strconv.ParseInt(a[0], 10, 64)
-		if err != nil {
-			continue
+		var a []string
+		var t int64
+		if plog {
+			if strings.HasPrefix(l, "Time,") {
+				continue
+			}
+			ts, ok, _ := tg.Extract([]byte(l))
+			if !ok {
+				continue
+			}
+			t = ts.UnixNano()
+			a = append(a, "")
+			a = append(a, l)
+		} else {
+			a = strings.SplitN(l, "\t", 2)
+			if len(a) != 2 {
+				continue
+			}
+			t, err = strconv.ParseInt(a[0], 10, 64)
+			if err != nil {
+				continue
+			}
 		}
 		readBytes += int64(len(l))
 		totalBytes += int64(len(l))
@@ -132,9 +167,12 @@ func importFromTWSNMPSub(st, et int64) int64 {
 			skipLines++
 			continue
 		}
-		pl := parseTWSNMPLog(t, a[1])
-		if pl == "" {
-			pl = a[1]
+		pl := a[1]
+		if logType == "syslog" {
+			pl = parseTWSNMPSyslog(t, a[1])
+			if pl == "" {
+				pl = a[1]
+			}
 		}
 		logCh <- &LogEnt{
 			Time:  t,
@@ -164,7 +202,7 @@ func importFromTWSNMPSub(st, et int64) int64 {
 	return lastTime
 }
 
-func parseTWSNMPLog(t int64, l string) string {
+func parseTWSNMPSyslog(t int64, l string) string {
 	var sl = make(map[string]interface{})
 	if err := json.Unmarshal([]byte(l), &sl); err != nil {
 		return ""
@@ -257,4 +295,643 @@ func getSyslogType(sv, fac int) string {
 		r += "unknown"
 	}
 	return r
+}
+
+var ErrorNotSupportedLogType = errors.New("not supported log type")
+
+func importFromTWSNMPByAPI() {
+	if apiTLS {
+		source = strings.Replace(source, "twsnmp:", "https:", 1)
+	} else {
+		source = strings.Replace(source, "twsnmp:", "http:", 1)
+	}
+	u, err := url.Parse(source)
+	if err != nil {
+		teaProg.Send(err)
+		return
+	}
+	c := client.NewClient(fmt.Sprintf("%s://%s", u.Scheme, u.Host))
+	c.InsecureSkipVerify = apiSkip
+	c.Timeout = 60
+	userID := u.User.Username()
+	if userID == "" {
+		userID = "twsnmp"
+	}
+	passwd, ok := u.User.Password()
+	if !ok || passwd == "" {
+		passwd = "twsnmp"
+	}
+	err = c.Login(userID, passwd)
+	if err != nil {
+		teaProg.Send(err)
+		return
+	}
+	switch logType {
+	case "eventlog":
+		importEventLogFromTWSNMPByAPI(c)
+	case "trap":
+		importTrapFromTWSNMPByAPI(c)
+	case "syslog":
+		importSyslogFromTWSNMPByAPI(c)
+	case "netflow", "ipfix":
+		importNetFlowFromTWSNMPByAPI(c)
+	case "sflow":
+		importSFlowFromTWSNMPByAPI(c)
+	case "sflowCounter":
+		importSFlowCounterFromTWSNMPByAPI(c)
+	case "arp":
+		importArpLogFromTWSNMPByAPI(c)
+	default:
+		if strings.HasPrefix(logType, "polling") {
+			importPollingLogFromTWSNMPByAPI(c)
+			return
+		}
+		teaProg.Send(ErrorNotSupportedLogType)
+	}
+}
+
+func importEventLogFromTWSNMPByAPI(c *client.TWSNMPApi) {
+	st, et := getTimeRange()
+	f := &client.EventLogFilter{
+		StartDate: time.Unix(0, st).Format("2006-01-02"),
+		StartTime: time.Unix(0, st).Format("15:04"),
+		EndDate:   time.Unix(0, et).Format("2006-01-02"),
+		EndTime:   time.Unix(0, et).Format("15:04"),
+	}
+
+	hash := getSHA1(source)
+	lastTime := int64(0)
+	readBytes := int64(0)
+	readLines := 0
+	skipLines := 0
+	path := fmt.Sprintf("%s %s", source, logType)
+	r, err := c.GetEventLogs(f)
+	if err != nil {
+		teaProg.Send(err)
+		return
+	}
+	totalFiles++
+	for i, l := range r.EventLogs {
+		sl := fmt.Sprintf("%s %s '%s' %s", time.Unix(0, l.Time).Format(time.RFC3339Nano), l.Type, l.NodeName, l.Event)
+		readBytes += int64(len(sl))
+		totalBytes += int64(len(sl))
+		readLines++
+		totalLines++
+		if importFilter != nil && !importFilter.MatchString(sl) {
+			skipLines++
+			continue
+		}
+		d := 0
+		if lastTime > 0 {
+			d = int(l.Time - lastTime)
+		}
+		lastTime = l.Time
+		if st > l.Time || et < l.Time {
+			skipLines++
+			continue
+		}
+		logCh <- &LogEnt{
+			Time:  l.Time,
+			Log:   sl,
+			Hash:  hash,
+			Line:  readLines,
+			Delta: d,
+		}
+		if i%100 == 0 {
+			teaProg.Send(ImportMsg{
+				Done:  false,
+				Path:  path,
+				Bytes: readBytes,
+				Lines: readLines,
+				Skip:  skipLines,
+			})
+		}
+	}
+	teaProg.Send(ImportMsg{
+		Done:  true,
+		Path:  path,
+		Bytes: readBytes,
+		Lines: readLines,
+		Skip:  skipLines,
+	})
+}
+
+func importTrapFromTWSNMPByAPI(c *client.TWSNMPApi) {
+	st, et := getTimeRange()
+	f := &client.SnmpTrapFilter{
+		StartDate: time.Unix(0, st).Format("2006-01-02"),
+		StartTime: time.Unix(0, st).Format("15:04"),
+		EndDate:   time.Unix(0, et).Format("2006-01-02"),
+		EndTime:   time.Unix(0, et).Format("15:04"),
+	}
+
+	hash := getSHA1(source)
+	lastTime := int64(0)
+	readBytes := int64(0)
+	readLines := 0
+	skipLines := 0
+	path := fmt.Sprintf("%s %s", source, logType)
+	traps, err := c.GetSnmpTraps(f)
+	if err != nil {
+		teaProg.Send(err)
+		return
+	}
+	totalFiles++
+	for i, l := range traps {
+		sl := fmt.Sprintf("%s %s %s %s", time.Unix(0, l.Time).Format(time.RFC3339Nano), l.FromAddress, l.TrapType, l.Variables)
+		readBytes += int64(len(sl))
+		totalBytes += int64(len(sl))
+		readLines++
+		totalLines++
+		if importFilter != nil && !importFilter.MatchString(sl) {
+			skipLines++
+			continue
+		}
+		d := 0
+		if lastTime > 0 {
+			d = int(l.Time - lastTime)
+		}
+		lastTime = l.Time
+		if st > l.Time || et < l.Time {
+			skipLines++
+			continue
+		}
+		logCh <- &LogEnt{
+			Time:  l.Time,
+			Log:   sl,
+			Hash:  hash,
+			Line:  readLines,
+			Delta: d,
+		}
+		if i%100 == 0 {
+			teaProg.Send(ImportMsg{
+				Done:  false,
+				Path:  path,
+				Bytes: readBytes,
+				Lines: readLines,
+				Skip:  skipLines,
+			})
+		}
+	}
+	teaProg.Send(ImportMsg{
+		Done:  true,
+		Path:  path,
+		Bytes: readBytes,
+		Lines: readLines,
+		Skip:  skipLines,
+	})
+}
+
+func importSyslogFromTWSNMPByAPI(c *client.TWSNMPApi) {
+	st, et := getTimeRange()
+	f := &client.SyslogFilter{
+		NextTime: st,
+		Filter:   0,
+	}
+	hash := getSHA1(source)
+	lastTime := int64(0)
+	readBytes := int64(0)
+	readLines := 0
+	skipLines := 0
+	path := fmt.Sprintf("%s %s", source, logType)
+	for ct := st; ct >= 0 && ct < et; {
+		f.NextTime = ct
+		r, err := c.GetSyslogs(f)
+		if err != nil {
+			teaProg.Send(err)
+			return
+		}
+		totalFiles++
+		readBytes = int64(0)
+		readLines = 0
+		skipLines = 0
+		for _, l := range r.Logs {
+			sl := fmt.Sprintf("%s %s %s: %s", time.Unix(0, l.Time).Format(time.RFC3339Nano), l.Type, l.Tag, l.Message)
+			readBytes += int64(len(sl))
+			totalBytes += int64(len(sl))
+			readLines++
+			totalLines++
+			if importFilter != nil && !importFilter.MatchString(sl) {
+				skipLines++
+				continue
+			}
+			d := 0
+			if lastTime > 0 {
+				d = int(l.Time - lastTime)
+			}
+			lastTime = l.Time
+			if st > l.Time || et < l.Time {
+				skipLines++
+				continue
+			}
+			ct = l.Time
+			logCh <- &LogEnt{
+				Time:  l.Time,
+				Log:   sl,
+				Hash:  hash,
+				Line:  readLines,
+				Delta: d,
+			}
+		}
+		teaProg.Send(ImportMsg{
+			Done:  false,
+			Path:  path,
+			Bytes: readBytes,
+			Lines: readLines,
+			Skip:  skipLines,
+		})
+		if r.NextTime == 0 {
+			break
+		}
+	}
+	teaProg.Send(ImportMsg{
+		Done:  true,
+		Path:  path,
+		Bytes: readBytes,
+		Lines: readLines,
+		Skip:  skipLines,
+	})
+}
+
+func importNetFlowFromTWSNMPByAPI(c *client.TWSNMPApi) {
+	st, et := getTimeRange()
+	f := &client.NetflowFilter{
+		NextTime: st,
+		Filter:   0,
+	}
+	ipfix := logType == "ipfix"
+	hash := getSHA1(source)
+	lastTime := int64(0)
+	readBytes := int64(0)
+	readLines := 0
+	skipLines := 0
+	path := fmt.Sprintf("%s %s", source, logType)
+	for ct := st; ct >= 0 && ct < et; {
+		f.NextTime = ct
+		var err error
+		var r *client.NetflowWebAPI
+		if ipfix {
+			r, err = c.GetIPFIX(f)
+		} else {
+			r, err = c.GetNetFlow(f)
+		}
+		if err != nil {
+			teaProg.Send(err)
+			return
+		}
+		totalFiles++
+		readBytes = int64(0)
+		readLines = 0
+		skipLines = 0
+		for _, l := range r.Logs {
+			j, err := json.Marshal(&l)
+			if err != nil {
+				skipLines++
+				continue
+			}
+			sl := fmt.Sprintf("%s %s", time.Unix(0, l.Time).Format(time.RFC3339Nano), string(j))
+			readBytes += int64(len(sl))
+			totalBytes += int64(len(sl))
+			readLines++
+			totalLines++
+			if importFilter != nil && !importFilter.MatchString(sl) {
+				skipLines++
+				continue
+			}
+			d := 0
+			if lastTime > 0 {
+				d = int(l.Time - lastTime)
+			}
+			lastTime = l.Time
+			if st > l.Time || et < l.Time {
+				skipLines++
+				continue
+			}
+			ct = l.Time
+			logCh <- &LogEnt{
+				Time:  l.Time,
+				Log:   sl,
+				Hash:  hash,
+				Line:  readLines,
+				Delta: d,
+			}
+		}
+		teaProg.Send(ImportMsg{
+			Done:  false,
+			Path:  path,
+			Bytes: readBytes,
+			Lines: readLines,
+			Skip:  skipLines,
+		})
+		if r.NextTime == 0 {
+			break
+		}
+	}
+	teaProg.Send(ImportMsg{
+		Done:  true,
+		Path:  path,
+		Bytes: readBytes,
+		Lines: readLines,
+		Skip:  skipLines,
+	})
+}
+
+// TODO: clientパッケージ側の修正が必要
+func importSFlowFromTWSNMPByAPI(c *client.TWSNMPApi) {
+	st, et := getTimeRange()
+	f := &client.SFlowFilter{
+		NextTime: st,
+		Filter:   0,
+	}
+	hash := getSHA1(source)
+	lastTime := int64(0)
+	readBytes := int64(0)
+	readLines := 0
+	skipLines := 0
+	path := fmt.Sprintf("%s %s", source, logType)
+	for ct := st; ct >= 0 && ct < et; {
+		f.NextTime = ct
+		r, err := c.GetSFlow(f)
+		if err != nil {
+			teaProg.Send(err)
+			return
+		}
+		totalFiles++
+		readBytes = int64(0)
+		readLines = 0
+		skipLines = 0
+		for _, l := range r.Logs {
+			j, err := json.Marshal(&l)
+			if err != nil {
+				skipLines++
+				continue
+			}
+			sl := fmt.Sprintf("%s %s", time.Unix(0, l.Time).Format(time.RFC3339Nano), string(j))
+			readBytes += int64(len(sl))
+			totalBytes += int64(len(sl))
+			readLines++
+			totalLines++
+			if importFilter != nil && !importFilter.MatchString(sl) {
+				skipLines++
+				continue
+			}
+			d := 0
+			if lastTime > 0 {
+				d = int(l.Time - lastTime)
+			}
+			lastTime = l.Time
+			if st > l.Time || et < l.Time {
+				skipLines++
+				continue
+			}
+			ct = l.Time
+			logCh <- &LogEnt{
+				Time:  l.Time,
+				Log:   sl,
+				Hash:  hash,
+				Line:  readLines,
+				Delta: d,
+			}
+		}
+		teaProg.Send(ImportMsg{
+			Done:  false,
+			Path:  path,
+			Bytes: readBytes,
+			Lines: readLines,
+			Skip:  skipLines,
+		})
+		if r.NextTime == 0 {
+			break
+		}
+	}
+	teaProg.Send(ImportMsg{
+		Done:  true,
+		Path:  path,
+		Bytes: readBytes,
+		Lines: readLines,
+		Skip:  skipLines,
+	})
+}
+
+func importSFlowCounterFromTWSNMPByAPI(c *client.TWSNMPApi) {
+	st, et := getTimeRange()
+	f := &client.SFlowCounterFilter{
+		NextTime: st,
+		Filter:   0,
+	}
+	hash := getSHA1(source)
+	lastTime := int64(0)
+	readBytes := int64(0)
+	readLines := 0
+	skipLines := 0
+	path := fmt.Sprintf("%s %s", source, logType)
+	for ct := st; ct >= 0 && ct < et; {
+		f.NextTime = ct
+		r, err := c.GetSFlowCounter(f)
+		if err != nil {
+			teaProg.Send(err)
+			return
+		}
+		totalFiles++
+		readBytes = int64(0)
+		readLines = 0
+		skipLines = 0
+		for _, l := range r.Logs {
+			j, err := json.Marshal(&l)
+			if err != nil {
+				skipLines++
+				continue
+			}
+			sl := fmt.Sprintf("%s %s", time.Unix(0, l.Time).Format(time.RFC3339Nano), string(j))
+			readBytes += int64(len(sl))
+			totalBytes += int64(len(sl))
+			readLines++
+			totalLines++
+			if importFilter != nil && !importFilter.MatchString(sl) {
+				skipLines++
+				continue
+			}
+			d := 0
+			if lastTime > 0 {
+				d = int(l.Time - lastTime)
+			}
+			lastTime = l.Time
+			if st > l.Time || et < l.Time {
+				skipLines++
+				continue
+			}
+			ct = l.Time
+			logCh <- &LogEnt{
+				Time:  l.Time,
+				Log:   sl,
+				Hash:  hash,
+				Line:  readLines,
+				Delta: d,
+			}
+		}
+		teaProg.Send(ImportMsg{
+			Done:  false,
+			Path:  path,
+			Bytes: readBytes,
+			Lines: readLines,
+			Skip:  skipLines,
+		})
+		if r.NextTime == 0 {
+			break
+		}
+	}
+	teaProg.Send(ImportMsg{
+		Done:  true,
+		Path:  path,
+		Bytes: readBytes,
+		Lines: readLines,
+		Skip:  skipLines,
+	})
+}
+
+func importArpLogFromTWSNMPByAPI(c *client.TWSNMPApi) {
+	st, et := getTimeRange()
+	f := &client.ArpFilter{
+		StartDate: time.Unix(0, st).Format("2006-01-02"),
+		StartTime: time.Unix(0, st).Format("15:04"),
+		EndDate:   time.Unix(0, et).Format("2006-01-02"),
+		EndTime:   time.Unix(0, et).Format("15:04"),
+	}
+
+	hash := getSHA1(source)
+	lastTime := int64(0)
+	readBytes := int64(0)
+	readLines := 0
+	skipLines := 0
+	path := fmt.Sprintf("%s %s", source, logType)
+	arpLogs, err := c.GetArpLogs(f)
+	if err != nil {
+		teaProg.Send(err)
+		return
+	}
+	totalFiles++
+	for i, l := range arpLogs {
+		j, err := json.Marshal(&l)
+		if err != nil {
+			skipLines++
+			continue
+		}
+		sl := fmt.Sprintf("%s %s", time.Unix(0, l.Time).Format(time.RFC3339Nano), string(j))
+		readBytes += int64(len(sl))
+		totalBytes += int64(len(sl))
+		readLines++
+		totalLines++
+		if importFilter != nil && !importFilter.MatchString(sl) {
+			skipLines++
+			continue
+		}
+		d := 0
+		if lastTime > 0 {
+			d = int(l.Time - lastTime)
+		}
+		lastTime = l.Time
+		if st > l.Time || et < l.Time {
+			skipLines++
+			continue
+		}
+		logCh <- &LogEnt{
+			Time:  l.Time,
+			Log:   sl,
+			Hash:  hash,
+			Line:  readLines,
+			Delta: d,
+		}
+		if i%100 == 0 {
+			teaProg.Send(ImportMsg{
+				Done:  false,
+				Path:  path,
+				Bytes: readBytes,
+				Lines: readLines,
+				Skip:  skipLines,
+			})
+		}
+	}
+	teaProg.Send(ImportMsg{
+		Done:  true,
+		Path:  path,
+		Bytes: readBytes,
+		Lines: readLines,
+		Skip:  skipLines,
+	})
+}
+
+func importPollingLogFromTWSNMPByAPI(c *client.TWSNMPApi) {
+	a := strings.SplitN(logType, ":", 2)
+	if len(a) != 2 {
+		teaProg.Send(fmt.Errorf("no polling id"))
+		return
+	}
+	st, et := getTimeRange()
+	f := &client.TimeFilter{
+		StartDate: time.Unix(0, st).Format("2006-01-02"),
+		StartTime: time.Unix(0, st).Format("15:04"),
+		EndDate:   time.Unix(0, et).Format("2006-01-02"),
+		EndTime:   time.Unix(0, et).Format("15:04"),
+	}
+
+	hash := getSHA1(source)
+	lastTime := int64(0)
+	readBytes := int64(0)
+	readLines := 0
+	skipLines := 0
+	path := fmt.Sprintf("%s %s", source, logType)
+	logs, err := c.GetPollingLogs(a[1], f)
+	if err != nil {
+		teaProg.Send(err)
+		return
+	}
+	totalFiles++
+	for i, l := range logs {
+		j, err := json.Marshal(&l)
+		if err != nil {
+			skipLines++
+			continue
+		}
+		sl := fmt.Sprintf("%s %s", time.Unix(0, l.Time).Format(time.RFC3339Nano), string(j))
+		readBytes += int64(len(sl))
+		totalBytes += int64(len(sl))
+		readLines++
+		totalLines++
+		if importFilter != nil && !importFilter.MatchString(sl) {
+			skipLines++
+			continue
+		}
+		d := 0
+		if lastTime > 0 {
+			d = int(l.Time - lastTime)
+		}
+		lastTime = l.Time
+		if st > l.Time || et < l.Time {
+			skipLines++
+			continue
+		}
+		logCh <- &LogEnt{
+			Time:  l.Time,
+			Log:   sl,
+			Hash:  hash,
+			Line:  readLines,
+			Delta: d,
+		}
+		if i%100 == 0 {
+			teaProg.Send(ImportMsg{
+				Done:  false,
+				Path:  path,
+				Bytes: readBytes,
+				Lines: readLines,
+				Skip:  skipLines,
+			})
+		}
+	}
+	teaProg.Send(ImportMsg{
+		Done:  true,
+		Path:  path,
+		Bytes: readBytes,
+		Lines: readLines,
+		Skip:  skipLines,
+	})
 }
