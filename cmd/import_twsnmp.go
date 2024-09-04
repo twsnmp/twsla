@@ -636,7 +636,6 @@ func importNetFlowFromTWSNMPByAPI(c *client.TWSNMPApi) {
 	})
 }
 
-// TODO: clientパッケージ側の修正が必要
 func importSFlowFromTWSNMPByAPI(c *client.TWSNMPApi) {
 	st, et := getTimeRange()
 	f := &client.SFlowFilter{
