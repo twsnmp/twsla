@@ -21,6 +21,7 @@ Available Commands:
   import      Import log from source
   search      Search logs.
   tfidf       Log analysis using TF-IDF
+  twsnmp      Get information and logs from TWSNMP FC
   version     Show twsla version
 
 Flags:
