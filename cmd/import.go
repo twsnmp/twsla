@@ -91,7 +91,7 @@ func init() {
 	importCmd.Flags().BoolVar(&jsonMode, "json", false, "Parse JSON windows evtx")
 	importCmd.Flags().BoolVar(&apiMode, "api", false, "TWSNMP FC API Mode")
 	importCmd.Flags().BoolVar(&apiTLS, "tls", false, "TWSNMP FC API TLS")
-	importCmd.Flags().BoolVar(&apiSkip, "skip", true, "TWSNMP FC API Skip Cert verify")
+	importCmd.Flags().BoolVar(&apiSkip, "skip", true, "TWSNMP FC API skip verify certificate")
 	importCmd.Flags().StringVarP(&source, "source", "s", "", "Log source")
 	importCmd.Flags().StringVarP(&command, "command", "c", "", "SSH Command")
 	importCmd.Flags().StringVarP(&sshKey, "key", "k", "", "SSH Key")

@@ -36,7 +36,8 @@ var twsnmpCmd = &cobra.Command{
 	Use:   "twsnmp [target]",
 	Short: "Get information and logs from TWSNMP FC",
 	Long: `Get information adn logs from TWSNMP FC
-[taget] is node|polling|eventlog|syslog|trap|netflow|ipfix|sflow|sflowCounter|arplog|pollingLog`,
+[taget] is node | polling | eventlog | syslog | trap |
+  netflow | ipfix | sflow |sflowCounter | arplog | pollingLog`,
 	Args: func(cmd *cobra.Command, args []string) error {
 		// Optionally run one of the validators provided by cobra
 		if err := cobra.MinimumNArgs(1)(cmd, args); err != nil {
@@ -103,7 +104,7 @@ var twsnmpCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(twsnmpCmd)
 	twsnmpCmd.Flags().BoolVar(&jsonOut, "jsonOut", false, "output json format")
-	twsnmpCmd.Flags().BoolVar(&checkCert, "checkCert", true, "TWSNMP FC API Skip Cert verify")
+	twsnmpCmd.Flags().BoolVar(&checkCert, "checkCert", false, "TWSNMP FC API verify certificate")
 	twsnmpCmd.Flags().StringVar(&twsnmp, "twsnmp", "http://localhost:8080", "TWSNMP FC URL")
 
 }
