@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -57,8 +58,11 @@ Simple filters, regular expression filters, and exclusion filters can be specifi
 	},
 }
 
+var colorMode string
+
 func init() {
 	rootCmd.AddCommand(searchCmd)
+	searchCmd.Flags().StringVarP(&colorMode, "color", "c", "", "Color mode")
 }
 
 func searchMain() {
@@ -78,11 +82,69 @@ func searchMain() {
 	wg.Wait()
 }
 
+type colorMapEnt struct {
+	Reg   *regexp.Regexp
+	Style lipgloss.Style
+}
+
 func searchSub(wg *sync.WaitGroup) {
 	defer wg.Done()
 	results = []string{}
 	filter := getFilter(regexpFilter)
 	filterS := getSimpleFilter(simpleFilter)
+	colorList := []*colorMapEnt{}
+	for _, cm := range strings.Split(colorMode, ",") {
+		switch {
+		case cm == "filter":
+			if filter != nil {
+				colorList = append(colorList, &colorMapEnt{
+					Reg:   filter,
+					Style: lipgloss.NewStyle().Foreground(lipgloss.Color("9")),
+				})
+			}
+			if filterS != nil {
+				colorList = append(colorList, &colorMapEnt{
+					Reg:   filterS,
+					Style: lipgloss.NewStyle().Foreground(lipgloss.Color("5")),
+				})
+			}
+		case cm == "ip":
+			colorList = append(colorList, &colorMapEnt{
+				Reg:   regexpIP,
+				Style: lipgloss.NewStyle().Foreground(lipgloss.Color("10")),
+			})
+		case cm == "mac":
+			colorList = append(colorList, &colorMapEnt{
+				Reg:   regexpMAC,
+				Style: lipgloss.NewStyle().Foreground(lipgloss.Color("11")),
+			})
+		case cm == "email":
+			colorList = append(colorList, &colorMapEnt{
+				Reg:   regexpEMail,
+				Style: lipgloss.NewStyle().Foreground(lipgloss.Color("12")),
+			})
+		case cm == "url":
+			colorList = append(colorList, &colorMapEnt{
+				Reg:   regexpURL,
+				Style: lipgloss.NewStyle().Foreground(lipgloss.Color("14")),
+			})
+		case cm == "kv":
+			colorList = append(colorList, &colorMapEnt{
+				Reg:   regexpKV,
+				Style: lipgloss.NewStyle().Foreground(lipgloss.Color("3")),
+			})
+		case strings.HasPrefix(cm, "regex/"):
+			{
+				a := strings.SplitN(cm, "/", 3)
+				if len(a) == 3 {
+					colorList = append(colorList, &colorMapEnt{
+						Reg:   regexp.MustCompile(a[1]),
+						Style: lipgloss.NewStyle().Foreground(lipgloss.Color(a[2])),
+					})
+				}
+			}
+		}
+	}
 	not := getFilter(notFilter)
 	sti, eti := getTimeRange()
 	sk := fmt.Sprintf("%016x:", sti)
@@ -104,6 +166,11 @@ func searchSub(wg *sync.WaitGroup) {
 			if filter == nil || filter.MatchString(l) {
 				if filterS == nil || filterS.MatchString(l) {
 					if not == nil || !not.MatchString(l) {
+						for _, c := range colorList {
+							l = c.Reg.ReplaceAllStringFunc(l, func(s string) string {
+								return c.Style.Render(s)
+							})
+						}
 						results = append(results, l)
 					}
 				}
