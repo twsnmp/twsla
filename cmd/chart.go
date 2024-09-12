@@ -29,7 +29,7 @@ func SaveCountTimeChart(path string) {
 	x := []time.Time{}
 	y := []float64{}
 	for _, e := range countList {
-		if t, err := time.Parse("2006/01/02 15:04", e.Key); err == nil {
+		if t, err := time.ParseInLocation("2006/01/02 15:04", e.Key, time.Local); err == nil {
 			x = append(x, t)
 			y = append(y, float64(e.Count))
 		}
