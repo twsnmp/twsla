@@ -135,11 +135,18 @@ func searchSub(wg *sync.WaitGroup) {
 			})
 		case strings.HasPrefix(cm, "regex/"):
 			{
-				a := strings.SplitN(cm, "/", 3)
-				if len(a) == 3 {
+				a := strings.Split(cm, "/")
+				if len(a) > 2 {
+					p := ""
+					for i := 1; i < len(a)-1; i++ {
+						if p != "" {
+							p += "/"
+						}
+						p += a[i]
+					}
 					colorList = append(colorList, &colorMapEnt{
-						Reg:   regexp.MustCompile(a[1]),
-						Style: lipgloss.NewStyle().Foreground(lipgloss.Color(a[2])),
+						Reg:   regexp.MustCompile(p),
+						Style: lipgloss.NewStyle().Foreground(lipgloss.Color(a[len(a)-1])),
 					})
 				}
 			}

@@ -95,6 +95,40 @@ func SaveCountChart(path string) {
 	}
 }
 
+func SaveRelationChart(path string) {
+	sort.Slice(relationList, func(i, j int) bool {
+		return relationList[i].Count > relationList[j].Count
+	})
+	value := []chart.Value{}
+	other := 0
+	for i, e := range relationList {
+		if i < 10 {
+			value = append(value, chart.Value{
+				Value: float64(e.Count),
+				Label: fmt.Sprintf("%s(%d)", e.Key, e.Count),
+			})
+		} else {
+			other += e.Count
+		}
+	}
+	if other > 0 {
+		value = append(value, chart.Value{
+			Value: float64(other),
+			Label: fmt.Sprintf("Other(%d)", other),
+		})
+	}
+	graph := chart.PieChart{
+		Height:     512,
+		Width:      512,
+		Values:     value,
+		SliceStyle: chart.Style{FontSize: 8.0},
+	}
+
+	if f, err := os.Create(path); err == nil {
+		graph.Render(chart.PNG, f)
+	}
+}
+
 func SaveExtractChart(path string) {
 	x := []time.Time{}
 	y := []float64{}
