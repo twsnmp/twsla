@@ -17,12 +17,14 @@ package cmd
 
 import (
 	"os"
+	"sort"
 	"time"
 
 	"github.com/go-echarts/go-echarts/v2/charts"
 	"github.com/go-echarts/go-echarts/v2/opts"
 )
 
+// SaveCountTimeECharts is save counter time chart by go-echarts
 func SaveCountTimeECharts(path string) {
 	items := []opts.LineData{}
 	for _, e := range countList {
@@ -40,5 +42,36 @@ func SaveCountTimeECharts(path string) {
 
 	if f, err := os.Create(path); err == nil {
 		line.Render(f)
+	}
+}
+
+func SaveCountECharts(path string) {
+	sort.Slice(countList, func(i, j int) bool {
+		return countList[i].Count > countList[j].Count
+	})
+	items := make([]opts.PieData, 0)
+	other := 0
+	for i, e := range countList {
+		if i < 10 {
+			items = append(items, opts.PieData{Name: e.Key, Value: e.Count})
+		} else {
+			other += e.Count
+		}
+	}
+	if other > 0 {
+		items = append(items, opts.PieData{Name: "Other", Value: other})
+	}
+
+	pie := charts.NewPie()
+	var f = false
+	pie.SetGlobalOptions(
+		charts.WithLegendOpts(opts.Legend{Show: &f}),
+		charts.WithTitleOpts(opts.Title{
+			Title: "TWSLA Log count",
+		}),
+	)
+	pie.AddSeries("Count", items)
+	if f, err := os.Create(path); err == nil {
+		pie.Render(f)
 	}
 }

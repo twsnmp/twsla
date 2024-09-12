@@ -410,6 +410,8 @@ func saveCountFile(path string) {
 	case ".html", ".htm":
 		if timeMode {
 			SaveCountTimeECharts(path)
+		} else {
+			SaveCountECharts(path)
 		}
 	default:
 		saveCountCSVFile(path)
