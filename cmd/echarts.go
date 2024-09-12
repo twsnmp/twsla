@@ -63,9 +63,8 @@ func SaveCountECharts(path string) {
 	}
 
 	pie := charts.NewPie()
-	var f = false
 	pie.SetGlobalOptions(
-		charts.WithLegendOpts(opts.Legend{Show: &f}),
+		charts.WithLegendOpts(opts.Legend{Show: opts.Bool(false)}),
 		charts.WithTitleOpts(opts.Title{
 			Title: "TWSLA Log count",
 		}),
