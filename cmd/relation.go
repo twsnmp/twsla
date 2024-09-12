@@ -421,6 +421,8 @@ func saveReleationFile(path string) {
 	switch ext {
 	case ".png":
 		SaveRelationChart(path)
+	case ".html":
+		SaveRelationECharts(path)
 	default:
 		saveRelationCSVFile(path)
 	}

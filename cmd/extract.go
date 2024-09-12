@@ -356,6 +356,8 @@ func saveExtractFile(path string) {
 	switch ext {
 	case ".png":
 		SaveExtractChart(path)
+	case ".html", "htm":
+		SaveExtractECharts(path)
 	default:
 		saveExtractCSVFile(path)
 	}

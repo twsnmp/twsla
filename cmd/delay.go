@@ -368,11 +368,15 @@ func (m delayModel) headerView() string {
 func saveDelayFile(path string) {
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
-	case ".png":
+	case ".png", ".html", ".htm":
 		sort.Slice(delayList, func(i, j int) bool {
 			return delayList[i].Time < delayList[j].Time
 		})
-		SaveDelayTimeChart(path)
+		if ext == ".png" {
+			SaveDelayTimeChart(path)
+		} else {
+			SaveDelayTimeECharts(path)
+		}
 	default:
 		saveDelayTSVFile(path)
 	}

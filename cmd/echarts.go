@@ -18,6 +18,7 @@ package cmd
 import (
 	"os"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/go-echarts/go-echarts/v2/charts"
@@ -36,6 +37,7 @@ func SaveCountTimeECharts(path string) {
 	line.SetGlobalOptions(
 		charts.WithXAxisOpts(opts.XAxis{Name: "time", Type: "time"}, 0),
 		charts.WithTitleOpts(opts.Title{Title: "TWSLA Count"}),
+		charts.WithDataZoomOpts(opts.DataZoom{}),
 	)
 	line.SetXAxis(nil).
 		AddSeries("Count", items)
@@ -72,5 +74,91 @@ func SaveCountECharts(path string) {
 	pie.AddSeries("Count", items)
 	if f, err := os.Create(path); err == nil {
 		pie.Render(f)
+	}
+}
+
+func SaveRelationECharts(path string) {
+	nodeMap := make(map[string]bool)
+	nodes := []opts.GraphNode{}
+	links := []opts.GraphLink{}
+	graph := charts.NewGraph()
+	for _, e := range relationList {
+		for i, v := range e.Values {
+			if _, ok := nodeMap[v]; !ok {
+				nodeMap[v] = true
+				nodes = append(nodes, opts.GraphNode{
+					Name:      v,
+					ItemStyle: &opts.ItemStyle{Color: graph.Colors[i%10]},
+				})
+			}
+			if i > 0 {
+				links = append(links, opts.GraphLink{
+					Source: e.Values[i-1],
+					Target: e.Values[i],
+				})
+			}
+		}
+	}
+	graph.SetGlobalOptions(
+		charts.WithLegendOpts(opts.Legend{Show: opts.Bool(false)}),
+		charts.WithTitleOpts(opts.Title{Title: "TWSLA relation graph"}),
+	)
+	graph.AddSeries("graph", nodes, links,
+		charts.WithGraphChartOpts(opts.GraphChart{
+			Layout:             "circular",
+			Roam:               opts.Bool(true),
+			FocusNodeAdjacency: opts.Bool(true),
+		}),
+		charts.WithLabelOpts(opts.Label{Show: opts.Bool(true), Position: "right"}),
+	)
+	if f, err := os.Create(path); err == nil {
+		graph.Render(f)
+	}
+}
+
+func SaveExtractECharts(path string) {
+	items := []opts.LineData{}
+	line := charts.NewLine()
+	line.SetGlobalOptions(
+		charts.WithXAxisOpts(opts.XAxis{Name: "time", Type: "time"}, 0),
+		charts.WithTitleOpts(opts.Title{Title: "TWSLA Extract"}),
+		charts.WithDataZoomOpts(opts.DataZoom{}),
+	)
+
+	i := 1.0
+	cat := make(map[string]float64)
+	for _, e := range extractList {
+		v, err := strconv.ParseFloat(e.Value, 64)
+		if err != nil {
+			var ok bool
+			v, ok = cat[e.Value]
+			if !ok {
+				v = i
+				cat[e.Value] = i
+				i += 1.0
+			}
+		}
+		items = append(items, opts.LineData{Value: []interface{}{e.Time / (1000 * 1000), v}})
+	}
+	line.SetXAxis(nil).AddSeries(nameExtract, items)
+	if f, err := os.Create(path); err == nil {
+		line.Render(f)
+	}
+}
+
+func SaveDelayTimeECharts(path string) {
+	items := []opts.LineData{}
+	line := charts.NewLine()
+	line.SetGlobalOptions(
+		charts.WithXAxisOpts(opts.XAxis{Name: "time", Type: "time"}, 0),
+		charts.WithTitleOpts(opts.Title{Title: "TWSLA Extract"}),
+		charts.WithDataZoomOpts(opts.DataZoom{}),
+	)
+	for _, e := range delayList {
+		items = append(items, opts.LineData{Value: []interface{}{e.Time / (1000 * 1000), e.Delay}})
+	}
+	line.SetXAxis(nil).AddSeries("Count", items)
+	if f, err := os.Create(path); err == nil {
+		line.Render(f)
 	}
 }
