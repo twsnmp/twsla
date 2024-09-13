@@ -162,3 +162,54 @@ func SaveDelayTimeECharts(path string) {
 		line.Render(f)
 	}
 }
+
+var weekDays = []string{"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"}
+
+var dayHrs = [...]string{
+	"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11",
+	"12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23",
+}
+
+func saveHeatmapECharts(path string) {
+	items := make([]opts.HeatMapData, 0)
+	max := 10
+	for _, r := range heatmapList {
+		items = append(items, opts.HeatMapData{Value: [3]interface{}{r.X, r.Y, r.Count}})
+		if max < r.Count {
+			max = r.Count
+		}
+	}
+	xAxis := dateList
+	if week {
+		xAxis = weekDays
+	}
+	hm := charts.NewHeatMap()
+	hm.SetGlobalOptions(
+		charts.WithLegendOpts(opts.Legend{Show: opts.Bool(false)}),
+		charts.WithTitleOpts(opts.Title{
+			Title: "TWSLA Heatmap",
+		}),
+		charts.WithXAxisOpts(opts.XAxis{
+			Type:      "category",
+			Data:      xAxis,
+			SplitArea: &opts.SplitArea{Show: opts.Bool(true)},
+		}),
+		charts.WithYAxisOpts(opts.YAxis{
+			Type:      "category",
+			Data:      dayHrs,
+			SplitArea: &opts.SplitArea{Show: opts.Bool(true)},
+		}),
+		charts.WithVisualMapOpts(opts.VisualMap{
+			Calculable: opts.Bool(true),
+			Min:        0,
+			Max:        float32(max),
+			InRange: &opts.VisualMapInRange{
+				Color: []string{"#50a3ba", "#eac736", "#d94e5d"},
+			},
+		}),
+	)
+	hm.AddSeries("heatmap", items)
+	if f, err := os.Create(path); err == nil {
+		hm.Render(f)
+	}
+}
