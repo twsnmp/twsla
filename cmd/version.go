@@ -21,8 +21,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var version string
-var commit string
+var Version string
+var Commit string
+var Date string
 
 // versionCmd represents the version command
 var versionCmd = &cobra.Command{
@@ -30,7 +31,7 @@ var versionCmd = &cobra.Command{
 	Short: "Show twsla version",
 	Long:  `Show twsla version`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("twsla %s(%s)\n", version, commit)
+		fmt.Printf("twsla %s(%s) %s\n", Version, Commit, Date)
 	},
 }
 
