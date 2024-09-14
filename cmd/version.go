@@ -31,7 +31,7 @@ var versionCmd = &cobra.Command{
 	Short: "Show twsla version",
 	Long:  `Show twsla version`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("twsla %s(%s) %s\n", Version, Commit, Date)
+		fmt.Printf("twsla v%s(%s) %s\n", Version, Commit, Date)
 	},
 }
 
