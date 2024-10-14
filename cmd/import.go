@@ -38,6 +38,7 @@ import (
 )
 
 var source string
+var sources []string
 var command string
 var filePat string
 var sshKey string
@@ -81,6 +82,10 @@ var importCmd = &cobra.Command{
 source is file | dir | scp | ssh | twsnmp
 `,
 	Run: func(cmd *cobra.Command, args []string) {
+		if source != "" {
+			sources = append(sources, source)
+		}
+		sources = append(sources, args...)
 		importMain()
 	},
 }
@@ -123,6 +128,14 @@ func importMain() {
 
 func importSub(wg *sync.WaitGroup) {
 	defer wg.Done()
+	for _, src := range sources {
+		source = src
+		importOne()
+	}
+	teaProg.Send(ImportMsg{Done: true})
+}
+
+func importOne() {
 	switch getSourceType() {
 	case "file":
 		importFromFile(source)
@@ -138,7 +151,6 @@ func importSub(wg *sync.WaitGroup) {
 		teaProg.Send(fmt.Errorf("invalid source"))
 		return
 	}
-	teaProg.Send(ImportMsg{Done: true})
 }
 
 func getSourceType() string {
