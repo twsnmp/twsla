@@ -117,7 +117,7 @@ func extractSub(wg *sync.WaitGroup) {
 				if filterS == nil || filterS.MatchString(l) {
 					if not == nil || !not.MatchString(l) {
 						a := extPat.ExtReg.FindAllStringSubmatch(l, -1)
-						if len(a) >= extPat.Index {
+						if len(a) >= extPat.Index && len(a[extPat.Index-1]) > 1 {
 							extractList = append(extractList, extractEnt{Time: t, Value: a[extPat.Index-1][1]})
 							hit++
 						}
@@ -246,6 +246,11 @@ func (m extractModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						})
 					} else {
 						sort.Slice(extractList, func(i, j int) bool {
+							if v1, err := strconv.ParseFloat(extractList[i].Value, 64); err == nil {
+								if v2, err := strconv.ParseFloat(extractList[j].Value, 64); err == nil {
+									return v1 < v2
+								}
+							}
 							return extractList[i].Value < extractList[j].Value
 						})
 					}
