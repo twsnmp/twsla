@@ -15,13 +15,18 @@ limitations under the License.
 */
 package main
 
-import "github.com/twsnmp/twsla/cmd"
+import (
+	"github.com/mattn/go-runewidth"
+	"github.com/twsnmp/twsla/cmd"
+)
 
 var version = "v0.0.0"
 var commit = "commit"
 var date = ""
 
 func main() {
+	runewidth.EastAsianWidth = false
+	runewidth.DefaultCondition.EastAsianWidth = false
 	cmd.Version = version
 	cmd.Commit = commit
 	cmd.Date = date
