@@ -48,6 +48,7 @@ var anomalyCmd = &cobra.Command{
 	Detection modes include walu, SQL injection, OS command injections, and directory traverses.
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
+		setupFilter(args)
 		anomalyMain()
 	},
 }
@@ -100,11 +101,8 @@ var times = []int64{}
 func anomalySub(wg *sync.WaitGroup) {
 	defer wg.Done()
 	results = []string{}
-	filter := getFilter(regexpFilter)
-	filterS := getSimpleFilter(simpleFilter)
-	not := getFilter(notFilter)
-	if filter == nil && filterS == nil && anomalyMode == "number" && extract != "" {
-		filter = getSimpleFilter(extract)
+	if len(filterList) == 0 && anomalyMode == "number" && extract != "" {
+		filterList = append(filterList, getSimpleFilter(extract))
 	}
 	sti, eti := getTimeRange()
 	sk := fmt.Sprintf("%016x:", sti)
@@ -122,14 +120,10 @@ func anomalySub(wg *sync.WaitGroup) {
 			}
 			l := string(v)
 			lines++
-			if filter == nil || filter.MatchString(l) {
-				if filterS == nil || filterS.MatchString(l) {
-					if not == nil || !not.MatchString(l) {
-						hit++
-						results = append(results, l)
-						times = append(times, t)
-					}
-				}
+			if matchFilter(&l) {
+				hit++
+				results = append(results, l)
+				times = append(times, t)
 			}
 			if lines%100 == 0 {
 				teaProg.Send(anomalyMsg{Phase: "Search", Lines: lines, Hit: hit, Dur: time.Since(st)})

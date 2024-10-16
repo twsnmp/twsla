@@ -55,6 +55,7 @@ such as the relationship between an IP address and a MAC address.
 data entry is ip | mac | email | url | regex/<pattern>/<color> 
 `,
 	Run: func(cmd *cobra.Command, args []string) {
+		fargs := []string{}
 		for _, e := range args {
 			switch {
 			case strings.HasPrefix(e, "ip"):
@@ -87,7 +88,7 @@ data entry is ip | mac | email | url | regex/<pattern>/<color>
 					Reg:   regexpKV,
 					Index: getRelationEntIndex(e),
 				})
-			case strings.HasPrefix(e, "regex/"):
+			case strings.HasPrefix(e, "regex/") || strings.HasPrefix(e, "regexp/"):
 				{
 					a := strings.Split(e, "/")
 					if len(a) > 2 {
@@ -105,8 +106,11 @@ data entry is ip | mac | email | url | regex/<pattern>/<color>
 						})
 					}
 				}
+			default:
+				fargs = append(fargs, e)
 			}
 		}
+		setupFilter(fargs)
 		if len(relationCheckList) < 2 {
 			log.Fatalln("you have to specify data entry.")
 		}
@@ -158,9 +162,6 @@ var relationList = []*relationEnt{}
 func relationSub(wg *sync.WaitGroup) {
 	var relationMap = make(map[string]*relationEnt)
 	defer wg.Done()
-	filter := getFilter(regexpFilter)
-	filterS := getSimpleFilter(simpleFilter)
-	not := getFilter(notFilter)
 	sti, eti := getTimeRange()
 	sk := fmt.Sprintf("%016x:", sti)
 	i := 0
@@ -179,31 +180,27 @@ func relationSub(wg *sync.WaitGroup) {
 			}
 			l := string(v)
 			i++
-			if filter == nil || filter.MatchString(l) {
-				if filterS == nil || filterS.MatchString(l) {
-					if not == nil || !not.MatchString(l) {
-						var vals = []string{}
-						for _, r := range relationCheckList {
-							a := r.Reg.FindAllString(l, -1)
-							if len(a) < r.Index+1 {
-								break
-							}
-							vals = append(vals, a[r.Index])
-						}
-						if len(vals) != len(relationCheckList) {
-							continue
-						}
-						hit++
-						key := strings.Join(vals, "\t")
-						if e, ok := relationMap[key]; ok {
-							e.Count++
-						} else {
-							relationMap[key] = &relationEnt{
-								Key:    key,
-								Values: vals,
-								Count:  1,
-							}
-						}
+			if matchFilter(&l) {
+				var vals = []string{}
+				for _, r := range relationCheckList {
+					a := r.Reg.FindAllString(l, -1)
+					if len(a) < r.Index+1 {
+						break
+					}
+					vals = append(vals, a[r.Index])
+				}
+				if len(vals) != len(relationCheckList) {
+					continue
+				}
+				hit++
+				key := strings.Join(vals, "\t")
+				if e, ok := relationMap[key]; ok {
+					e.Count++
+				} else {
+					relationMap[key] = &relationEnt{
+						Key:    key,
+						Values: vals,
+						Count:  1,
 					}
 				}
 			}

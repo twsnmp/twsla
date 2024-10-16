@@ -44,6 +44,7 @@ var heatmapCmd = &cobra.Command{
 	Long: `Command to tally log counts by day of the week and time of day
 	Aggregate by date mode is also available.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		setupFilter(args)
 		heatmapMain()
 	},
 }
@@ -87,9 +88,6 @@ func heatmapSub(wg *sync.WaitGroup) {
 	var heatmapMap = make(map[string]*heapmapEnt)
 	var dateMap = make(map[string]bool)
 	defer wg.Done()
-	filter := getFilter(regexpFilter)
-	filterS := getSimpleFilter(simpleFilter)
-	not := getFilter(notFilter)
 	sti, eti := getTimeRange()
 	sk := fmt.Sprintf("%016x:", sti)
 	if timeMode && nameCount == "Key" {
@@ -111,39 +109,35 @@ func heatmapSub(wg *sync.WaitGroup) {
 			}
 			l := string(v)
 			i++
-			if filter == nil || filter.MatchString(l) {
-				if filterS == nil || filterS.MatchString(l) {
-					if not == nil || !not.MatchString(l) {
-						ih := t / (3600 * 1000 * 1000 * 1000)
-						th := time.Unix(3600*ih, 0)
-						k := ""
-						x := 0
-						if week {
-							w := th.Weekday()
-							k = w.String()
-							x = int(w)
-						} else {
-							k = th.Format("2006/01/02")
-							if _, ok := dateMap[k]; !ok {
-								dateMap[k] = true
-								dateList = append(dateList, k)
-							}
-							x = len(dateList) - 1
-						}
-						hit++
-						h := th.Hour()
-						key := fmt.Sprintf("%s:%d", k, h)
-						if e, ok := heatmapMap[key]; ok {
-							e.Count++
-						} else {
-							heatmapMap[key] = &heapmapEnt{
-								Key:   k,
-								TimeH: h,
-								X:     x,
-								Y:     h,
-								Count: 1,
-							}
-						}
+			if matchFilter(&l) {
+				ih := t / (3600 * 1000 * 1000 * 1000)
+				th := time.Unix(3600*ih, 0)
+				k := ""
+				x := 0
+				if week {
+					w := th.Weekday()
+					k = w.String()
+					x = int(w)
+				} else {
+					k = th.Format("2006/01/02")
+					if _, ok := dateMap[k]; !ok {
+						dateMap[k] = true
+						dateList = append(dateList, k)
+					}
+					x = len(dateList) - 1
+				}
+				hit++
+				h := th.Hour()
+				key := fmt.Sprintf("%s:%d", k, h)
+				if e, ok := heatmapMap[key]; ok {
+					e.Count++
+				} else {
+					heatmapMap[key] = &heapmapEnt{
+						Key:   k,
+						TimeH: h,
+						X:     x,
+						Y:     h,
+						Count: 1,
 					}
 				}
 			}

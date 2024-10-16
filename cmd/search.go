@@ -48,12 +48,13 @@ type SearchMsg struct {
 
 // searchCmd represents the search command
 var searchCmd = &cobra.Command{
-	Use:   "search",
+	Use:   "search [simple filter...]",
 	Short: "Search logs.",
 	Long: `Search logs.
 Simple filters, regular expression filters, and exclusion filters can be specified.
 `,
 	Run: func(cmd *cobra.Command, args []string) {
+		setupFilter(args)
 		searchMain()
 	},
 }
@@ -90,23 +91,23 @@ type colorMapEnt struct {
 func searchSub(wg *sync.WaitGroup) {
 	defer wg.Done()
 	results = []string{}
-	filter := getFilter(regexpFilter)
-	filterS := getSimpleFilter(simpleFilter)
 	colorList := []*colorMapEnt{}
 	for _, cm := range strings.Split(colorMode, ",") {
 		switch {
 		case cm == "filter":
-			if filter != nil {
-				colorList = append(colorList, &colorMapEnt{
-					Reg:   filter,
-					Style: lipgloss.NewStyle().Foreground(lipgloss.Color("9")),
-				})
-			}
-			if filterS != nil {
-				colorList = append(colorList, &colorMapEnt{
-					Reg:   filterS,
-					Style: lipgloss.NewStyle().Foreground(lipgloss.Color("5")),
-				})
+			for i, f := range filterList {
+				if i == 0 && regexpFilter != "" {
+					colorList = append(colorList, &colorMapEnt{
+						Reg:   f,
+						Style: lipgloss.NewStyle().Foreground(lipgloss.Color("9")),
+					})
+				} else {
+					colorList = append(colorList, &colorMapEnt{
+						Reg:   f,
+						Style: lipgloss.NewStyle().Foreground(lipgloss.Color("5")),
+					})
+
+				}
 			}
 		case cm == "ip":
 			colorList = append(colorList, &colorMapEnt{
@@ -152,7 +153,6 @@ func searchSub(wg *sync.WaitGroup) {
 			}
 		}
 	}
-	not := getFilter(notFilter)
 	sti, eti := getTimeRange()
 	sk := fmt.Sprintf("%016x:", sti)
 	i := 0
@@ -170,17 +170,13 @@ func searchSub(wg *sync.WaitGroup) {
 			}
 			l := string(v)
 			i++
-			if filter == nil || filter.MatchString(l) {
-				if filterS == nil || filterS.MatchString(l) {
-					if not == nil || !not.MatchString(l) {
-						for _, c := range colorList {
-							l = c.Reg.ReplaceAllStringFunc(l, func(s string) string {
-								return c.Style.Render(s)
-							})
-						}
-						results = append(results, l)
-					}
+			if matchFilter(&l) {
+				for _, c := range colorList {
+					l = c.Reg.ReplaceAllStringFunc(l, func(s string) string {
+						return c.Style.Render(s)
+					})
 				}
+				results = append(results, l)
 			}
 			if i%100 == 0 {
 				teaProg.Send(SearchMsg{Lines: i, Hit: len(results), Dur: time.Since(st)})

@@ -208,3 +208,45 @@ var regexpMAC = regexp.MustCompile(`[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}
 var regexpEMail = regexp.MustCompile(`[a-zA-Z0-9_.+-]+@[a-zA-Z0-9_.+-]+`)
 var regexpURL = regexp.MustCompile(`https?://[\w!?/+\-_~;.,*&@#$%()'[\]]+`)
 var regexpKV = regexp.MustCompile(`\w+=\w+[ ,]?`)
+
+// Filters
+
+var filterList []*regexp.Regexp
+var notFilterList []*regexp.Regexp
+
+func setupFilter(args []string) {
+	filterList = []*regexp.Regexp{}
+	notFilterList = []*regexp.Regexp{}
+	if regexpFilter != "" {
+		filterList = append(filterList, getFilter(regexpFilter))
+	}
+	if simpleFilter != "" {
+		filterList = append(filterList, getSimpleFilter(simpleFilter))
+	}
+	for _, s := range args {
+		if s != "" {
+			if strings.HasPrefix(s, "^") {
+				notFilterList = append(notFilterList, getSimpleFilter(s[1:]))
+			} else {
+				filterList = append(filterList, getSimpleFilter(s))
+			}
+		}
+	}
+	if notFilter != "" {
+		notFilterList = append(notFilterList, getFilter(notFilter))
+	}
+}
+
+func matchFilter(l *string) bool {
+	for _, f := range filterList {
+		if !f.MatchString(*l) {
+			return false
+		}
+	}
+	for _, f := range notFilterList {
+		if f.MatchString(*l) {
+			return false
+		}
+	}
+	return true
+}

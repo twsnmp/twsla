@@ -46,6 +46,7 @@ Numeric data, IP addresses, MAC addresses, email addresses
 words, etc. can be extracted.
 `,
 	Run: func(cmd *cobra.Command, args []string) {
+		setupFilter(args)
 		extractMain()
 	},
 }
@@ -88,9 +89,6 @@ var extractList = []extractEnt{}
 
 func extractSub(wg *sync.WaitGroup) {
 	defer wg.Done()
-	filter := getFilter(regexpFilter)
-	filterS := getSimpleFilter(simpleFilter)
-	not := getFilter(notFilter)
 	extPat := getExtPat()
 	if extPat == nil {
 		log.Fatalln("no extract pattern")
@@ -113,15 +111,11 @@ func extractSub(wg *sync.WaitGroup) {
 			}
 			l := string(v)
 			i++
-			if filter == nil || filter.MatchString(l) {
-				if filterS == nil || filterS.MatchString(l) {
-					if not == nil || !not.MatchString(l) {
-						a := extPat.ExtReg.FindAllStringSubmatch(l, -1)
-						if len(a) >= extPat.Index && len(a[extPat.Index-1]) > 1 {
-							extractList = append(extractList, extractEnt{Time: t, Value: a[extPat.Index-1][1]})
-							hit++
-						}
-					}
+			if matchFilter(&l) {
+				a := extPat.ExtReg.FindAllStringSubmatch(l, -1)
+				if len(a) >= extPat.Index && len(a[extPat.Index-1]) > 1 {
+					extractList = append(extractList, extractEnt{Time: t, Value: a[extPat.Index-1][1]})
+					hit++
 				}
 			}
 			if i%100 == 0 {

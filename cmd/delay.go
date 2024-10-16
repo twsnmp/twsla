@@ -43,6 +43,7 @@ var delayCmd = &cobra.Command{
 	Short: "Search for delays in the access log",
 	Long:  `Search for delays in the access log`,
 	Run: func(cmd *cobra.Command, args []string) {
+		setupFilter(args)
 		delayMain()
 	},
 }
@@ -90,9 +91,6 @@ var delayList = []delayEnt{}
 func delaySub(wg *sync.WaitGroup) {
 	defer wg.Done()
 	results = []string{}
-	filter := getFilter(regexpFilter)
-	filterS := getSimpleFilter(simpleFilter)
-	not := getFilter(notFilter)
 	sti, eti := getTimeRange()
 	sk := fmt.Sprintf("%016x:", sti)
 	var err error
@@ -137,18 +135,14 @@ func delaySub(wg *sync.WaitGroup) {
 			}
 			l := string(v)
 			lines++
-			if filter == nil || filter.MatchString(l) {
-				if filterS == nil || filterS.MatchString(l) {
-					if not == nil || !not.MatchString(l) {
-						results = append(results, l)
-						delayList = append(delayList, delayEnt{
-							Log:   hit,
-							Time:  t,
-							Delay: -d / (1000 * 1000 * 1000),
-						})
-						hit++
-					}
-				}
+			if matchFilter(&l) {
+				results = append(results, l)
+				delayList = append(delayList, delayEnt{
+					Log:   hit,
+					Time:  t,
+					Delay: -d / (1000 * 1000 * 1000),
+				})
+				hit++
 			}
 			if lines%100 == 0 {
 				teaProg.Send(delayMsg{Lines: lines, Hit: hit, Dur: time.Since(st)})

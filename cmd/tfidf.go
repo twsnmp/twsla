@@ -50,6 +50,7 @@ var tfidfCmd = &cobra.Command{
 You can specify a similarity threshold and the number of times the threshold is allowed to be exceeded.
 `,
 	Run: func(cmd *cobra.Command, args []string) {
+		setupFilter(args)
 		tfidfMain()
 	},
 }
@@ -99,13 +100,10 @@ var tfidfList = []tfidfEnt{}
 func tfidfSub(wg *sync.WaitGroup) {
 	defer wg.Done()
 	results = []string{}
-	filter := getFilter(regexpFilter)
-	filterS := getSimpleFilter(simpleFilter)
 	if tfidfTop > 0 {
 		tfidfThreshold = 1.0
 		tfidfCount = 1
 	}
-	not := getFilter(notFilter)
 	sti, eti := getTimeRange()
 	sk := fmt.Sprintf("%016x:", sti)
 	lines := 0
@@ -124,13 +122,9 @@ func tfidfSub(wg *sync.WaitGroup) {
 			}
 			l := string(v)
 			lines++
-			if filter == nil || filter.MatchString(l) {
-				if filterS == nil || filterS.MatchString(l) {
-					if not == nil || !not.MatchString(l) {
-						hit++
-						results = append(results, l)
-					}
-				}
+			if matchFilter(&l) {
+				hit++
+				results = append(results, l)
 			}
 			if lines%100 == 0 {
 				teaProg.Send(tfidfMsg{Phase: "Search", Lines: lines, Hit: hit, Dur: time.Since(st)})
