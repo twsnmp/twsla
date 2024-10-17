@@ -335,6 +335,13 @@ func (m relationModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.table.SetWidth(msg.Width - 6)
 		m.table.SetHeight(msg.Height - 6)
+		w := m.table.Width() - 4
+		columns := []table.Column{}
+		for _, e := range relationCheckList {
+			columns = append(columns, table.Column{Title: e.Name, Width: (w * 9) / (len(relationCheckList) * 10)})
+		}
+		columns = append(columns, table.Column{Title: "Count", Width: w / 10})
+		m.table.SetColumns(columns)
 	case SearchMsg:
 		if msg.Done {
 			w := m.table.Width() - 4

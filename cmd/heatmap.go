@@ -283,6 +283,22 @@ func (m heatmapModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.table.SetWidth(msg.Width - 6)
 		m.table.SetHeight(msg.Height - 6)
+		w := m.table.Width() - 4
+		if week {
+			columns := []table.Column{
+				{Title: "Weekday", Width: 6 * w / 10},
+				{Title: "Hour", Width: 2 * w / 10},
+				{Title: "Count", Width: 2 * w / 10},
+			}
+			m.table.SetColumns(columns)
+		} else {
+			columns := []table.Column{
+				{Title: "Date", Width: 6 * w / 10},
+				{Title: "Hour", Width: 2 * w / 10},
+				{Title: "Count", Width: 2 * w / 10},
+			}
+			m.table.SetColumns(columns)
+		}
 	case SearchMsg:
 		if msg.Done {
 			w := m.table.Width() - 4

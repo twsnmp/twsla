@@ -323,6 +323,14 @@ func (m tfidfModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.table.SetWidth(msg.Width - 6)
 		m.table.SetHeight(msg.Height - 6)
+		w := m.table.Width() - 6
+		columns := []table.Column{
+			{Title: "Log", Width: 7 * w / 10},
+			{Title: "Min", Width: 1 * w / 10},
+			{Title: "Mean", Width: 1 * w / 10},
+			{Title: "Max", Width: 1 * w / 10},
+		}
+		m.table.SetColumns(columns)
 	case tfidfMsg:
 		if msg.Done {
 			w := m.table.Width() - 6

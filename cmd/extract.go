@@ -269,6 +269,14 @@ func (m extractModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.table.SetWidth(msg.Width - 6)
 		m.table.SetHeight(msg.Height - 6)
+		w := m.table.Width() - 8
+		columns := []table.Column{
+			{Title: "Time", Width: 3 * w / 10},
+			{Title: nameExtract, Width: 5 * w / 10},
+			{Title: "Delta", Width: 1 * w / 10},
+			{Title: "PS", Width: 1 * w / 10},
+		}
+		m.table.SetColumns(columns)
 	case SearchMsg:
 		if msg.Done {
 			w := m.table.Width() - 8

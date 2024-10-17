@@ -295,6 +295,22 @@ func (m countModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.table.SetWidth(msg.Width - 6)
 		m.table.SetHeight(msg.Height - 6)
+		w := m.table.Width() - 4
+		if timeMode {
+			w -= 2
+			columns := []table.Column{
+				{Title: nameCount, Width: 5 * w / 10},
+				{Title: "Count", Width: 3 * w / 10},
+				{Title: "Delta", Width: 2 * w / 10},
+			}
+			m.table.SetColumns(columns)
+		} else {
+			columns := []table.Column{
+				{Title: nameCount, Width: 7 * w / 10},
+				{Title: "Count", Width: 3 * w / 10},
+			}
+			m.table.SetColumns(columns)
+		}
 	case SearchMsg:
 		if msg.Done {
 			w := m.table.Width() - 4

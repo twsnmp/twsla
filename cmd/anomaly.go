@@ -273,6 +273,12 @@ func (m anomalyModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.table.SetWidth(msg.Width - 6)
 		m.table.SetHeight(msg.Height - 6)
+		w := m.table.Width() - 4
+		columns := []table.Column{
+			{Title: "Log", Width: 9 * w / 10},
+			{Title: "Score", Width: 1 * w / 10},
+		}
+		m.table.SetColumns(columns)
 	case anomalyMsg:
 		if msg.Done {
 			w := m.table.Width() - 4
