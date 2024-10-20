@@ -213,3 +213,22 @@ func saveHeatmapECharts(path string) {
 		hm.Render(f)
 	}
 }
+
+func SaveDeltaTimeECharts(path string) {
+	y := []opts.LineData{}
+	line := charts.NewLine()
+	line.SetGlobalOptions(
+		charts.WithXAxisOpts(opts.XAxis{Name: "time", Type: "time"}, 0),
+		charts.WithTitleOpts(opts.Title{Title: "TWSLA Delta Time"}),
+		charts.WithDataZoomOpts(opts.DataZoom{}),
+		charts.WithYAxisOpts(opts.YAxis{Name: "Delta(Sec)", Type: "value"}, 0),
+	)
+	for _, e := range timeList {
+		y = append(y, opts.LineData{Value: []interface{}{e.Time / (1000 * 1000), e.Delta}, YAxisIndex: 1})
+	}
+	line.SetXAxis(nil)
+	line.AddSeries("Delta", y)
+	if f, err := os.Create(path); err == nil {
+		line.Render(f)
+	}
+}

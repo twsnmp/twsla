@@ -203,3 +203,46 @@ func SaveDelayTimeChart(path string) {
 		graph.Render(chart.PNG, f)
 	}
 }
+
+func SaveDeltaTimeChart(path string) {
+	x := []time.Time{}
+	y := []float64{}
+	for _, e := range timeList {
+		t := time.Unix(0, e.Time)
+		x = append(x, t)
+		y = append(y, float64(e.Delta))
+	}
+	graph := chart.Chart{
+		XAxis: chart.XAxis{
+			Name: "Time",
+			NameStyle: chart.Style{
+				FontSize: 8,
+			},
+			ValueFormatter: chart.TimeValueFormatterWithFormat("01/02 15:04"),
+			Style:          chart.Style{FontSize: 6},
+		},
+		YAxis: chart.YAxis{
+			Name: "Delta",
+			NameStyle: chart.Style{
+				FontSize: 8,
+			},
+			ValueFormatter: func(v interface{}) string {
+				if vf, isFloat := v.(float64); isFloat {
+					return (time.Duration(int64(vf*1000)) * time.Millisecond).String()
+				}
+				return ""
+			},
+			Style: chart.Style{FontSize: 6, Padding: chart.Box{Top: 0, Left: 10, IsSet: false}},
+		},
+		Series: []chart.Series{
+			chart.TimeSeries{
+				YAxis:   chart.YAxisPrimary,
+				XValues: x,
+				YValues: y,
+			},
+		},
+	}
+	if f, err := os.Create(path); err == nil {
+		graph.Render(chart.PNG, f)
+	}
+}

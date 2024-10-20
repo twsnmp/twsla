@@ -16,7 +16,6 @@ limitations under the License.
 package main
 
 import (
-	"github.com/mattn/go-runewidth"
 	"github.com/twsnmp/twsla/cmd"
 )
 
@@ -25,8 +24,6 @@ var commit = "commit"
 var date = ""
 
 func main() {
-	runewidth.EastAsianWidth = false
-	runewidth.DefaultCondition.EastAsianWidth = false
 	cmd.Version = version
 	cmd.Commit = commit
 	cmd.Date = date
