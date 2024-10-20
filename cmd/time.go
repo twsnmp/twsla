@@ -179,10 +179,6 @@ func (m timeModel) Init() tea.Cmd {
 	return m.spinner.Tick
 }
 
-var markStyle = lipgloss.NewStyle().
-	Foreground(lipgloss.Color("#FAFAFA")).
-	Background(lipgloss.Color("#c00000"))
-
 var timeRows = []table.Row{}
 
 func (m timeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {

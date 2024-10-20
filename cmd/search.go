@@ -60,6 +60,8 @@ Simple filters, regular expression filters, and exclusion filters can be specifi
 }
 
 var colorMode string
+var marker string
+var colorList = []*colorMapEnt{}
 
 func init() {
 	rootCmd.AddCommand(searchCmd)
@@ -90,8 +92,42 @@ type colorMapEnt struct {
 
 func searchSub(wg *sync.WaitGroup) {
 	defer wg.Done()
+	makeColorList()
 	results = []string{}
-	colorList := []*colorMapEnt{}
+	sti, eti := getTimeRange()
+	sk := fmt.Sprintf("%016x:", sti)
+	i := 0
+	db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket([]byte("logs"))
+		c := b.Cursor()
+		for k, v := c.Seek([]byte(sk)); k != nil; k, v = c.Next() {
+			a := strings.Split(string(k), ":")
+			if len(a) < 1 {
+				continue
+			}
+			t, err := strconv.ParseInt(a[0], 16, 64)
+			if err == nil && t > eti {
+				break
+			}
+			l := string(v)
+			i++
+			if matchFilter(&l) {
+				results = append(results, l)
+			}
+			if i%100 == 0 {
+				teaProg.Send(SearchMsg{Lines: i, Hit: len(results), Dur: time.Since(st)})
+			}
+			if stopSearch {
+				break
+			}
+		}
+		return nil
+	})
+	teaProg.Send(SearchMsg{Done: true, Lines: i, Hit: len(results), Dur: time.Since(st)})
+}
+
+func makeColorList() {
+	colorList = []*colorMapEnt{}
 	for _, cm := range strings.Split(colorMode, ",") {
 		switch {
 		case cm == "filter":
@@ -153,64 +189,68 @@ func searchSub(wg *sync.WaitGroup) {
 			}
 		}
 	}
-	sti, eti := getTimeRange()
-	sk := fmt.Sprintf("%016x:", sti)
-	i := 0
-	db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket([]byte("logs"))
-		c := b.Cursor()
-		for k, v := c.Seek([]byte(sk)); k != nil; k, v = c.Next() {
-			a := strings.Split(string(k), ":")
-			if len(a) < 1 {
-				continue
-			}
-			t, err := strconv.ParseInt(a[0], 16, 64)
-			if err == nil && t > eti {
-				break
-			}
-			l := string(v)
-			i++
-			if matchFilter(&l) {
-				for _, c := range colorList {
-					l = c.Reg.ReplaceAllStringFunc(l, func(s string) string {
-						return c.Style.Render(s)
-					})
-				}
-				results = append(results, l)
-			}
-			if i%100 == 0 {
-				teaProg.Send(SearchMsg{Lines: i, Hit: len(results), Dur: time.Since(st)})
-			}
-			if stopSearch {
-				break
-			}
+}
+
+func getColoredResults() []string {
+	r := []string{}
+	var markerReg *regexp.Regexp
+	if strings.HasPrefix(marker, "regex:") {
+		a := strings.SplitN(marker, ":", 2)
+		markerReg = getFilter(a[1])
+	} else {
+		markerReg = getSimpleFilter(marker)
+	}
+	for _, l := range results {
+		for _, c := range colorList {
+			l = c.Reg.ReplaceAllStringFunc(l, func(s string) string {
+				return c.Style.Render(s)
+			})
 		}
-		return nil
-	})
-	teaProg.Send(SearchMsg{Done: true, Lines: i, Hit: len(results), Dur: time.Since(st)})
+		if markerReg != nil {
+			l = markerReg.ReplaceAllStringFunc(l, func(s string) string {
+				return markStyle.Render(s)
+			})
+		}
+		r = append(r, l)
+	}
+	return r
 }
 
 type searchModel struct {
-	spinner   spinner.Model
-	viewport  viewport.Model
-	done      bool
-	ready     bool
-	quitting  bool
-	msg       SearchMsg
-	save      bool
-	textInput textinput.Model
+	spinner        spinner.Model
+	viewport       viewport.Model
+	done           bool
+	ready          bool
+	quitting       bool
+	msg            SearchMsg
+	save           bool
+	saveInput      textinput.Model
+	color          bool
+	colorModeInput textinput.Model
+	marker         bool
+	markerInput    textinput.Model
 }
 
 func initSearchModel() searchModel {
 	s := spinner.New()
 	s.Spinner = spinner.Line
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#00efff"))
-	ti := textinput.New()
-	ti.Placeholder = "save file name"
-	ti.Focus()
-	ti.CharLimit = 156
-	ti.Width = 20
-	return searchModel{spinner: s, textInput: ti}
+	sti := textinput.New()
+	sti.Placeholder = "save file name"
+	sti.Focus()
+	sti.CharLimit = 156
+	sti.Width = 20
+	cti := textinput.New()
+	cti.Placeholder = "color mode"
+	cti.Focus()
+	cti.CharLimit = 256
+	cti.Width = 40
+	mti := textinput.New()
+	mti.Placeholder = "mark key word"
+	mti.Focus()
+	mti.CharLimit = 256
+	mti.Width = 40
+	return searchModel{spinner: s, saveInput: sti, colorModeInput: cti, markerInput: mti}
 }
 
 func (m searchModel) Init() tea.Cmd {
@@ -220,6 +260,12 @@ func (m searchModel) Init() tea.Cmd {
 func (m searchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.save {
 		return m.SaveUpdate(msg)
+	}
+	if m.color {
+		return m.ColorUpdate(msg)
+	}
+	if m.marker {
+		return m.MarkerUpdate(msg)
 	}
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -236,17 +282,29 @@ func (m searchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.save = true
 			}
 			return m, nil
+		case "c", "C":
+			if m.done {
+				m.colorModeInput.SetValue(colorMode)
+				m.color = true
+			}
+			return m, nil
+		case "m", "M":
+			if m.done {
+				m.markerInput.SetValue(marker)
+				m.marker = true
+			}
+			return m, nil
 		case "r":
 			if m.done {
 				for i, j := 0, len(results)-1; i < j; i, j = i+1, j-1 {
 					results[i], results[j] = results[j], results[i]
 				}
-				m.viewport.SetContent(strings.Join(results, "\n"))
+				m.viewport.SetContent(strings.Join(getColoredResults(), "\n"))
 			}
 			return m, nil
 		case "d":
 			if m.done {
-				m.viewport.SetContent(strings.Join(results, "\n"))
+				m.viewport.SetContent(strings.Join(getColoredResults(), "\n"))
 			}
 			return m, nil
 		default:
@@ -260,7 +318,7 @@ func (m searchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.ready = true
 			m.viewport = viewport.New(msg.Width, msg.Height-headerHeight)
 			m.viewport.YPosition = headerHeight + 1
-			m.viewport.SetContent(strings.Join(results, "\n"))
+			m.viewport.SetContent(strings.Join(getColoredResults(), "\n"))
 		} else {
 			m.viewport.Width = msg.Width
 			m.viewport.Height = msg.Height - headerHeight
@@ -268,7 +326,7 @@ func (m searchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case SearchMsg:
 		if msg.Done {
 			if m.ready {
-				m.viewport.SetContent(strings.Join(results, "\n"))
+				m.viewport.SetContent(strings.Join(getColoredResults(), "\n"))
 			}
 			m.done = true
 		}
@@ -293,7 +351,7 @@ func (m searchModel) SaveUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEnter:
-			saveSearchFile(m.textInput.Value())
+			saveSearchFile(m.saveInput.Value())
 			m.save = false
 			return m, nil
 		case tea.KeyCtrlC, tea.KeyEsc:
@@ -301,13 +359,63 @@ func (m searchModel) SaveUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 	}
-	m.textInput, cmd = m.textInput.Update(msg)
+	m.saveInput, cmd = m.saveInput.Update(msg)
+	return m, cmd
+}
+
+func (m searchModel) ColorUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyEnter:
+			colorMode = m.colorModeInput.Value()
+			m.color = false
+			makeColorList()
+			m.viewport.SetContent(strings.Join(getColoredResults(), "\n"))
+			return m, nil
+		case tea.KeyCtrlC, tea.KeyEsc:
+			m.color = false
+			return m, nil
+		}
+	}
+	m.colorModeInput, _ = m.colorModeInput.Update(msg)
+	m.markerInput, cmd = m.markerInput.Update(msg)
+	return m, cmd
+}
+
+func (m searchModel) MarkerUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyEnter:
+			marker = m.markerInput.Value()
+			m.marker = false
+			makeColorList()
+			m.viewport.SetContent(strings.Join(getColoredResults(), "\n"))
+			return m, nil
+		case tea.KeyCtrlC, tea.KeyEsc:
+			m.marker = false
+			return m, nil
+		}
+	}
+	m.colorModeInput, _ = m.colorModeInput.Update(msg)
+	m.markerInput, cmd = m.markerInput.Update(msg)
 	return m, cmd
 }
 
 func (m searchModel) View() string {
 	if m.save {
-		return fmt.Sprintf("Save file name?\n\n%s\n\n%s", m.textInput.View(), "(esc to quit)") + "\n"
+		return fmt.Sprintf("Save file name?\n\n%s\n\n%s", m.saveInput.View(), "(esc to quit)") + "\n"
+	}
+	if m.color {
+		return fmt.Sprintf("Color Map Mode?\n\n%s\n\n%s", m.colorModeInput.View(), "(esc to quit)") + "\n"
+	}
+	if m.marker {
+		return fmt.Sprintf("Marker?\n\n%s\n\n%s", m.markerInput.View(), "(esc to quit)") + "\n"
 	}
 	if m.done {
 		return fmt.Sprintf("%s\n%s", m.headerView(), m.viewport.View())
@@ -327,7 +435,7 @@ func (m searchModel) View() string {
 func (m searchModel) headerView() string {
 	title := titleStyle.Render(fmt.Sprintf("Results %d/%d s:%s", m.msg.Hit, m.msg.Lines, m.msg.Dur.Truncate(time.Millisecond)))
 	info := infoStyle.Render(fmt.Sprintf("%3.f%%", m.viewport.ScrollPercent()*100))
-	help := helpStyle("s: Save / r: Reverse / q : Quit") + "  "
+	help := helpStyle("s: Save / r: Reverse / m: Marker / c: Color / q : Quit") + "  "
 	gap := strings.Repeat(" ", max(0, m.viewport.Width-lipgloss.Width(title)-lipgloss.Width(info)-lipgloss.Width(help)))
 	return lipgloss.JoinHorizontal(lipgloss.Center, title, gap, help, info)
 }

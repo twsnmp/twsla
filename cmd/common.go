@@ -63,6 +63,10 @@ var baseStyle = lipgloss.NewStyle().
 	BorderStyle(lipgloss.NormalBorder()).
 	BorderForeground(lipgloss.Color("240"))
 
+var markStyle = lipgloss.NewStyle().
+	Foreground(lipgloss.Color("#FAFAFA")).
+	Background(lipgloss.Color("#c00000"))
+
 // openDB : open bbolt DB
 func openDB() error {
 	var err error
