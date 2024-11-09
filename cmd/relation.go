@@ -288,6 +288,18 @@ func (m relationModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 			stopSearch = true
 			return m, nil
+		case "g":
+			if m.done {
+				p := filepath.Join(chartTmp, "relation.png")
+				SaveRelationChart(p)
+				openChart(p)
+			}
+		case "h":
+			if m.done {
+				p := filepath.Join(chartTmp, "relation.html")
+				SaveRelationECharts(p)
+				openChart(p)
+			}
 		case "s":
 			if m.done {
 				m.save = true
@@ -415,7 +427,7 @@ func (m relationModel) View() string {
 func (m relationModel) headerView() string {
 	ms := fmt.Sprintf(" m:%.3f", mean)
 	title := titleStyle.Render(fmt.Sprintf("Results %d/%d/%d s:%v%s", len(relationList), m.msg.Hit, m.msg.Lines, m.msg.Dur.Truncate(time.Millisecond), ms))
-	help := helpStyle("s: Save / c,0-9: Sort / q : Quit") + "  "
+	help := helpStyle("s: Save / c,0-9: Sort / g|h: Chart / q : Quit") + "  "
 	gap := strings.Repeat(" ", max(0, m.table.Width()-lipgloss.Width(title)-lipgloss.Width(help)))
 	return lipgloss.JoinHorizontal(lipgloss.Center, title, gap, help)
 }

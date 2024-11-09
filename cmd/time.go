@@ -195,6 +195,18 @@ func (m timeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 			stopSearch = true
 			return m, nil
+		case "h":
+			if m.done {
+				p := filepath.Join(chartTmp, "deltaTime.html")
+				SaveDeltaTimeECharts(p)
+				openChart(p)
+			}
+		case "g":
+			if m.done {
+				p := filepath.Join(chartTmp, "deltaTime.png")
+				SaveDeltaTimeChart(p)
+				openChart(p)
+			}
 		case "s":
 			if m.done {
 				m.save = true
@@ -387,7 +399,7 @@ func (m timeModel) View() string {
 
 func (m timeModel) headerView() string {
 	title := titleStyle.Render(fmt.Sprintf("Results %d/%d s:%s", m.msg.Hit, m.msg.Lines, m.msg.Dur.Truncate(time.Millisecond)))
-	help := helpStyle("enter: Show / m: Mark / s: Save / t|d|l: Sort / q : Quit") + "  "
+	help := helpStyle("enter: Show / m: Mark / s: Save / t|d|l: Sort / g|h: Chart / q : Quit") + "  "
 	gap := strings.Repeat(" ", max(0, m.table.Width()-lipgloss.Width(title)-lipgloss.Width(help)))
 	return lipgloss.JoinHorizontal(lipgloss.Center, title, gap, help)
 }

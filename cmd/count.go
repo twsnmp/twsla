@@ -247,6 +247,30 @@ func (m countModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.save = true
 			}
 			return m, nil
+		case "h":
+			if m.done {
+				if timeMode {
+					p := filepath.Join(chartTmp, "countTime.html")
+					SaveCountTimeECharts(p)
+					openChart(p)
+				} else {
+					p := filepath.Join(chartTmp, "count.html")
+					SaveCountECharts(p)
+					openChart(p)
+				}
+			}
+		case "g":
+			if m.done {
+				if timeMode {
+					p := filepath.Join(chartTmp, "countTime.png")
+					SaveCountTimeChart(p)
+					openChart(p)
+				} else {
+					p := filepath.Join(chartTmp, "count.png")
+					SaveCountChart(p)
+					openChart(p)
+				}
+			}
 		case "c", "k", "d", "t":
 			if m.done {
 				k := msg.String()
@@ -403,7 +427,7 @@ func (m countModel) headerView() string {
 		ms = fmt.Sprintf(" m:%.3f", mean)
 	}
 	title := titleStyle.Render(fmt.Sprintf("Results %d/%d/%d s:%v%s", len(countList), m.msg.Hit, m.msg.Lines, m.msg.Dur.Truncate(time.Millisecond), ms))
-	help := helpStyle("s: Save / c,k,d: Sort / q : Quit") + "  "
+	help := helpStyle("s: Save / c,k,d: Sort / g|h: Chart / q : Quit") + "  "
 	gap := strings.Repeat(" ", max(0, m.table.Width()-lipgloss.Width(title)-lipgloss.Width(help)))
 	return lipgloss.JoinHorizontal(lipgloss.Center, title, gap, help)
 }

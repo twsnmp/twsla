@@ -234,6 +234,12 @@ func (m heatmapModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 			stopSearch = true
 			return m, nil
+		case "h":
+			if m.done {
+				p := filepath.Join(chartTmp, "heatmap.html")
+				saveHeatmapECharts(p)
+				openChart(p)
+			}
 		case "s":
 			if m.done {
 				m.save = true
@@ -388,7 +394,7 @@ func (m heatmapModel) headerView() string {
 		ms = fmt.Sprintf(" m:%.3f", mean)
 	}
 	title := titleStyle.Render(fmt.Sprintf("Results %d/%d/%d s:%v%s", len(heatmapList), m.msg.Hit, m.msg.Lines, m.msg.Dur.Truncate(time.Millisecond), ms))
-	help := helpStyle("s: Save / k,c: Sort / q : Quit") + "  "
+	help := helpStyle("s: Save / k,c: Sort / h: Chart / q : Quit") + "  "
 	gap := strings.Repeat(" ", max(0, m.table.Width()-lipgloss.Width(title)-lipgloss.Width(help)))
 	return lipgloss.JoinHorizontal(lipgloss.Center, title, gap, help)
 }

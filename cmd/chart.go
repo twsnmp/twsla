@@ -18,6 +18,8 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"runtime"
 	"sort"
 	"strconv"
 	"time"
@@ -245,4 +247,20 @@ func SaveDeltaTimeChart(path string) {
 	if f, err := os.Create(path); err == nil {
 		graph.Render(chart.PNG, f)
 	}
+}
+
+func openChart(path string) error {
+	var err error
+	url := "file:///" + path
+	switch runtime.GOOS {
+	case "linux":
+		err = exec.Command("xdg-open", url).Start()
+	case "windows":
+		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+	case "darwin":
+		err = exec.Command("open", url).Start()
+	default:
+		err = fmt.Errorf("unsupported platform")
+	}
+	return err
 }

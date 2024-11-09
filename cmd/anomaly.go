@@ -364,7 +364,7 @@ func saveAnomalyFile(path string) {
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
 	case ".png":
-		//SaveTfidfChart(path)
+	case ".html", ".htm":
 	default:
 		saveAnomalyTSVFile(path)
 	}

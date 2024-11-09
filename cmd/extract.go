@@ -215,6 +215,18 @@ func (m extractModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.save = true
 			}
 			return m, nil
+		case "h":
+			if m.done {
+				p := filepath.Join(chartTmp, "extractTime.html")
+				SaveExtractECharts(p)
+				openChart(p)
+			}
+		case "g":
+			if m.done {
+				p := filepath.Join(chartTmp, "extractTime.png")
+				SaveExtractChart(p)
+				openChart(p)
+			}
 		case "t", "v", "d", "p":
 			if m.done {
 				k := msg.String()
@@ -353,7 +365,7 @@ func (m extractModel) View() string {
 func (m extractModel) headerView() string {
 	title := titleStyle.Render(fmt.Sprintf("Results %d/%d/%d s:%s m:%s",
 		len(extractList), m.msg.Hit, m.msg.Lines, m.msg.Dur.Truncate(time.Millisecond), humanize.FormatFloat("#,###.###", mean)))
-	help := helpStyle("s: Save / t,v,d,p: Sort / q : Quit") + "  "
+	help := helpStyle("s: Save / t,v,d,p: Sort / g|h: Chart / q : Quit") + "  "
 	gap := strings.Repeat(" ", max(0, m.table.Width()-lipgloss.Width(title)-lipgloss.Width(help)))
 	return lipgloss.JoinHorizontal(lipgloss.Center, title, gap, help)
 }

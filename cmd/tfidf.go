@@ -420,7 +420,7 @@ func saveTfidfFile(path string) {
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
 	case ".png":
-		//SaveTfidfChart(path)
+	case ".html", ".htm":
 	default:
 		saveTfidfTSVFile(path)
 	}
