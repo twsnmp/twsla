@@ -16,6 +16,7 @@ limitations under the License.
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -191,7 +192,7 @@ func makeColorList() {
 	}
 }
 
-func getColoredResults() []string {
+func getColoredResults(pretty bool) []string {
 	r := []string{}
 	var markerReg *regexp.Regexp
 	if strings.HasPrefix(marker, "regex:") {
@@ -201,6 +202,9 @@ func getColoredResults() []string {
 		markerReg = getSimpleFilter(marker)
 	}
 	for _, l := range results {
+		if pretty {
+			l = prettyJSON(l)
+		}
 		for _, c := range colorList {
 			l = c.Reg.ReplaceAllStringFunc(l, func(s string) string {
 				return c.Style.Render(s)
@@ -214,6 +218,16 @@ func getColoredResults() []string {
 		r = append(r, l)
 	}
 	return r
+}
+
+func prettyJSON(l string) string {
+	var data interface{}
+	if err := json.Unmarshal([]byte(l), &data); err == nil {
+		if b, err := json.MarshalIndent(data, "", "  "); err == nil {
+			l = string(b)
+		}
+	}
+	return l
 }
 
 type searchModel struct {
@@ -299,12 +313,12 @@ func (m searchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				for i, j := 0, len(results)-1; i < j; i, j = i+1, j-1 {
 					results[i], results[j] = results[j], results[i]
 				}
-				m.viewport.SetContent(strings.Join(getColoredResults(), "\n"))
+				m.viewport.SetContent(strings.Join(getColoredResults(false), "\n"))
 			}
 			return m, nil
-		case "d":
+		case "d", "p":
 			if m.done {
-				m.viewport.SetContent(strings.Join(getColoredResults(), "\n"))
+				m.viewport.SetContent(strings.Join(getColoredResults(msg.String() == "p"), "\n"))
 			}
 			return m, nil
 		default:
@@ -318,7 +332,7 @@ func (m searchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.ready = true
 			m.viewport = viewport.New(msg.Width, msg.Height-headerHeight)
 			m.viewport.YPosition = headerHeight + 1
-			m.viewport.SetContent(strings.Join(getColoredResults(), "\n"))
+			m.viewport.SetContent(strings.Join(getColoredResults(false), "\n"))
 		} else {
 			m.viewport.Width = msg.Width
 			m.viewport.Height = msg.Height - headerHeight
@@ -326,7 +340,7 @@ func (m searchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case SearchMsg:
 		if msg.Done {
 			if m.ready {
-				m.viewport.SetContent(strings.Join(getColoredResults(), "\n"))
+				m.viewport.SetContent(strings.Join(getColoredResults(false), "\n"))
 			}
 			m.done = true
 		}
@@ -373,7 +387,7 @@ func (m searchModel) ColorUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 			colorMode = m.colorModeInput.Value()
 			m.color = false
 			makeColorList()
-			m.viewport.SetContent(strings.Join(getColoredResults(), "\n"))
+			m.viewport.SetContent(strings.Join(getColoredResults(false), "\n"))
 			return m, nil
 		case tea.KeyCtrlC, tea.KeyEsc:
 			m.color = false
@@ -395,7 +409,7 @@ func (m searchModel) MarkerUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 			marker = m.markerInput.Value()
 			m.marker = false
 			makeColorList()
-			m.viewport.SetContent(strings.Join(getColoredResults(), "\n"))
+			m.viewport.SetContent(strings.Join(getColoredResults(false), "\n"))
 			return m, nil
 		case tea.KeyCtrlC, tea.KeyEsc:
 			m.marker = false

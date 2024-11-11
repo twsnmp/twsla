@@ -1,0 +1,17 @@
+title: Sigma config for windows event log
+backends:
+  - github.com/bradleyjkemp/sigma-go
+
+fieldmappings:
+  Image: $.Event.EventData.Image
+  CommandLine: $.Event.EventData.CommandLine
+  ParentProcessName: $.Event.EventData.ParentProcessName
+  NewProcessName:  $.Event.EventData.NewProcessName
+  User:  $.Event.EventData.User
+  ParentUser:  $.Event.EventData.ParentUser
+  Channel:  $.Event.System.Channel
+  Computer:  $.Event.System.Computer
+  EventID:  $.Event.System.EventID
+  Level:  $.Event.System.Level
+  Provider.Guid:  $.Event.System.Provider.Guid
+  Provider.Name:  $.Event.System.Provider.Name

@@ -16,7 +16,6 @@ limitations under the License.
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -59,6 +58,7 @@ func importFromWindowsEvtx(path string) {
 			return
 		}
 	}
+	summary := logType == "summary"
 	totalFiles++
 	hash := getSHA1(path)
 	readBytes := int64(0)
@@ -93,16 +93,8 @@ func importFromWindowsEvtx(path string) {
 		}
 		t := syst.UnixNano()
 		l := ""
-		if jsonMode {
-			j, err := json.MarshalIndent(e, "", " ")
-			if err != nil {
-				skipLines++
-				continue
-			}
-			l = string(j)
-			l = strings.TrimSpace(l)
-			l = strings.ReplaceAll(l, "\"", "")
-			l = strings.ReplaceAll(l, "\\\\", "/")
+		if !summary {
+			l = string(evtx.ToJSON(e))
 		} else {
 			a := []string{}
 			a = append(a, syst.Format("2006-01-02T15:04:05.000"))

@@ -43,7 +43,6 @@ var command string
 var filePat string
 var sshKey string
 var utc bool
-var jsonMode bool
 var apiMode bool
 var apiTLS bool
 var apiSkip bool
@@ -93,7 +92,6 @@ source is file | dir | scp | ssh | twsnmp
 func init() {
 	rootCmd.AddCommand(importCmd)
 	importCmd.Flags().BoolVar(&utc, "utc", false, "Force UTC")
-	importCmd.Flags().BoolVar(&jsonMode, "json", false, "Parse JSON windows evtx")
 	importCmd.Flags().BoolVar(&apiMode, "api", false, "TWSNMP FC API Mode")
 	importCmd.Flags().BoolVar(&apiTLS, "tls", false, "TWSNMP FC API TLS")
 	importCmd.Flags().BoolVar(&apiSkip, "skip", true, "TWSNMP FC API skip verify certificate")
