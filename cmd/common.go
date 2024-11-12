@@ -18,6 +18,7 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -25,6 +26,7 @@ import (
 	"github.com/araddon/dateparse"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/elastic/go-grok"
 	"github.com/xhit/go-str2duration/v2"
 	"go.etcd.io/bbolt"
 )
@@ -44,6 +46,7 @@ type errMsg error
 var db *bbolt.DB
 var teaProg *tea.Program
 var st time.Time
+var gr *grok.Grok
 
 // Style
 var titleStyle = lipgloss.NewStyle().
@@ -253,4 +256,44 @@ func matchFilter(l *string) bool {
 		}
 	}
 	return true
+}
+
+// GROK
+
+var grokPat = regexp.MustCompile(`%\{.+\}`)
+
+func setGrok(pat, gp string) {
+	if pat == "" {
+		return
+	}
+	var err error
+	switch gp {
+	case "full":
+		gr, err = grok.NewComplete()
+		if err != nil {
+			log.Fatalln(err)
+		}
+	case "":
+		gr = grok.New()
+	default:
+		if c, err := os.ReadFile(sigmaGrok); err != nil {
+			log.Fatalln(err)
+		} else {
+			gr = grok.New()
+			for _, l := range strings.Split(string(c), "\n") {
+				a := strings.SplitN(l, " ", 2)
+				if len(a) != 2 {
+					continue
+				}
+				gr.AddPattern(a[0], a[1])
+			}
+		}
+	}
+	if !grokPat.MatchString(pat) {
+		pat = fmt.Sprintf("%%{%s}", pat)
+	}
+	err = gr.Compile(pat, true)
+	if err != nil {
+		log.Fatalln(err)
+	}
 }

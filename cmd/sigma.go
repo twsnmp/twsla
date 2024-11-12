@@ -41,7 +41,6 @@ import (
 	"github.com/bradleyjkemp/sigma-go/evaluator"
 	"github.com/dustin/go-humanize"
 
-	"github.com/elastic/go-grok"
 	"github.com/spf13/cobra"
 	"go.etcd.io/bbolt"
 )
@@ -55,7 +54,6 @@ var sigmaGrok string
 var sigmaConfigs embed.FS
 
 var evaluators []*evaluator.RuleEvaluator
-var gr *grok.Grok
 var strict = false
 var skipRuleCount = 0
 
@@ -97,7 +95,7 @@ func sigmaMain() {
 	}
 	defer db.Close()
 	loadSigmaRules()
-	setGrok()
+	setGrok(sigmaConvert, sigmaGrok)
 	teaProg = tea.NewProgram(initSigmaModel())
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -177,39 +175,6 @@ func loadSigmaRules() {
 	})
 	if len(evaluators) < 1 {
 		log.Fatalln("no sigma rule")
-	}
-}
-
-func setGrok() {
-	if sigmaConvert == "" {
-		return
-	}
-	var err error
-	switch sigmaGrok {
-	case "full":
-		gr, err = grok.NewComplete()
-		if err != nil {
-			log.Fatalln(err)
-		}
-	case "":
-		gr = grok.New()
-	default:
-		if c, err := os.ReadFile(sigmaGrok); err != nil {
-			log.Fatalln(err)
-		} else {
-			gr = grok.New()
-			for _, l := range strings.Split(string(c), "\n") {
-				a := strings.SplitN(l, " ", 2)
-				if len(a) != 2 {
-					continue
-				}
-				gr.AddPattern(a[0], a[1])
-			}
-		}
-	}
-	err = gr.Compile(sigmaConvert, true)
-	if err != nil {
-		log.Fatalln(err)
 	}
 }
 
