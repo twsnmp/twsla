@@ -141,6 +141,10 @@ func loadSigmaRules() {
 		if info.IsDir() {
 			return nil
 		}
+		ext := strings.ToLower(filepath.Ext(path))
+		if ext != ".yaml" && ext != ".yml" {
+			return nil
+		}
 		c, err := os.ReadFile(path)
 		if err != nil {
 			if !strict {
