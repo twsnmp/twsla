@@ -43,4 +43,4 @@ tasks:
     - mkdir -p dist
   clean:
     cmds:
-      - rm dist/*
+      - rm -rf dist/*
