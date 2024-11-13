@@ -5,8 +5,6 @@ Simple Log Analyzer by TWSNMP
 ## Usage
 ```
 Simple Log Analyzer by TWSNMP
-Set the environment variable.
-RUNEWIDTH_EASTASIAN=0
 
 Usage:
   twsla [command]
@@ -22,6 +20,7 @@ Available Commands:
   import      Import log from source
   relation    Relation Analysis
   search      Search logs.
+  sigma       Detect threats using SIGMA rules
   tfidf       Log analysis using TF-IDF
   time        Time analysis
   twsnmp      Get information and logs from TWSNMP FC
