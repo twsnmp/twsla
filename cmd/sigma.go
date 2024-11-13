@@ -47,8 +47,6 @@ import (
 
 var sigmaRules string
 var sigmaConfig string
-var sigmaConvert string
-var sigmaGrok string
 
 //go:embed sigma
 var sigmaConfigs embed.FS
@@ -73,11 +71,11 @@ var sigmaCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(sigmaCmd)
-	sigmaCmd.PersistentFlags().StringVarP(&sigmaRules, "sigmaRules", "s", "", "Sigma rules path")
-	sigmaCmd.PersistentFlags().BoolVar(&strict, "strict", false, "Strict check sigma rules")
-	sigmaCmd.PersistentFlags().StringVarP(&sigmaConfig, "sigmaConfig", "c", "", "Sigma Config path")
-	sigmaCmd.PersistentFlags().StringVarP(&sigmaConvert, "sigmaConvert", "x", "", "Sigma convert")
-	sigmaCmd.PersistentFlags().StringVarP(&sigmaGrok, "sigmaGrok", "g", "", "Sigma grok pattern definitions")
+	sigmaCmd.Flags().StringVarP(&sigmaRules, "rules", "s", "", "Sigma rules path")
+	sigmaCmd.Flags().BoolVar(&strict, "strict", false, "Strict rule check")
+	sigmaCmd.Flags().StringVarP(&sigmaConfig, "config", "c", "", "config path")
+	sigmaCmd.Flags().StringVarP(&grokPat, "grokPat", "x", "", "grok pattern if empty json mode")
+	sigmaCmd.Flags().StringVarP(&grokDef, "grok", "g", "", "grok definitions")
 }
 
 type sigmaMsg struct {
@@ -94,8 +92,6 @@ func sigmaMain() {
 		log.Fatalln(err)
 	}
 	defer db.Close()
-	loadSigmaRules()
-	setGrok(sigmaConvert, sigmaGrok)
 	teaProg = tea.NewProgram(initSigmaModel())
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -208,6 +204,8 @@ var sigmaList = []sigmaEnt{}
 
 func sigmaSub(wg *sync.WaitGroup) {
 	defer wg.Done()
+	loadSigmaRules()
+	setGrok()
 	results = []string{}
 	sti, eti := getTimeRange()
 	sk := fmt.Sprintf("%016x:", sti)

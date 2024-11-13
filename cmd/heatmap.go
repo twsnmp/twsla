@@ -90,9 +90,6 @@ func heatmapSub(wg *sync.WaitGroup) {
 	defer wg.Done()
 	sti, eti := getTimeRange()
 	sk := fmt.Sprintf("%016x:", sti)
-	if timeMode && nameCount == "Key" {
-		nameCount = "Time"
-	}
 	i := 0
 	hit := 0
 	db.View(func(tx *bbolt.Tx) error {
@@ -387,12 +384,7 @@ func (m heatmapModel) View() string {
 }
 
 func (m heatmapModel) headerView() string {
-	ms := ""
-	if timeMode {
-		ms = fmt.Sprintf(" d:%s", time.Duration(time.Second*time.Duration(mean)).String())
-	} else {
-		ms = fmt.Sprintf(" m:%.3f", mean)
-	}
+	ms := fmt.Sprintf(" m:%.3f", mean)
 	title := titleStyle.Render(fmt.Sprintf("Results %d/%d/%d s:%v%s", len(heatmapList), m.msg.Hit, m.msg.Lines, m.msg.Dur.Truncate(time.Millisecond), ms))
 	help := helpStyle("s: Save / k,c: Sort / h: Chart / q : Quit") + "  "
 	gap := strings.Repeat(" ", max(0, m.table.Width()-lipgloss.Width(title)-lipgloss.Width(help)))

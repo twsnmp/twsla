@@ -449,7 +449,7 @@ func (m searchModel) View() string {
 func (m searchModel) headerView() string {
 	title := titleStyle.Render(fmt.Sprintf("Results %d/%d s:%s", m.msg.Hit, m.msg.Lines, m.msg.Dur.Truncate(time.Millisecond)))
 	info := infoStyle.Render(fmt.Sprintf("%3.f%%", m.viewport.ScrollPercent()*100))
-	help := helpStyle("s: Save / r: Reverse / m: Marker / c: Color / q : Quit") + "  "
+	help := helpStyle("s: Save / r: Reverse / m: Marker / c: Color / p/d: Format  / q : Quit") + "  "
 	gap := strings.Repeat(" ", max(0, m.viewport.Width-lipgloss.Width(title)-lipgloss.Width(info)-lipgloss.Width(help)))
 	return lipgloss.JoinHorizontal(lipgloss.Center, title, gap, help, info)
 }

@@ -17,6 +17,7 @@ package cmd
 
 import (
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -27,6 +28,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/PaesslerAG/jsonpath"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -51,13 +53,13 @@ words, etc. can be extracted.
 	},
 }
 
-var nameExtract string
-
 func init() {
 	rootCmd.AddCommand(extractCmd)
 	extractCmd.Flags().StringVarP(&extract, "extract", "e", "", "Extract pattern")
 	extractCmd.Flags().IntVarP(&pos, "pos", "p", 1, "Specify variable location")
-	extractCmd.Flags().StringVarP(&nameExtract, "name", "n", "Value", "Name of value")
+	extractCmd.Flags().StringVarP(&name, "name", "n", "Value", "Name of value")
+	extractCmd.Flags().StringVarP(&grokPat, "grokPat", "x", "", "grok pattern")
+	extractCmd.Flags().StringVarP(&grokDef, "grok", "g", "", "grok pattern definitions")
 }
 
 func extractMain() {
@@ -89,9 +91,21 @@ var extractList = []extractEnt{}
 
 func extractSub(wg *sync.WaitGroup) {
 	defer wg.Done()
-	extPat := getExtPat()
-	if extPat == nil {
-		log.Fatalln("no extract pattern")
+	mode := 0
+	switch extract {
+	case "json":
+		mode = 1
+	case "grok":
+		mode = 2
+		setGrok()
+		if gr == nil {
+			log.Fatalln("no grok")
+		}
+	default:
+		setExtPat()
+		if extPat == nil {
+			log.Fatalln("no extract pattern")
+		}
 	}
 	sti, eti := getTimeRange()
 	sk := fmt.Sprintf("%016x:", sti)
@@ -112,10 +126,31 @@ func extractSub(wg *sync.WaitGroup) {
 			l := string(v)
 			i++
 			if matchFilter(&l) {
-				a := extPat.ExtReg.FindAllStringSubmatch(l, -1)
-				if len(a) >= extPat.Index && len(a[extPat.Index-1]) > 1 {
-					extractList = append(extractList, extractEnt{Time: t, Value: a[extPat.Index-1][1]})
-					hit++
+				switch mode {
+				case 1:
+					// JSON
+					var data map[string]interface{}
+					if err := json.Unmarshal(v, &data); err == nil {
+						if val, err := jsonpath.Get(name, data); err == nil {
+							extractList = append(extractList, extractEnt{Time: t, Value: fmt.Sprintf("%v", val)})
+							hit++
+						}
+					}
+				case 2:
+					// grok
+					if data, err := gr.ParseString(l); err == nil {
+						if val, ok := data[name]; ok {
+							extractList = append(extractList, extractEnt{Time: t, Value: val})
+							hit++
+						}
+					}
+				default:
+					// TWSNMP mode
+					a := extPat.ExtReg.FindAllStringSubmatch(l, -1)
+					if len(a) >= extPat.Index && len(a[extPat.Index-1]) > 1 {
+						extractList = append(extractList, extractEnt{Time: t, Value: a[extPat.Index-1][1]})
+						hit++
+					}
 				}
 			}
 			if i%100 == 0 {
@@ -160,7 +195,7 @@ type extractModel struct {
 func initExtractModel() extractModel {
 	columns := []table.Column{
 		{Title: "Time"},
-		{Title: nameExtract},
+		{Title: name},
 	}
 	s := spinner.New()
 	s.Spinner = spinner.Line
@@ -284,7 +319,7 @@ func (m extractModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		w := m.table.Width() - 8
 		columns := []table.Column{
 			{Title: "Time", Width: 3 * w / 10},
-			{Title: nameExtract, Width: 5 * w / 10},
+			{Title: name, Width: 5 * w / 10},
 			{Title: "Delta", Width: 1 * w / 10},
 			{Title: "PS", Width: 1 * w / 10},
 		}
@@ -294,7 +329,7 @@ func (m extractModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			w := m.table.Width() - 8
 			columns := []table.Column{
 				{Title: "Time", Width: 3 * w / 10},
-				{Title: nameExtract, Width: 5 * w / 10},
+				{Title: name, Width: 5 * w / 10},
 				{Title: "Delta", Width: 1 * w / 10},
 				{Title: "PS", Width: 1 * w / 10},
 			}
@@ -390,7 +425,7 @@ func saveExtractCSVFile(path string) {
 	}
 	defer f.Close()
 	w := csv.NewWriter(f)
-	w.Write([]string{"Time", nameExtract, "Delta", "PS"})
+	w.Write([]string{"Time", name, "Delta", "PS"})
 	for _, r := range extractList {
 		wr := []string{
 			time.Unix(0, r.Time).Format("2006/01/02T15:04:05.999"),

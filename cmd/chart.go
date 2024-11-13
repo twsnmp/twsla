@@ -156,7 +156,7 @@ func SaveExtractChart(path string) {
 			ValueFormatter: chart.TimeValueFormatterWithFormat("01/02 15:04"),
 		},
 		YAxis: chart.YAxis{
-			Name: nameExtract,
+			Name: name,
 		},
 		Series: []chart.Series{
 			chart.TimeSeries{

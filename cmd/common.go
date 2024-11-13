@@ -47,6 +47,10 @@ var db *bbolt.DB
 var teaProg *tea.Program
 var st time.Time
 var gr *grok.Grok
+var extPat *extPatEnt
+var name string
+var grokPat string
+var grokDef string
 
 // Style
 var titleStyle = lipgloss.NewStyle().
@@ -158,9 +162,9 @@ type extPatEnt struct {
 	Index  int
 }
 
-func getExtPat() *extPatEnt {
+func setExtPat() {
 	if extract == "" {
-		return nil
+		return
 	}
 	if pos < 1 {
 		pos = 1
@@ -187,7 +191,7 @@ func getExtPat() *extPatEnt {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	return &extPatEnt{
+	extPat = &extPatEnt{
 		ExtReg: r,
 		Index:  pos,
 	}
@@ -215,6 +219,7 @@ var regexpMAC = regexp.MustCompile(`[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}
 var regexpEMail = regexp.MustCompile(`[a-zA-Z0-9_.+-]+@[a-zA-Z0-9_.+-]+`)
 var regexpURL = regexp.MustCompile(`https?://[\w!?/+\-_~;.,*&@#$%()'[\]]+`)
 var regexpKV = regexp.MustCompile(`\w+=\w+[ ,]?`)
+var regexpGrok = regexp.MustCompile(`%\{.+\}`)
 
 // Filters
 
@@ -260,14 +265,12 @@ func matchFilter(l *string) bool {
 
 // GROK
 
-var grokPat = regexp.MustCompile(`%\{.+\}`)
-
-func setGrok(pat, gp string) {
-	if pat == "" {
+func setGrok() {
+	if grokPat == "" {
 		return
 	}
 	var err error
-	switch gp {
+	switch grokDef {
 	case "full":
 		gr, err = grok.NewComplete()
 		if err != nil {
@@ -276,7 +279,7 @@ func setGrok(pat, gp string) {
 	case "":
 		gr = grok.New()
 	default:
-		if c, err := os.ReadFile(sigmaGrok); err != nil {
+		if c, err := os.ReadFile(grokDef); err != nil {
 			log.Fatalln(err)
 		} else {
 			gr = grok.New()
@@ -285,14 +288,15 @@ func setGrok(pat, gp string) {
 				if len(a) != 2 {
 					continue
 				}
-				gr.AddPattern(a[0], a[1])
+				gr.AddPattern(strings.TrimSpace(a[0]), strings.TrimSpace(a[1]))
 			}
 		}
 	}
-	if !grokPat.MatchString(pat) {
+	pat := grokPat
+	if !regexpGrok.MatchString(pat) {
 		pat = fmt.Sprintf("%%{%s}", pat)
 	}
-	err = gr.Compile(pat, true)
+	err = gr.Compile(pat, false)
 	if err != nil {
 		log.Fatalln(err)
 	}

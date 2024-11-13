@@ -36,11 +36,11 @@ func SaveCountTimeECharts(path string) {
 	line := charts.NewLine()
 	line.SetGlobalOptions(
 		charts.WithXAxisOpts(opts.XAxis{Name: "time", Type: "time"}, 0),
-		charts.WithTitleOpts(opts.Title{Title: "TWSLA Count:" + nameCount}),
+		charts.WithTitleOpts(opts.Title{Title: "TWSLA Count:" + name}),
 		charts.WithDataZoomOpts(opts.DataZoom{}),
 	)
 	line.SetXAxis(nil).
-		AddSeries(nameCount, items)
+		AddSeries(name, items)
 
 	if f, err := os.Create(path); err == nil {
 		line.Render(f)
@@ -68,10 +68,10 @@ func SaveCountECharts(path string) {
 	pie.SetGlobalOptions(
 		charts.WithLegendOpts(opts.Legend{Show: opts.Bool(false)}),
 		charts.WithTitleOpts(opts.Title{
-			Title: "TWSLA Log count:" + nameCount,
+			Title: "TWSLA Log count:" + name,
 		}),
 	)
-	pie.AddSeries(nameCount, items)
+	pie.AddSeries(name, items)
 	if f, err := os.Create(path); err == nil {
 		pie.Render(f)
 	}
@@ -121,7 +121,7 @@ func SaveExtractECharts(path string) {
 	line := charts.NewLine()
 	line.SetGlobalOptions(
 		charts.WithXAxisOpts(opts.XAxis{Name: "time", Type: "time"}, 0),
-		charts.WithTitleOpts(opts.Title{Title: "TWSLA Extract:" + nameExtract}),
+		charts.WithTitleOpts(opts.Title{Title: "TWSLA Extract:" + name}),
 		charts.WithDataZoomOpts(opts.DataZoom{}),
 	)
 
@@ -140,7 +140,7 @@ func SaveExtractECharts(path string) {
 		}
 		items = append(items, opts.LineData{Value: []interface{}{e.Time / (1000 * 1000), v}})
 	}
-	line.SetXAxis(nil).AddSeries(nameExtract, items)
+	line.SetXAxis(nil).AddSeries(name, items)
 	if f, err := os.Create(path); err == nil {
 		line.Render(f)
 	}

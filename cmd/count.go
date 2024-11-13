@@ -17,6 +17,7 @@ package cmd
 
 import (
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -27,6 +28,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/PaesslerAG/jsonpath"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -50,23 +52,20 @@ Number of occurrences of items extracted from the log`,
 	},
 }
 
-var nameCount string
-
 func init() {
 	rootCmd.AddCommand(countCmd)
 	countCmd.Flags().IntVarP(&interval, "interval", "i", 0, "Specify the aggregation interval in seconds.")
 	countCmd.Flags().IntVarP(&pos, "pos", "p", 1, "Specify variable location")
 	countCmd.Flags().StringVarP(&extract, "extract", "e", "", "Extract pattern")
-	countCmd.Flags().StringVarP(&nameCount, "name", "n", "Key", "Name of key")
+	countCmd.Flags().StringVarP(&name, "name", "n", "Key", "Name of key")
+	countCmd.Flags().StringVarP(&grokPat, "grokPat", "x", "", "grok pattern")
+	countCmd.Flags().StringVarP(&grokDef, "grok", "g", "", "grok pattern definitions")
 }
 
-var timeMode = false
 var mean float64
 
 func countMain() {
 	st = time.Now()
-	extPat := getExtPat()
-	timeMode = extPat == nil
 	if err := openDB(); err != nil {
 		log.Fatalln(err)
 	}
@@ -93,13 +92,32 @@ var countList = []countEnt{}
 func countSub(wg *sync.WaitGroup) {
 	var countMap = make(map[string]int)
 	defer wg.Done()
-	extPat := getExtPat()
+	mode := 0
+	switch extract {
+	case "json":
+		mode = 1
+	case "grok":
+		mode = 2
+		setGrok()
+		if gr == nil {
+			log.Fatalln("no grok")
+		}
+	case "":
+		// Time mode
+		mode = 3
+		if name == "Key" {
+			name = "Time"
+		}
+	default:
+		setExtPat()
+		if extPat == nil {
+			log.Fatalln("no extract pattern")
+		}
+	}
+
 	intv := int64(getInterval()) * 1000 * 1000 * 1000
 	sti, eti := getTimeRange()
 	sk := fmt.Sprintf("%016x:", sti)
-	if timeMode && nameCount == "Key" {
-		nameCount = "Time"
-	}
 	i := 0
 	hit := 0
 	db.View(func(tx *bbolt.Tx) error {
@@ -117,12 +135,31 @@ func countSub(wg *sync.WaitGroup) {
 			l := string(v)
 			i++
 			if matchFilter(&l) {
-				if timeMode {
+				switch mode {
+				case 1:
+					// JSON
+					var data map[string]interface{}
+					if err := json.Unmarshal(v, &data); err == nil {
+						if val, err := jsonpath.Get(name, data); err == nil {
+							ck := fmt.Sprintf("%v", val)
+							countMap[ck]++
+							hit++
+						}
+					}
+				case 2:
+					// grok
+					if data, err := gr.ParseString(l); err == nil {
+						if ck, ok := data[name]; ok {
+							countMap[ck]++
+							hit++
+						}
+					}
+				case 3:
 					d := t / intv
 					ck := time.Unix(0, d*intv).Format("2006/01/02 15:04")
 					countMap[ck]++
 					hit++
-				} else {
+				default:
 					a := extPat.ExtReg.FindAllStringSubmatch(l, -1)
 					if len(a) >= extPat.Index {
 						ck := a[extPat.Index-1][1]
@@ -146,7 +183,7 @@ func countSub(wg *sync.WaitGroup) {
 			Count: v,
 		})
 	}
-	if timeMode {
+	if extract == "" {
 		sort.Slice(countList, func(i, j int) bool {
 			return countList[i].Key < countList[j].Key
 		})
@@ -188,10 +225,10 @@ type countModel struct {
 
 func initCountModel() countModel {
 	columns := []table.Column{
-		{Title: nameCount},
+		{Title: name},
 		{Title: "Count"},
 	}
-	if timeMode {
+	if extract == "" {
 		columns = append(columns, table.Column{Title: "Delta"})
 	}
 	s := spinner.New()
@@ -232,6 +269,7 @@ func (m countModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.save {
 		return m.SaveUpdate(msg)
 	}
+	timeMode := extract == ""
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -323,14 +361,14 @@ func (m countModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if timeMode {
 			w -= 2
 			columns := []table.Column{
-				{Title: nameCount, Width: 5 * w / 10},
+				{Title: name, Width: 5 * w / 10},
 				{Title: "Count", Width: 3 * w / 10},
 				{Title: "Delta", Width: 2 * w / 10},
 			}
 			m.table.SetColumns(columns)
 		} else {
 			columns := []table.Column{
-				{Title: nameCount, Width: 7 * w / 10},
+				{Title: name, Width: 7 * w / 10},
 				{Title: "Count", Width: 3 * w / 10},
 			}
 			m.table.SetColumns(columns)
@@ -341,14 +379,14 @@ func (m countModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if timeMode {
 				w -= 2
 				columns := []table.Column{
-					{Title: nameCount, Width: 5 * w / 10},
+					{Title: name, Width: 5 * w / 10},
 					{Title: "Count", Width: 3 * w / 10},
 					{Title: "Delta", Width: 2 * w / 10},
 				}
 				m.table.SetColumns(columns)
 			} else {
 				columns := []table.Column{
-					{Title: nameCount, Width: 7 * w / 10},
+					{Title: name, Width: 7 * w / 10},
 					{Title: "Count", Width: 3 * w / 10},
 				}
 				m.table.SetColumns(columns)
@@ -421,7 +459,7 @@ func (m countModel) View() string {
 
 func (m countModel) headerView() string {
 	ms := ""
-	if timeMode {
+	if extract == "" {
 		ms = fmt.Sprintf(" d:%s", time.Duration(time.Second*time.Duration(mean)).String())
 	} else {
 		ms = fmt.Sprintf(" m:%.3f", mean)
@@ -434,6 +472,7 @@ func (m countModel) headerView() string {
 
 func saveCountFile(path string) {
 	ext := strings.ToLower(filepath.Ext(path))
+	timeMode := extract == ""
 	switch ext {
 	case ".png":
 		if timeMode {
@@ -453,6 +492,7 @@ func saveCountFile(path string) {
 }
 
 func saveCountCSVFile(path string) {
+	timeMode := extract == ""
 	f, err := os.Create(path)
 	if err != nil {
 		log.Fatalln(err)
@@ -460,9 +500,9 @@ func saveCountCSVFile(path string) {
 	defer f.Close()
 	w := csv.NewWriter(f)
 	if timeMode {
-		w.Write([]string{nameCount, "Count", "Delta", "Delta(sec)"})
+		w.Write([]string{name, "Count", "Delta", "Delta(sec)"})
 	} else {
-		w.Write([]string{nameCount, "Count"})
+		w.Write([]string{name, "Count"})
 	}
 	for _, r := range countList {
 		wr := []string{r.Key, fmt.Sprintf("%d", r.Count)}
