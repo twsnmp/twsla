@@ -47,6 +47,7 @@ var apiMode bool
 var apiTLS bool
 var apiSkip bool
 var logType string
+var noDeltaCheck bool
 
 var tg *timegrinder.TimeGrinder
 var importFilter *regexp.Regexp
@@ -92,6 +93,7 @@ source is file | dir | scp | ssh | twsnmp
 func init() {
 	rootCmd.AddCommand(importCmd)
 	importCmd.Flags().BoolVar(&utc, "utc", false, "Force UTC")
+	importCmd.Flags().BoolVar(&noDeltaCheck, "noDelta", false, "Check delta")
 	importCmd.Flags().BoolVar(&apiMode, "api", false, "TWSNMP FC API Mode")
 	importCmd.Flags().BoolVar(&apiTLS, "tls", false, "TWSNMP FC API TLS")
 	importCmd.Flags().BoolVar(&apiSkip, "skip", true, "TWSNMP FC API skip verify certificate")
@@ -110,7 +112,7 @@ func importMain() {
 	defer db.Close()
 	teaProg = tea.NewProgram(initImportModel())
 	setupTimeGrinder()
-	logCh = make(chan *LogEnt, 1000)
+	logCh = make(chan *LogEnt, 10000)
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go importSub(&wg)
@@ -230,10 +232,12 @@ func doImport(path string, r io.Reader) {
 			continue
 		}
 		d := 0
-		if lastTime > 0 {
-			d = int(t - lastTime)
+		if !noDeltaCheck {
+			if lastTime > 0 {
+				d = int(t - lastTime)
+			}
+			lastTime = t
 		}
-		lastTime = t
 		if st > t || et < t {
 			skipLines++
 			continue
@@ -267,24 +271,10 @@ func doImport(path string, r io.Reader) {
 
 func logSaver(wg *sync.WaitGroup) {
 	defer wg.Done()
-	logList := []*LogEnt{}
-	for l := range logCh {
-		logList = append(logList, l)
-		if len(logList) > 1000 {
-			saveLog(logList)
-			logList = []*LogEnt{}
-		}
-	}
-	if len(logList) > 0 {
-		saveLog(logList)
-	}
-}
-
-func saveLog(logList []*LogEnt) {
 	db.Batch(func(tx *bbolt.Tx) error {
 		bl := tx.Bucket([]byte("logs"))
 		bd := tx.Bucket([]byte("delta"))
-		for _, l := range logList {
+		for l := range logCh {
 			id := fmt.Sprintf("%016x:%s:%x", l.Time, l.Hash, l.Line)
 			bl.Put([]byte(id), []byte(l.Log))
 			if l.Delta < 0 {
@@ -363,7 +353,11 @@ func (m importModel) View() string {
 	if m.err != nil {
 		return "\n" + errorStyle(m.err.Error()) + "\n"
 	}
-	str := fmt.Sprintf("\n%s Loading path=%s line=%s byte=%s\n  Total file=%s line=%s byte=%s time=%v",
+	d := time.Now().Unix() - st.Unix()
+	if d > 0 {
+		d = int64(totalBytes) / d
+	}
+	str := fmt.Sprintf("\n%s Loading path=%s line=%s byte=%s\n  Total file=%s line=%s byte=%s speed=%s/Sec time=%v",
 		m.spinner.View(),
 		m.msg.Path,
 		humanize.Comma(int64(m.msg.Lines)),
@@ -371,6 +365,7 @@ func (m importModel) View() string {
 		humanize.Comma(int64(totalFiles)),
 		humanize.Comma(int64(totalLines)),
 		humanize.Bytes(uint64(totalBytes)),
+		humanize.Bytes(uint64(d)),
 		time.Since(st),
 	)
 	if m.quitting {
