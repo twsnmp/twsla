@@ -309,8 +309,10 @@ func (m tfidfModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.done {
 				if m.log == "" {
 					w := m.table.Width()
-					s := m.table.SelectedRow()[0]
-					m.log = wrapString(s, w)
+					if sel := m.table.SelectedRow(); sel != nil {
+						s := sel[0]
+						m.log = wrapString(s, w)
+					}
 				} else {
 					m.log = ""
 				}

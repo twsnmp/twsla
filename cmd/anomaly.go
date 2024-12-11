@@ -153,7 +153,7 @@ func anomalySub(wg *sync.WaitGroup) {
 	teaProg.Send(anomalyMsg{Phase: "Trainnig", PLines: 0, Lines: lines, Hit: hit, Dur: time.Since(st)})
 	iforest, err := go_iforest.NewIForest(vectors, 1000, 256)
 	if err != nil {
-		panic(err)
+		log.Fatalf("iforest err=%v", err)
 	}
 	anomalyList = []anomalyEnt{}
 	for i, v := range vectors {
@@ -259,8 +259,10 @@ func (m anomalyModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.done {
 				if m.log == "" {
 					w := m.table.Width()
-					s := m.table.SelectedRow()[0]
-					m.log = wrapString(s, w)
+					if sel := m.table.SelectedRow(); sel != nil {
+						s := sel[0]
+						m.log = wrapString(s, w)
+					}
 				} else {
 					m.log = ""
 				}
