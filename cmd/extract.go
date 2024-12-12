@@ -130,14 +130,16 @@ func extractSub(wg *sync.WaitGroup) {
 				case 1:
 					// JSON
 					var data map[string]interface{}
-					if err := json.Unmarshal(v, &data); err == nil {
-						if val, err := jsonpath.Get(name, data); err == nil {
-							extractList = append(extractList, extractEnt{Time: t, Value: fmt.Sprintf("%v", val)})
-							hit++
+					if ji := strings.IndexByte(string(v), '{'); ji >= 0 {
+						if err := json.Unmarshal(v[ji:], &data); err == nil {
+							if val, err := jsonpath.Get(name, data); err == nil && val != nil {
+								extractList = append(extractList, extractEnt{Time: t, Value: fmt.Sprintf("%v", val)})
+								hit++
+							}
 						}
 					}
 				case 2:
-					// grok
+					// GROK
 					if data, err := gr.ParseString(l); err == nil {
 						if val, ok := data[name]; ok {
 							extractList = append(extractList, extractEnt{Time: t, Value: val})
@@ -145,7 +147,7 @@ func extractSub(wg *sync.WaitGroup) {
 						}
 					}
 				default:
-					// TWSNMP mode
+					// TWSLA
 					a := extPat.ExtReg.FindAllStringSubmatch(l, -1)
 					if len(a) >= extPat.Index && len(a[extPat.Index-1]) > 1 {
 						extractList = append(extractList, extractEnt{Time: t, Value: a[extPat.Index-1][1]})

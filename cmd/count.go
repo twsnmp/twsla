@@ -139,15 +139,17 @@ func countSub(wg *sync.WaitGroup) {
 				case 1:
 					// JSON
 					var data map[string]interface{}
-					if err := json.Unmarshal(v, &data); err == nil {
-						if val, err := jsonpath.Get(name, data); err == nil {
-							ck := fmt.Sprintf("%v", val)
-							countMap[ck]++
-							hit++
+					if ji := strings.IndexByte(string(v), '{'); ji >= 0 {
+						if err := json.Unmarshal(v[ji:], &data); err == nil {
+							if val, err := jsonpath.Get(name, data); err == nil && val != nil {
+								ck := fmt.Sprintf("%v", val)
+								countMap[ck]++
+								hit++
+							}
 						}
 					}
 				case 2:
-					// grok
+					// GROK
 					if data, err := gr.ParseString(l); err == nil {
 						if ck, ok := data[name]; ok {
 							countMap[ck]++
@@ -155,11 +157,13 @@ func countSub(wg *sync.WaitGroup) {
 						}
 					}
 				case 3:
+					// TIME
 					d := t / intv
 					ck := time.Unix(0, d*intv).Format("2006/01/02 15:04")
 					countMap[ck]++
 					hit++
 				default:
+					// TWSLA
 					a := extPat.ExtReg.FindAllStringSubmatch(l, -1)
 					if len(a) >= extPat.Index {
 						ck := a[extPat.Index-1][1]
