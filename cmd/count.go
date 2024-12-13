@@ -60,6 +60,8 @@ func init() {
 	countCmd.Flags().StringVarP(&name, "name", "n", "Key", "Name of key")
 	countCmd.Flags().StringVarP(&grokPat, "grokPat", "x", "", "grok pattern")
 	countCmd.Flags().StringVarP(&grokDef, "grok", "g", "", "grok pattern definitions")
+	countCmd.Flags().StringVar(&geoipDBPath, "geoip", "", "geo IP database file")
+	countCmd.Flags().StringVar(&ipInfoMode, "ip", "", "IP info mode(host|domain|loc|country)")
 }
 
 var mean float64
@@ -93,6 +95,7 @@ func countSub(wg *sync.WaitGroup) {
 	var countMap = make(map[string]int)
 	defer wg.Done()
 	mode := 0
+	ipm := getIPInfoMode()
 	switch extract {
 	case "json":
 		mode = 1
@@ -114,7 +117,7 @@ func countSub(wg *sync.WaitGroup) {
 			log.Fatalln("no extract pattern")
 		}
 	}
-
+	openGeoIPDB()
 	intv := int64(getInterval()) * 1000 * 1000 * 1000
 	sti, eti := getTimeRange()
 	sk := fmt.Sprintf("%016x:", sti)
@@ -143,6 +146,9 @@ func countSub(wg *sync.WaitGroup) {
 						if err := json.Unmarshal(v[ji:], &data); err == nil {
 							if val, err := jsonpath.Get(name, data); err == nil && val != nil {
 								ck := fmt.Sprintf("%v", val)
+								if ipm > 0 {
+									ck = getIPInfo(ck, ipm)
+								}
 								countMap[ck]++
 								hit++
 							}
@@ -152,6 +158,9 @@ func countSub(wg *sync.WaitGroup) {
 					// GROK
 					if data, err := gr.ParseString(l); err == nil {
 						if ck, ok := data[name]; ok {
+							if ipm > 0 {
+								ck = getIPInfo(ck, ipm)
+							}
 							countMap[ck]++
 							hit++
 						}
@@ -167,6 +176,9 @@ func countSub(wg *sync.WaitGroup) {
 					a := extPat.ExtReg.FindAllStringSubmatch(l, -1)
 					if len(a) >= extPat.Index {
 						ck := a[extPat.Index-1][1]
+						if ipm > 0 {
+							ck = getIPInfo(ck, ipm)
+						}
 						countMap[ck]++
 						hit++
 					}

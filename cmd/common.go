@@ -18,6 +18,7 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"regexp"
 	"strings"
@@ -26,7 +27,9 @@ import (
 	"github.com/araddon/dateparse"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/domainr/dnsr"
 	"github.com/elastic/go-grok"
+	"github.com/oschwald/geoip2-golang"
 	"github.com/xhit/go-str2duration/v2"
 	"go.etcd.io/bbolt"
 )
@@ -51,6 +54,9 @@ var extPat *extPatEnt
 var name string
 var grokPat string
 var grokDef string
+var geoipDBPath string
+var ipInfoMode string
+var geoipDB *geoip2.Reader
 
 // Style
 var titleStyle = lipgloss.NewStyle().
@@ -300,4 +306,94 @@ func setGrok() {
 	if err != nil {
 		log.Fatalln(err)
 	}
+}
+
+func openGeoIPDB() error {
+	if geoipDBPath == "" {
+		return fmt.Errorf("no geoip path")
+	}
+	var err error
+	geoipDB, err = geoip2.Open(geoipDBPath)
+	return err
+}
+
+func getIPLoc(sip string) *geoip2.City {
+	ip := net.ParseIP(sip)
+	record, err := geoipDB.City(ip)
+	if err != nil {
+		return nil
+	}
+	return record
+}
+
+var dnsResolver *dnsr.Resolver
+
+func getIPInfoMode() int {
+	switch ipInfoMode {
+	case "host":
+		dnsResolver = dnsr.NewWithTimeout(10000, time.Millisecond*1000)
+		return 1
+	case "domain":
+		dnsResolver = dnsr.NewWithTimeout(10000, time.Millisecond*1000)
+		return 2
+	case "loc":
+		if err := openGeoIPDB(); err != nil {
+			log.Fatalln(err)
+		}
+		return 3
+	case "country":
+		if err := openGeoIPDB(); err != nil {
+			log.Fatalln(err)
+		}
+		return 4
+	default:
+		return 0
+	}
+}
+
+var unknownIPs = make(map[string]bool)
+
+func getHostByIP(ip string) string {
+	if _, ok := unknownIPs[ip]; ok {
+		return "unknown"
+	}
+	a := strings.SplitN(ip, ".", 4)
+	if len(a) == 4 {
+		for _, rr := range dnsResolver.Resolve(fmt.Sprintf("%s.%s.%s.%s.in-addr.arpa", a[3], a[2], a[1], a[0]), "PTR") {
+			if rr.Type == "PTR" {
+				return rr.Value
+			}
+		}
+	}
+	unknownIPs[ip] = true
+	return "unknown"
+}
+
+func getIPInfo(ip string, mode int) string {
+	switch mode {
+	case 1:
+		// host
+		return getHostByIP(ip)
+	case 2:
+		// domain
+		h := getHostByIP(ip)
+		a := strings.Split(h, ".")
+		if len(a) < 4 {
+			return h
+		}
+		return strings.Join(a[1:], ".")
+	case 3:
+		// loc
+		if r := getIPLoc(ip); r != nil {
+			return fmt.Sprintf("%s:%s:%0.3f,%0.3f", r.Country.IsoCode, r.City.Names["en"], r.Location.Latitude, r.Location.Longitude)
+		}
+		return "unknown"
+	case 4:
+		// country
+		if r := getIPLoc(ip); r != nil {
+			return r.Country.IsoCode
+		}
+		return "unknown"
+	}
+	return ip
 }

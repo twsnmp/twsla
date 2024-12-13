@@ -60,6 +60,8 @@ func init() {
 	extractCmd.Flags().StringVarP(&name, "name", "n", "Value", "Name of value")
 	extractCmd.Flags().StringVarP(&grokPat, "grokPat", "x", "", "grok pattern")
 	extractCmd.Flags().StringVarP(&grokDef, "grok", "g", "", "grok pattern definitions")
+	extractCmd.Flags().StringVar(&geoipDBPath, "geoip", "", "geo IP database file")
+	extractCmd.Flags().StringVar(&ipInfoMode, "ip", "", "IP info mode(host|domain|loc|country)")
 }
 
 func extractMain() {
@@ -92,6 +94,7 @@ var extractList = []extractEnt{}
 func extractSub(wg *sync.WaitGroup) {
 	defer wg.Done()
 	mode := 0
+	ipm := getIPInfoMode()
 	switch extract {
 	case "json":
 		mode = 1
@@ -133,7 +136,12 @@ func extractSub(wg *sync.WaitGroup) {
 					if ji := strings.IndexByte(string(v), '{'); ji >= 0 {
 						if err := json.Unmarshal(v[ji:], &data); err == nil {
 							if val, err := jsonpath.Get(name, data); err == nil && val != nil {
-								extractList = append(extractList, extractEnt{Time: t, Value: fmt.Sprintf("%v", val)})
+								if ipm > 0 {
+									ip := fmt.Sprintf("%v", val)
+									extractList = append(extractList, extractEnt{Time: t, Value: fmt.Sprintf("%s(%s)", ip, getIPInfo(ip, ipm))})
+								} else {
+									extractList = append(extractList, extractEnt{Time: t, Value: fmt.Sprintf("%v", val)})
+								}
 								hit++
 							}
 						}
@@ -142,6 +150,9 @@ func extractSub(wg *sync.WaitGroup) {
 					// GROK
 					if data, err := gr.ParseString(l); err == nil {
 						if val, ok := data[name]; ok {
+							if ipm > 0 {
+								val = fmt.Sprintf("%s(%s)", val, getIPInfo(val, ipm))
+							}
 							extractList = append(extractList, extractEnt{Time: t, Value: val})
 							hit++
 						}
@@ -150,7 +161,12 @@ func extractSub(wg *sync.WaitGroup) {
 					// TWSLA
 					a := extPat.ExtReg.FindAllStringSubmatch(l, -1)
 					if len(a) >= extPat.Index && len(a[extPat.Index-1]) > 1 {
-						extractList = append(extractList, extractEnt{Time: t, Value: a[extPat.Index-1][1]})
+						if ipm > 0 {
+							ip := a[extPat.Index-1][1]
+							extractList = append(extractList, extractEnt{Time: t, Value: fmt.Sprintf("%s(%s)", ip, getIPInfo(ip, ipm))})
+						} else {
+							extractList = append(extractList, extractEnt{Time: t, Value: a[extPat.Index-1][1]})
+						}
 						hit++
 					}
 				}
