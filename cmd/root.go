@@ -25,6 +25,7 @@ import (
 
 var cfgFile string
 var chartTmp string
+var sixelChart bool
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -56,6 +57,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&simpleFilter, "filter", "f", "", "Simple filter")
 	rootCmd.PersistentFlags().StringVarP(&regexpFilter, "regex", "r", "", "Regexp filter")
 	rootCmd.PersistentFlags().StringVarP(&notFilter, "not", "v", "", "Invert regexp filter")
+	rootCmd.PersistentFlags().BoolVar(&sixelChart, "sixel", false, "show chart by sixel")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -79,6 +81,7 @@ func initConfig() {
 	viper.BindEnv("datastore")
 	viper.BindEnv("geoip")
 	viper.BindEnv("grok")
+	viper.BindEnv("sixel")
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
@@ -155,5 +158,9 @@ func initConfig() {
 	if v := viper.GetString("grok"); v != "" {
 		fmt.Fprintln(os.Stderr, " grok:", v)
 		grokDef = v
+	}
+	if v := viper.GetBool("sixel"); v {
+		fmt.Fprintln(os.Stderr, " sixel:", v)
+		sixelChart = v
 	}
 }

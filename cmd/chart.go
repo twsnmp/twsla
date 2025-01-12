@@ -16,7 +16,9 @@ limitations under the License.
 package cmd
 
 import (
+	"bytes"
 	"fmt"
+	"image"
 	"os"
 	"os/exec"
 	"runtime"
@@ -24,6 +26,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/mattn/go-sixel"
 	chart "github.com/wcharczuk/go-chart/v2"
 )
 
@@ -263,4 +266,18 @@ func openChart(path string) error {
 		err = fmt.Errorf("unsupported platform")
 	}
 	return err
+}
+
+func openChartSixel(path string) string {
+	fp, err := os.Open(path)
+	if err != nil {
+		return ""
+	}
+	img, _, err := image.Decode(fp)
+	if err != nil {
+		return ""
+	}
+	var buf bytes.Buffer
+	sixel.NewEncoder(&buf).Encode(img)
+	return buf.String()
 }

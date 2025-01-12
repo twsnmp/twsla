@@ -138,6 +138,7 @@ type timeModel struct {
 	msg         timeMsg
 	save        bool
 	textInput   textinput.Model
+	sixel       string
 }
 
 var lastCursor = -1
@@ -185,6 +186,16 @@ func (m timeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.save {
 		return m.SaveUpdate(msg)
 	}
+	if m.sixel != "" {
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			k := msg.String()
+			if k == "esc" || k == "q" {
+				m.sixel = ""
+			}
+		}
+		return m, nil
+	}
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -205,7 +216,11 @@ func (m timeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.done {
 				p := filepath.Join(chartTmp, "deltaTime.png")
 				SaveDeltaTimeChart(p)
-				openChart(p)
+				if sixelChart {
+					m.sixel = openChartSixel(p)
+				} else {
+					openChart(p)
+				}
 			}
 		case "s":
 			if m.done {
@@ -379,6 +394,9 @@ func (m timeModel) SaveUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m timeModel) View() string {
 	if m.save {
 		return fmt.Sprintf("Save file name?\n\n%s\n\n%s", m.textInput.View(), "(esc to quit)") + "\n"
+	}
+	if m.sixel != "" {
+		return "\n\n" + m.sixel
 	}
 	if m.done {
 		if m.log != "" {

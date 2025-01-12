@@ -258,6 +258,7 @@ type sigmaModel struct {
 	textInput  textinput.Model
 	viewport   viewport.Model
 	showCount  bool
+	sixel      string
 }
 
 func initSigmaModel() sigmaModel {
@@ -327,6 +328,16 @@ func (m sigmaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.save {
 		return m.SaveUpdate(msg)
 	}
+	if m.sixel != "" {
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			k := msg.String()
+			if k == "esc" || k == "q" {
+				m.sixel = ""
+			}
+		}
+		return m, nil
+	}
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -354,7 +365,11 @@ func (m sigmaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.showCount {
 					p := filepath.Join(chartTmp, "sigmaCount.png")
 					SaveCountChart(p)
-					openChart(p)
+					if sixelChart {
+						m.sixel = openChartSixel(p)
+					} else {
+						openChart(p)
+					}
 				}
 			}
 		case "s":
@@ -562,6 +577,9 @@ func (m sigmaModel) SaveUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m sigmaModel) View() string {
 	if m.save {
 		return fmt.Sprintf("Save file name?\n\n%s\n\n%s", m.textInput.View(), "(esc to quit)") + "\n"
+	}
+	if m.sixel != "" {
+		return "\n\n" + m.sixel
 	}
 	if m.done {
 		if m.log != "" {

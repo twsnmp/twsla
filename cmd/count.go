@@ -237,6 +237,7 @@ type countModel struct {
 	lastSort  string
 	save      bool
 	textInput textinput.Model
+	sixel     string
 }
 
 func initCountModel() countModel {
@@ -285,6 +286,16 @@ func (m countModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.save {
 		return m.SaveUpdate(msg)
 	}
+	if m.sixel != "" {
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			k := msg.String()
+			if k == "esc" || k == "q" {
+				m.sixel = ""
+			}
+		}
+		return m, nil
+	}
 	timeMode := extract == ""
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -315,13 +326,17 @@ func (m countModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "g":
 			if m.done {
+				var p string
 				if timeMode {
-					p := filepath.Join(chartTmp, "countTime.png")
+					p = filepath.Join(chartTmp, "countTime.png")
 					SaveCountTimeChart(p)
-					openChart(p)
 				} else {
-					p := filepath.Join(chartTmp, "count.png")
+					p = filepath.Join(chartTmp, "count.png")
 					SaveCountChart(p)
+				}
+				if sixelChart {
+					m.sixel = openChartSixel(p)
+				} else {
 					openChart(p)
 				}
 			}
@@ -457,6 +472,9 @@ func (m countModel) SaveUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m countModel) View() string {
 	if m.save {
 		return fmt.Sprintf("Save file name?\n\n%s\n\n%s", m.textInput.View(), "(esc to quit)") + "\n"
+	}
+	if m.sixel != "" {
+		return "\n\n" + m.sixel
 	}
 	if m.done {
 		return fmt.Sprintf("%s\n%s\n", m.headerView(), baseStyle.Render(m.table.View()))
