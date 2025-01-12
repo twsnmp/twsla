@@ -75,14 +75,14 @@ func initConfig() {
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match
+	viper.SetEnvPrefix("twsla")
+	viper.BindEnv("datastore")
+	viper.BindEnv("geoip")
+	viper.BindEnv("grok")
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
-		if v := viper.GetString("datastore"); v != "" {
-			fmt.Fprintln(os.Stderr, " datastore:", v)
-			dataStore = v
-		}
 		if v := viper.GetString("timeRange"); v != "" {
 			fmt.Fprintln(os.Stderr, " timeRange:", v)
 			timeRange = v
@@ -110,14 +110,6 @@ func initConfig() {
 		if v := viper.GetString("grokPat"); v != "" {
 			fmt.Fprintln(os.Stderr, " grokPat:", v)
 			grokPat = v
-		}
-		if v := viper.GetString("grok"); v != "" {
-			fmt.Fprintln(os.Stderr, " grok:", v)
-			grokDef = v
-		}
-		if v := viper.GetString("geoip"); v != "" {
-			fmt.Fprintln(os.Stderr, " geoip:", v)
-			geoipDBPath = v
 		}
 		if v := viper.GetString("ip"); v != "" {
 			fmt.Fprintln(os.Stderr, " ip:", v)
@@ -151,5 +143,17 @@ func initConfig() {
 			fmt.Fprintln(os.Stderr, " checkCert:", v)
 			checkCert = v
 		}
+	}
+	if v := viper.GetString("datastore"); v != "" {
+		fmt.Fprintln(os.Stderr, " datastore:", v)
+		dataStore = v
+	}
+	if v := viper.GetString("geoip"); v != "" {
+		fmt.Fprintln(os.Stderr, " geoip:", v)
+		geoipDBPath = v
+	}
+	if v := viper.GetString("grok"); v != "" {
+		fmt.Fprintln(os.Stderr, " grok:", v)
+		grokDef = v
 	}
 }
