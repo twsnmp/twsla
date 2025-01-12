@@ -19,7 +19,7 @@ import (
 	"github.com/twsnmp/twsla/cmd"
 )
 
-var version = "v0.0.0"
+var version = "0.0.0"
 var commit = "commit"
 var date = ""
 

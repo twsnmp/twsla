@@ -73,7 +73,7 @@ func init() {
 	rootCmd.AddCommand(sigmaCmd)
 	sigmaCmd.Flags().StringVarP(&sigmaRules, "rules", "s", "", "Sigma rules path")
 	sigmaCmd.Flags().BoolVar(&strict, "strict", false, "Strict rule check")
-	sigmaCmd.Flags().StringVarP(&sigmaConfig, "config", "c", "", "config path")
+	sigmaCmd.Flags().StringVarP(&sigmaConfig, "sigmaConfig", "c", "", "config path")
 	sigmaCmd.Flags().StringVarP(&grokPat, "grokPat", "x", "", "grok pattern if empty json mode")
 	sigmaCmd.Flags().StringVarP(&grokDef, "grok", "g", "", "grok definitions")
 }
