@@ -192,6 +192,9 @@ func (m timeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			k := msg.String()
 			if k == "esc" || k == "q" {
 				m.sixel = ""
+				return m, func() tea.Msg {
+					return tea.ClearScreen()
+				}
 			}
 		}
 		return m, nil
