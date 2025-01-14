@@ -35,6 +35,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/dustin/go-humanize"
+	"github.com/montanaflynn/stats"
 	"github.com/spf13/cobra"
 	"go.etcd.io/bbolt"
 )
@@ -209,6 +210,8 @@ type extractModel struct {
 	save      bool
 	textInput textinput.Model
 	sixel     string
+	stats     bool
+	statTable table.Model
 }
 
 func initExtractModel() extractModel {
@@ -241,7 +244,19 @@ func initExtractModel() extractModel {
 	ti.Focus()
 	ti.CharLimit = 156
 	ti.Width = 20
-	return extractModel{spinner: s, table: t, textInput: ti}
+	statColumns := []table.Column{
+		{Title: "Stats"},
+		{Title: name},
+		{Title: "Delta"},
+		{Title: "PS"},
+	}
+	st := table.New(
+		table.WithColumns(statColumns),
+		table.WithFocused(true),
+		table.WithHeight(7),
+	)
+	st.SetStyles(ts)
+	return extractModel{spinner: s, table: t, textInput: ti, statTable: st}
 }
 
 func (m extractModel) Init() tea.Cmd {
@@ -260,6 +275,22 @@ func (m extractModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			k := msg.String()
 			if k == "esc" || k == "q" {
 				m.sixel = ""
+				return m, func() tea.Msg {
+					return tea.ClearScreen()
+				}
+			}
+		}
+		return m, nil
+	}
+	if m.stats {
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			k := msg.String()
+			if k == "esc" || k == "q" {
+				m.stats = false
+				return m, func() tea.Msg {
+					return tea.ClearScreen()
+				}
 			}
 		}
 		return m, nil
@@ -277,6 +308,11 @@ func (m extractModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "s":
 			if m.done {
 				m.save = true
+			}
+			return m, nil
+		case "i":
+			if m.done {
+				m.stats = true
 			}
 			return m, nil
 		case "h":
@@ -357,6 +393,15 @@ func (m extractModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			{Title: "PS", Width: 1 * w / 10},
 		}
 		m.table.SetColumns(columns)
+		m.statTable.SetWidth(msg.Width - 6)
+		m.statTable.SetHeight(msg.Height - 6)
+		statColumns := []table.Column{
+			{Title: "Stats", Width: 4 * w / 10},
+			{Title: name, Width: 2 * w / 10},
+			{Title: "Delta", Width: 2 * w / 10},
+			{Title: "PS", Width: 2 * w / 10},
+		}
+		m.statTable.SetColumns(statColumns)
 	case SearchMsg:
 		if msg.Done {
 			w := m.table.Width() - 8
@@ -368,6 +413,9 @@ func (m extractModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.table.SetColumns(columns)
 			extractRows = []table.Row{}
+			var vals []float64
+			var deltas []float64
+			var pss []float64
 			for _, r := range extractList {
 				extractRows = append(extractRows, []string{
 					time.Unix(0, r.Time).Format("2006/01/02T15:04:05.999"),
@@ -375,8 +423,73 @@ func (m extractModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					humanize.FormatFloat("#,###.###", r.Delta),
 					humanize.FormatFloat("#,###.###", r.PS),
 				})
+				vals = append(vals, r.Val)
+				deltas = append(deltas, r.Delta)
+				pss = append(pss, r.PS)
 			}
 			m.table.SetRows(extractRows)
+			vMin, _ := stats.Min(vals)
+			dMin, _ := stats.Min(deltas)
+			psMin, _ := stats.Min(pss)
+
+			vMax, _ := stats.Max(vals)
+			dMax, _ := stats.Max(deltas)
+			psMax, _ := stats.Max(pss)
+
+			vMean, _ := stats.Mean(vals)
+			dMean, _ := stats.Mean(deltas)
+			psMean, _ := stats.Mean(pss)
+
+			vMedian, _ := stats.Median(vals)
+			dMedian, _ := stats.Median(deltas)
+			psMedian, _ := stats.Median(pss)
+
+			vMode, _ := stats.Mode(vals)
+			dMode, _ := stats.Mode(deltas)
+			psMode, _ := stats.Mode(pss)
+
+			vVariance, _ := stats.Variance(vals)
+			dVariance, _ := stats.Variance(deltas)
+			psVariance, _ := stats.Variance(pss)
+
+			m.statTable.SetRows([]table.Row{
+				[]string{
+					"Min",
+					humanize.FormatFloat("#,###.###", vMin),
+					humanize.FormatFloat("#,###.###", dMin),
+					humanize.FormatFloat("#,###.###", psMin),
+				},
+				[]string{
+					"Max",
+					humanize.FormatFloat("#,###.###", vMax),
+					humanize.FormatFloat("#,###.###", dMax),
+					humanize.FormatFloat("#,###.###", psMax),
+				},
+				[]string{
+					"Mean",
+					humanize.FormatFloat("#,###.###", vMean),
+					humanize.FormatFloat("#,###.###", dMean),
+					humanize.FormatFloat("#,###.###", psMean),
+				},
+				[]string{
+					"Median",
+					humanize.FormatFloat("#,###.###", vMedian),
+					humanize.FormatFloat("#,###.###", dMedian),
+					humanize.FormatFloat("#,###.###", psMedian),
+				},
+				[]string{
+					"Mode",
+					humanize.FormatFloat("#,###.###", vMode[0]),
+					humanize.FormatFloat("#,###.###", dMode[0]),
+					humanize.FormatFloat("#,###.###", psMode[0]),
+				},
+				[]string{
+					"Variance",
+					humanize.FormatFloat("#,###.###", vVariance),
+					humanize.FormatFloat("#,###.###", dVariance),
+					humanize.FormatFloat("#,###.###", psVariance),
+				},
+			})
 			m.done = true
 		}
 		m.msg = msg
@@ -417,6 +530,9 @@ func (m extractModel) View() string {
 	}
 	if m.sixel != "" {
 		return "\n\n" + m.sixel
+	}
+	if m.stats {
+		return baseStyle.Render(m.statTable.View())
 	}
 	if m.done {
 		return fmt.Sprintf("%s\n%s\n", m.headerView(), baseStyle.Render(m.table.View()))
