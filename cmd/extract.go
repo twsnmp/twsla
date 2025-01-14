@@ -529,10 +529,10 @@ func (m extractModel) View() string {
 		return fmt.Sprintf("Save file name?\n\n%s\n\n%s", m.textInput.View(), "(esc to quit)") + "\n"
 	}
 	if m.sixel != "" {
-		return "\n\n" + m.sixel
+		return "\n\n" + m.sixel + "\n(esc to quit)"
 	}
 	if m.stats {
-		return baseStyle.Render(m.statTable.View())
+		return baseStyle.Render(m.statTable.View()) + "\n(esc to quit)"
 	}
 	if m.done {
 		return fmt.Sprintf("%s\n%s\n", m.headerView(), baseStyle.Render(m.table.View()))
@@ -552,7 +552,7 @@ func (m extractModel) View() string {
 func (m extractModel) headerView() string {
 	title := titleStyle.Render(fmt.Sprintf("Results %d/%d/%d s:%s m:%s",
 		len(extractList), m.msg.Hit, m.msg.Lines, m.msg.Dur.Truncate(time.Millisecond), humanize.FormatFloat("#,###.###", mean)))
-	help := helpStyle("s: Save / t,v,d,p: Sort / g|h: Chart / q : Quit") + "  "
+	help := helpStyle("s: Save / t,v,d,p: Sort / g|h: Chart i:Stats / q : Quit") + "  "
 	gap := strings.Repeat(" ", max(0, m.table.Width()-lipgloss.Width(title)-lipgloss.Width(help)))
 	return lipgloss.JoinHorizontal(lipgloss.Center, title, gap, help)
 }

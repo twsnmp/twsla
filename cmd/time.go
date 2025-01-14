@@ -399,7 +399,7 @@ func (m timeModel) View() string {
 		return fmt.Sprintf("Save file name?\n\n%s\n\n%s", m.textInput.View(), "(esc to quit)") + "\n"
 	}
 	if m.sixel != "" {
-		return "\n\n" + m.sixel
+		return "\n\n" + m.sixel + "\n(esc to quit)"
 	}
 	if m.done {
 		if m.log != "" {
