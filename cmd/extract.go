@@ -214,6 +214,8 @@ type extractModel struct {
 	statTable table.Model
 }
 
+var statsList []table.Row
+
 func initExtractModel() extractModel {
 	columns := []table.Column{
 		{Title: "Time"},
@@ -291,6 +293,8 @@ func (m extractModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, func() tea.Msg {
 					return tea.ClearScreen()
 				}
+			} else if k == "s" {
+				m.save = true
 			}
 		}
 		return m, nil
@@ -452,7 +456,7 @@ func (m extractModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			dVariance, _ := stats.Variance(deltas)
 			psVariance, _ := stats.Variance(pss)
 
-			m.statTable.SetRows([]table.Row{
+			statsList = []table.Row{
 				[]string{
 					"Min",
 					humanize.FormatFloat("#,###.###", vMin),
@@ -489,7 +493,8 @@ func (m extractModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					humanize.FormatFloat("#,###.###", dVariance),
 					humanize.FormatFloat("#,###.###", psVariance),
 				},
-			})
+			}
+			m.statTable.SetRows(statsList)
 			m.done = true
 		}
 		m.msg = msg
@@ -508,12 +513,15 @@ func (m extractModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m extractModel) SaveUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
-
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEnter:
-			saveExtractFile(m.textInput.Value())
+			if m.stats {
+				saveExtractStatsCSVFile(m.textInput.Value())
+			} else {
+				saveExtractFile(m.textInput.Value())
+			}
 			m.save = false
 			return m, nil
 		case tea.KeyCtrlC, tea.KeyEsc:
@@ -532,7 +540,7 @@ func (m extractModel) View() string {
 		return "\n\n" + m.sixel + "\n(esc to quit)"
 	}
 	if m.stats {
-		return baseStyle.Render(m.statTable.View()) + "\n(esc to quit)"
+		return baseStyle.Render(m.statTable.View()) + "\n(esc to quit / s to save)"
 	}
 	if m.done {
 		return fmt.Sprintf("%s\n%s\n", m.headerView(), baseStyle.Render(m.table.View()))
@@ -586,6 +594,22 @@ func saveExtractCSVFile(path string) {
 			fmt.Sprintf("%.3f", r.PS),
 		}
 		w.Write(wr)
+	}
+	w.Flush()
+
+}
+
+func saveExtractStatsCSVFile(path string) {
+	// CSV
+	f, err := os.Create(path)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	defer f.Close()
+	w := csv.NewWriter(f)
+	w.Write([]string{"Stats", name, "Delta", "PS"})
+	for _, s := range statsList {
+		w.Write(s)
 	}
 	w.Flush()
 
