@@ -2,6 +2,7 @@
 TWSLA is a simple log analysis tool of the TWSNMP series.
 Works on Linux/Mac OS/Windows.
 
+[日本語のREADME](README-ja.md)
 
 ## Install
 
@@ -83,7 +84,7 @@ When the command is illustrated
 
 ![](https://assets.st-note.com/img/1731635423-vj6JTY1yz0eEg9l4pdIskRKh.png?width=1200)
 
-### Import command
+### import command
 
 It is a command to import the log.Save in a time series that can be searched in a database.The argument of the command is
 
@@ -164,7 +165,7 @@ The log destination of the log is specified in the -d option.BBolt database.If y
 By specifying --nodelta from v1.8.0, it is possible not to perform the time difference and save the process.This will increase the speed a little.
 The speed of IMPORT is faster when the log is lined up in chronological order.A random log is slow.
 
-### search コマンド
+### search command
 
 You can search when the log is read.
 
@@ -239,7 +240,7 @@ Displays the input screen of the marker.Following a simple filter or regex:, you
 
 ![](https://assets.st-note.com/img/1729484628-MxPyZJRoNU0bqCkeXmh7cAEG.png?width=1200)
 
-### COUNT command
+### count command
 
 It is a command that ties the number of logs into an hourly basis, or the data in the log is used as a key.
 
@@ -300,7 +301,7 @@ The result is.You can also sort this.If you save it on the graph
 
 The ratio of TOP10 is the graph like this.
 
-### EXTRACT command
+### extract command
 
 It is a command that removes specific data from the log.
 
@@ -346,7 +347,16 @@ It will be time series data like this.You can also sort with the key.You can sav
 
 The numerical data is used as a graph, but for items such as IP addresses, the number of the item is graphed.
 
-### TFIDF command
+![](https://assets.st-note.com/img/1736891736-Mg2ahHbtJqSws7KPcUznTvkQ.png?width=1200)
+
+Press the i key while the numerical data is extracted to display the statistical information of the numerical data.
+
+![](https://assets.st-note.com/img/1736891837-3wLoHPGn5ANfEsgDmyqxTKVh.png?width=1200)
+
+Press the s key and save it with CSV.
+
+
+### tfidf command
 
 Find an unusual log using TF-IDF.
 
@@ -382,7 +392,7 @@ The result is like.I have found three rare logs in 2000 cases.
 I'm going to write a detail in another article.
 From v1.10, you can get a rare top N case with -n.
 
-### Anomaly command
+### anomaly command
 
 It is a command added in v1.1.0.A command that analyzes the log and finds something unusual.
 
@@ -430,7 +440,7 @@ The analysis result
 
 It will be displayed likeThe larger the score, the more abnormal.SQL injection and Walu are effective in analyzing Web server access logs.
 
-### Delay command
+### delay command
 
 It is a command added in v1.3.0.This is a command to detect the delay of processing from the Access log.Apache's Access log records the time stamp the time stamp when the HTTP request is accepted.It actually outputs to the log after the process is over and the response is returned.For this, the time stamp of the log may be recorded back and forth.It means that the log of the time before the recorded earlier will be recorded later.Using this reversal phenomenon can detect the delay in processing.It is a delay, such as processing requests and downloading large files.
 Transfer your Apache Access log to syslog and record two time stamps.These two or more time stamps may have a time difference between the logs of logs.I also made a mode to detect this.
@@ -467,7 +477,7 @@ The right end is the delay time.Select a log and press the Enter key to display 
 ![](https://assets.st-note.com/img/1723064799604-VwdzrZ3bSg.png?width=1200)
 
 
-### TWSNMP command
+### twsnmp command
 
 This is a command to link with TWSNMP FC added in v1.4.0.
 
@@ -514,7 +524,7 @@ You can do it with a command like.
 Basically, it outputs with TAB separation text.You can save it in the file by redirection.
 If --jsonout is specified, it will be in JSON format output.I think this is convenient when using it from the program.
 
-### Relation command
+### relation command
 
 List the relationship between two or more items in the log line.It can also be output to the intrajected graph.
 
@@ -566,7 +576,7 @@ You can aggregate like this.If you devise a filter and narrow down the number
 
 You can also output a graph like.S: Specify the extension of the output file of the save command in HTML.
 
-### HEATMAP map command
+### heatmap command
 
 This is a command for displaying the time when there is a lot of logs on a day or date unit on a heat map.
 
@@ -608,7 +618,7 @@ The day of the week is
 ![](https://assets.st-note.com/img/1726436714-UjtvDC3bVpgRHYa9hK47yfkd.png?width=1200)
 
 
-### Time command
+### time command
 
 This is a command that analyzes the time difference between logs.It is a command added in v1.6.0.
 
@@ -645,7 +655,7 @@ When you save it with HTML or PNG, it outputs Delta to the graph.
 
 ![](https://assets.st-note.com/img/1729485332-0ES73fO8nqMzcLBZQtsomj19.png?width=1200)
 
-### SIGMA command
+### sigma command
 
 Standard format SIGMA that detects threats from logs
 
@@ -738,7 +748,7 @@ If you press the C key, it will be the displayed display for each detected rule.
 Displays the graph with the G key or H key.
 You can save data and graphs in the file with the S key.
 
-### Compression command
+### compression command
 
 It is a command that generates a script to complement commands.
 The corresponding shell is
@@ -833,11 +843,13 @@ When specifying an IP address filter with regular expression,
 192.168.2.1
 ```
 
-ではだめで
+is not work.
 
 ```
 192\.168\.\2\.1
 ```
+
+is OK.
 
 It is troublesome, but the simple filter is used as it is.
 Specify with -f for the command option.This is the method of the file name.The regular expression is specified in -R.
@@ -897,7 +909,7 @@ You can also specify a little more complicated.
 count=%{number}
 ```
 
-It is a form like.If you write%{something {in a simple filter
+It is a form like.If you write`%{something}`in a simple filter
 Remove only the part of %{something}.Something has Word in addition to the IP and Email.
 
 Data extraction by 
@@ -1026,25 +1038,25 @@ YAML format.It corresponds to the following keys.
 
 | Key | Descr |
 | --- | --- |
-| Timerange | Time range |
-| Filter | Simple Filter |
-| REGEX | Regular expression filter |
-| NOT | Inverted filter |
-| EXTRACT | extraction pattern |
-| Name | Variable name |
-| GROKPAT ||
-| IP | IP Information Mode |
-| Color | Color Mode |
+| timeRange | Time range |
+| filter | Simple Filter |
+| regex | Regular expression filter |
+| not | Inverted filter |
+| extract | extraction pattern |
+| name | Variable name |
+| grokPat ||
+| ip | IP Information Mode |
+| color | Color Mode |
 | Rules | Sigma Rules Pass |
-| Sigmaconfig | Sigma Settings |
-| TWSNMP | TWSNMP FC URL |
-| Interval | Agricultural intervals |
-| JSONOUT | JSON format output |
-| Checkcert | Verification of server certificate |
-| DataStore | Datstore Pass |
-| Geoip | Geoipdb's path |
-| GROK | GROK definition |
-| Sixel | Display in the graph terminal |
+| sigmaconfig | Sigma Settings |
+| twsnmp | TWSNMP FC URL |
+| interval | Agricultural intervals |
+| jsonOut | JSON format output |
+| checkCert | Verification of server certificate |
+| datastore | Datstore Pass |
+| geoip | Geoipdb's path |
+| grok | GROK definition |
+| sixel | Display in the graph terminal |
 
 #### environmental variables
 
@@ -1057,7 +1069,7 @@ The following environment variables are available.
 | TWSLA_GROK | Definition of GROK |
 | TWSLA_SIXEL | Use Sixel for graph display |
 
-## Orige the log used for the explanation
+## Example logs
 
 For those who want to get the sample log used for this explanation
 

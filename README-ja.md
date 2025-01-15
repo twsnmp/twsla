@@ -342,6 +342,14 @@ $twsla  extract -f fail -e ip
 
 数値データは、そのままグラフにしますが、IPアドレスなどの項目は、項目の番号をグラフにします。
 
+![](https://assets.st-note.com/img/1736891736-Mg2ahHbtJqSws7KPcUznTvkQ.png?width=1200)
+
+のような数値データを抽出した状態でiキーを押すと数値データの統計情報を表示します。
+
+![](https://assets.st-note.com/img/1736891837-3wLoHPGn5ANfEsgDmyqxTKVh.png?width=1200)
+
+sキーを押してCSVで保存することもできます。
+
 ### tfidfコマンド
 
 TF-IDFを使って、珍しいログを探します。
@@ -887,7 +895,7 @@ v1.6.0以降では、フィルターを引数で複数指定可能にしまし�
 count=%{number}
 ```
 
-のような形式です。シンプルフィルターの中に%{何か}のように書けば
+のような形式です。シンプルフィルターの中に`%{何か}`のように書けば
 %{何か}の部分だけ取り出します。何かは、先程のipやemailの他にwordがあります。
 
 ### grokとjsonによるデータ抽出
