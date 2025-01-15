@@ -74,6 +74,7 @@ Flags:
   -h, --help               help for twsla
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
+      --sixel              show chart by sixel
   -t, --timeRange string   Time range
 
 Use "twsla [command] --help" for more information about a command.
@@ -789,9 +790,9 @@ $twsla version
 twsla v1.8.0(94cb1ad24408c2dc38f7d178b2d78eaf5f6ad600) 2024-12-15T21:07:47Z
 ```
 
-# 基本的な説明
+## 補足説明
 
-## 対応しているログ
+### 対応しているログ
 2024/9時点では
 
 - テキストファイルで１行毎にタイムスタンプがあるもの
@@ -810,7 +811,7 @@ Jun 14 15:16:01 combo sshd(pam_unix)[19939]: authentication failure; logname= ui
 SCPやSSHでサーバーから直接ログファイルを読み込むことができます。
 TWSNMP FC/FKから読み込むこともできます。
 
-## シンプルフィルター
+### シンプルフィルター
 
 正規表現に精通しているなら正規表現のフィルターを使えばよいのですが、そうでない人のためにシンプルフィルターを用意しました。私のためでもあります。lsやdirコマンドで指定する*や?で、何か文字列や文字があることを示します。
 Message*のように書けば、正規表現のMessage.*になるようなものです。
@@ -834,12 +835,12 @@ v1.1.0までは、-fと-rのフィルターはどちらか片方だけが有効�
 v1.6.0以降では、フィルターを引数で複数指定可能にしました。
 
 
-## 除外フィルター
+### 除外フィルター
 
 ログの中に不要な行がある時に、どんどん除外したい場合があります。grep の-vオプションと同じものをつけました。こちらは正規表現で指定します。
 引数で指定するフィルターの先頭を^にすると除外フィルターになります。
 
-## アバウトな時間範囲の指定
+### アバウトな時間範囲の指定
 
 時間範囲の指定は、アバウトな入力にこだわっています。
 ```
@@ -889,7 +890,7 @@ count=%{number}
 のような形式です。シンプルフィルターの中に%{何か}のように書けば
 %{何か}の部分だけ取り出します。何かは、先程のipやemailの他にwordがあります。
 
-# grokとjsonによるデータ抽出
+### grokとjsonによるデータ抽出
 
 v1.70からextractコマンド、countコマンドにgrokとjsonによるデータ抽出モードを追加しました。
 
@@ -919,7 +920,7 @@ Global Flags:
   -t, --timeRange string   Time range
 ```
 
-# GROKモード
+#### GROKモード
 
 -e オプションにgrokを指定するとgrokモードになります。この場合、-xオプションにgrokのパターンを指定する必要があります。-gオプションでgrokの定義を指定します。sigmaコマンドと同じ方法です。-nに抽出するデータ名を指定します。
 
@@ -936,17 +937,23 @@ $twsla count -e ip
 
 をほぼ同じ結果になります。でもgrokのほうが遅いです。grokは複雑な抽出に使ったほうがようです。
 
-# JSONモード
+#### JSONモード
 
 WindowsのイベントログやzeekのjsonログなどJSON形式で保存されたログは、JSONPATHで抽出できます。
 -e オプションにjsonを指定して-nオプションにJSONPATHを指定します。
 
 
-# グラフの保存
+### グラフの保存
 countやextractコマンドの結果画面が保存を実行する時に拡張子をpngにすれば、結果をテキストファイルではなくグラフ画像を保存します。
 
+### グラフの表示
 
-# IP情報(DNS/GeoIP)の分析
+グラフを保存できるコマンドの表示中のgキーまたは、hキーをタイプするとグラフを表示できます。v1.9.0から起動パラメータに--sixelを指定するか環境変数にTWSAL_SIXEL=trueを指定すると、Sixelを使ってターミナル内にグラフを表示できまます。
+
+![](https://assets.st-note.com/production/uploads/images/169827737/picture_pc_df187d1aaa63d79b7546e8eb48156d53.gif?width=1200)
+
+
+### IP情報(DNS/GeoIP)の分析
 
 ログの中のIPアドレスから国、都市、緯度経度などの位置情報、ホスト名、ドメイン名などの情報を取得して集計する機能です。
 v1.8.0から対応しました。
@@ -995,8 +1002,50 @@ extractコマンドもパラメータは同じです。同じログをlocで表�
 
 ![](https://assets.st-note.com/img/1734471801-biraOlZA2QtuzSkchsNLRdU3.png?width=1200)
 
+### 設定ファイルと環境変数
 
-# 説明に使ったログの入手
+v1.9.0から設定ファイルと環境変数に対応しました。
+
+#### 設定ファイル
+
+--configで指定したファイルか、ホームディレクトリ/.twsla.yamlを設定ファイルとして使用します。
+yaml形式です。以下のキーに対応しています。
+
+|Key|Descr|
+|---|---|
+|timeRange|時間範囲|
+|filter|シンプルフィルター|
+|regex|正規表現フィルター|
+|not|反転フィルター|
+|extract|抽出パターン|
+|name|変数名|
+|grokPat||
+|ip|IP情報モード|
+|color|カラーモード|
+|rules|Sigmaルールパス|
+|sigmaConfig|Sigma設定|
+|twsnmp|TWSNMP FCのURL|
+|interval|集計間隔|
+|jsonOut|JSON形式の出力|
+|checkCert|サーバー証明書の検証|
+|datastore|データストアのパス|
+|geoip|GeoIPDBのパス|
+|grok|GROK定義|
+|sixel|グラフのターミナル内に表示|
+
+#### 環境変数
+
+以下の環境変数が利用できます。
+
+|Key|Descr|
+|---|----|
+|TWSLA_DATASTOTE|データストアのパス|
+|TWSLA_GEOIP|GeoIPデータベースのパス|
+|TWSLA_GROK|GROKの定義|
+|TWSLA_SIXEL|グラフ表示にSixelを利用|
+
+
+## 説明に使ったログの入手
 
 この説明に使ったサンプルのログを手に入れたい人は
 

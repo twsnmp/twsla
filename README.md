@@ -821,7 +821,7 @@ Time stamps support various formats using magic.In the old syslog, it may be a n
 You can read the log file directly from the server in SCP or SSH.
 You can also read from TWSNMP FC/FK.
 
-## Simple filter
+### Simple filter
 
 If you are familiar with regular expression, you can use a regular expression filter, but we have prepared a simple filter for those who do not.It is for me.Specify with LS or DIR command*or? Indicates that there are some strings and characters.
 If you write like Message*, it will be a regular expression Message.*.
@@ -845,12 +845,12 @@ Until v1.1.0, the only one for the -f and -r filters was effective, but after v1
 In v1.6.0 or later, the filter can be specified by argument.
 
 
-## exclusion filter
+### exclusion filter
 
 When there is an unnecessary line in the log, you may want to exclude more and more.I attached the same thing as the Grep-V option.This is specified in regular expression.
 If the first of the filter specified by the argument is set, it will be an exclusion filter.
 
-## Designation of time range
+### Designation of time range
 
 The specification of the time range is particular about about input.
 ```
@@ -902,7 +902,7 @@ Remove only the part of %{something}.Something has Word in addition to the IP an
 
 Data extraction by 
 
-# GROK and JSON
+### GROK and JSON
 
 Added data extraction mode by GROK and JSON to the EXTRACT command from v1.70 and the count command.
 
@@ -932,7 +932,7 @@ Global Flags:
   -t, --timeRange string   Time range
 ```
 
-# GROK mode
+#### GROK mode
 
 If you specify GROK in the -e option, it will be in GROK mode.In this case, you need to specify the GROK pattern in the -x option.Specify the definition of GROK in the -G option.The same method as the SIGMA command.Specify the data name extracted to -n.
 
@@ -948,17 +948,23 @@ $twsla count -e ip
 
 Is almost the same result.But GROK is slower.GROK seems to be used for complicated extraction.
 
-# JSON mode
+#### JSON mode
 
 Logs saved in JSON format, such as Windows event logs and ZEEK JSON logs, can be extracted with JSONPATH.
 Specify JSON in the -e option and specify jsonPath for -n option.
 
 
-# Save graph
+### Save graph
 When the result screen of the count or EXTRACT command is executed, the extension is png to save the graph image instead of a text file.
 
+### Display of graphs
 
-# IP Information (DNS/Geoip) analysis
+The graph can be displayed by typing the G key or H key in the display of the command that can save the graph.If you specify --sixel in the boot parameter from v1.9.0 or specify Twsal_sixel = true as an environment variable, you can display the graph in the terminal.
+
+![](https://assets.st-note.com/production/uploads/images/169827737/picture_pc_df187d1aaa63d79b7546e8eb48156d53.gif?width=1200)
+
+
+### IP Information (DNS/Geoip) analysis
 
 This is a function that obtains information such as position information such as country, city, latitude and longitude, host name, domain name, etc. from the IP address in the log.
 We supported from v1.8.0.
@@ -1009,7 +1015,49 @@ The parameter for the EXTRACT command is the same.When the same log is displayed
 ![](https://assets.st-note.com/img/1734471801-biraOlZA2QtuzSkchsNLRdU3.png?width=1200)
 
 
-# Orige the log used for the explanation
+### Configuration file and environmental variable
+
+V1.9.0 supports configuration files and environment variables.
+
+#### Setting file
+
+Use the file specified in --config or the home directory /.twsla.yaml as the configuration file.
+YAML format.It corresponds to the following keys.
+
+| Key | Descr |
+| --- | --- |
+| Timerange | Time range |
+| Filter | Simple Filter |
+| REGEX | Regular expression filter |
+| NOT | Inverted filter |
+| EXTRACT | extraction pattern |
+| Name | Variable name |
+| GROKPAT ||
+| IP | IP Information Mode |
+| Color | Color Mode |
+| Rules | Sigma Rules Pass |
+| Sigmaconfig | Sigma Settings |
+| TWSNMP | TWSNMP FC URL |
+| Interval | Agricultural intervals |
+| JSONOUT | JSON format output |
+| Checkcert | Verification of server certificate |
+| DataStore | Datstore Pass |
+| Geoip | Geoipdb's path |
+| GROK | GROK definition |
+| Sixel | Display in the graph terminal |
+
+#### environmental variables
+
+The following environment variables are available.
+
+| Key | Descr |
+| --- | ---- |
+| TWSLA_DATASTOTE | Datstore path |
+| TWSLA_GEOIP | GEOIP database path |
+| TWSLA_GROK | Definition of GROK |
+| TWSLA_SIXEL | Use Sixel for graph display |
+
+## Orige the log used for the explanation
 
 For those who want to get the sample log used for this explanation
 
