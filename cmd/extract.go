@@ -578,6 +578,9 @@ func saveExtractFile(path string) {
 }
 
 func saveExtractCSVFile(path string) {
+	if path == "" {
+		return
+	}
 	// CSV
 	f, err := os.Create(path)
 	if err != nil {
@@ -600,6 +603,9 @@ func saveExtractCSVFile(path string) {
 }
 
 func saveExtractStatsCSVFile(path string) {
+	if path == "" {
+		return
+	}
 	// CSV
 	f, err := os.Create(path)
 	if err != nil {

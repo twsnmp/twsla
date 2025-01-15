@@ -529,6 +529,9 @@ func saveCountFile(path string) {
 }
 
 func saveCountCSVFile(path string) {
+	if path == "" {
+		return
+	}
 	timeMode := extract == ""
 	f, err := os.Create(path)
 	if err != nil {

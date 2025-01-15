@@ -636,6 +636,9 @@ func saveSigmaFile(path string, count bool) {
 }
 
 func saveSigmaTSVFile(path string, count bool) {
+	if path == "" {
+		return
+	}
 	// TSV
 	f, err := os.Create(path)
 	if err != nil {

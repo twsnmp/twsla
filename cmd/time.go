@@ -444,6 +444,9 @@ func saveTimeFile(path string) {
 }
 
 func saveTimeTSVFile(path string) {
+	if path == "" {
+		return
+	}
 	// TSV
 	f, err := os.Create(path)
 	if err != nil {

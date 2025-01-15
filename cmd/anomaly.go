@@ -373,6 +373,9 @@ func saveAnomalyFile(path string) {
 }
 
 func saveAnomalyTSVFile(path string) {
+	if path == "" {
+		return
+	}
 	// TSV
 	f, err := os.Create(path)
 	if err != nil {

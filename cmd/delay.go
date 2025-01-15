@@ -418,6 +418,9 @@ func saveDelayFile(path string) {
 }
 
 func saveDelayTSVFile(path string) {
+	if path == "" {
+		return
+	}
 	// TSV
 	f, err := os.Create(path)
 	if err != nil {

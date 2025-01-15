@@ -455,6 +455,9 @@ func (m searchModel) headerView() string {
 }
 
 func saveSearchFile(path string) {
+	if path == "" {
+		return
+	}
 	f, err := os.Create(path)
 	if err != nil {
 		log.Fatalln(err)
