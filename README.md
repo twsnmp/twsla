@@ -6,7 +6,7 @@ Works on Linux/Mac OS/Windows.
 
 ## Install
 
-It is recommended to install the LINXU/Mac OS with a shell script.
+It is recommended to install the Linux/Mac OS with a shell script.
 
 ```terminal
 $curl -sS https://lhx98.linkclub.jp/twise.co.jp/download/install.sh | sh
@@ -29,9 +29,9 @@ Install in.
 ## Basic usage
 
 - Create a work directory.
-- Amit to that directory.
-- Intop the log with the import command.
-- SeaRch commands are searched.
+- cd to that directory.
+- Import the log with the import command.
+- search commands are searched.
 - The results can be output such as CSV.
 
 ```
