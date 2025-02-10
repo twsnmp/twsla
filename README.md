@@ -1078,6 +1078,15 @@ https://github.com/logpai/loghub
 This is a log in the Linux folder.
 
 
+## Build
+
+Use go-task for builds.
+https://taskfile.dev/
+
+```terminal
+$task
+```
+
 
 ## Copyright
 

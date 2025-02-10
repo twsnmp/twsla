@@ -1062,6 +1062,18 @@ https://github.com/logpai/loghub
 のLinuxのフォルダにあるログです。
 
 
+## ビルド方法
+
+ビルドには
+
+https://taskfile.dev/
+
+を利用します。
+
+```terminal
+$task
+```
+
 
 ## Copyright
 
