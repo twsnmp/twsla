@@ -93,7 +93,7 @@ source is file | dir | scp | ssh | twsnmp
 func init() {
 	rootCmd.AddCommand(importCmd)
 	importCmd.Flags().BoolVar(&utc, "utc", false, "Force UTC")
-	importCmd.Flags().BoolVar(&noDeltaCheck, "noDelta", false, "Check delta")
+	importCmd.Flags().BoolVar(&noDeltaCheck, "noDelta", false, "Disable delta check")
 	importCmd.Flags().BoolVar(&apiMode, "api", false, "TWSNMP FC API Mode")
 	importCmd.Flags().BoolVar(&apiTLS, "tls", false, "TWSNMP FC API TLS")
 	importCmd.Flags().BoolVar(&apiSkip, "skip", true, "TWSNMP FC API skip verify certificate")
