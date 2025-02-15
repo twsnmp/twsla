@@ -644,11 +644,11 @@ htmlまたは、pngで保存すると Deltaをグラフに出力します。
 
 ### sigmaコマンド
 
-ログから脅威を検知する標準フォーマットsigma
+脅威検知の標準フォーマットsigma
 
 https://sigmahq.io/
 
-に対応しました。
+による検査を行うコマンドです。
 
 
 ```terminal
@@ -734,6 +734,41 @@ cキーを押せば、検知したルール毎に集計した表示になりま�
 
 gキーまたはhキーでグラフを表示します。
 ｓキーでデータやグラフをファイルに保存できます。
+
+### twlogeyeコマンド
+
+TwLogEye
+
+https://github.com/twsnmp/twlogeye
+
+というログサーバーからgRPCで脅威検知通知やログをインポートします。
+
+```terminal
+Import notify and log from twlogeye
+twsla twlogeye <target>
+  taregt: notify | syslog | trap | netflow | windows
+
+Usage:
+  twsla twlogeye [flags]
+
+Flags:
+      --apiPort int        twlogeye api port number (default 8081)
+      --apiServer string   twlogeye api server ip address
+      --ca string          CA Cert file path
+      --cert string        Client cert file path
+      --filter string      Notfiy level or Log search text
+  -h, --help               help for twlogeye
+      --key string         Client key file path
+
+Global Flags:
+      --config string      config file (default is $HOME/.twsla.yaml)
+  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -v, --not string         Invert regexp filter
+  -r, --regex string       Regexp filter
+      --sixel              show chart by sixel
+  -t, --timeRange string   Time range
+```
+
 
 ### completionコマンド
 

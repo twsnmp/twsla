@@ -748,6 +748,40 @@ If you press the C key, it will be the displayed display for each detected rule.
 Displays the graph with the G key or H key.
 You can save data and graphs in the file with the S key.
 
+### twlogeye command
+
+Import notify or log from TwLogEye
+
+https://github.com/twsnmp/twlogeye
+
+
+```terminal
+Import notify and log from twlogeye
+twsla twlogeye <target>
+  taregt: notify | syslog | trap | netflow | windows
+
+Usage:
+  twsla twlogeye [flags]
+
+Flags:
+      --apiPort int        twlogeye api port number (default 8081)
+      --apiServer string   twlogeye api server ip address
+      --ca string          CA Cert file path
+      --cert string        Client cert file path
+      --filter string      Notfiy level or Log search text
+  -h, --help               help for twlogeye
+      --key string         Client key file path
+
+Global Flags:
+      --config string      config file (default is $HOME/.twsla.yaml)
+  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -v, --not string         Invert regexp filter
+  -r, --regex string       Regexp filter
+      --sixel              show chart by sixel
+  -t, --timeRange string   Time range
+```
+
+
 ### compression command
 
 It is a command that generates a script to complement commands.
