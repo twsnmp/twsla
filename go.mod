@@ -2,7 +2,7 @@ module github.com/twsnmp/twsla
 
 go 1.24
 
-toolchain go1.24.0
+toolchain go1.24.2
 
 require (
 	github.com/0xrawsec/golang-evtx v1.2.9
