@@ -82,6 +82,8 @@ func initConfig() {
 	viper.BindEnv("geoip")
 	viper.BindEnv("grok")
 	viper.BindEnv("sixel")
+	viper.BindEnv("weaviate")
+	viper.BindEnv("aiClass")
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
@@ -162,5 +164,13 @@ func initConfig() {
 	if v := viper.GetBool("sixel"); v {
 		fmt.Fprintln(os.Stderr, " sixel:", v)
 		sixelChart = v
+	}
+	if v := viper.GetString("aiClass"); v != "" {
+		fmt.Fprintln(os.Stderr, " aiClas:", v)
+		aiClass = v
+	}
+	if v := viper.GetString("weaviate"); v != "" {
+		fmt.Fprintln(os.Stderr, " weaviate:", v)
+		weaviateURL = v
 	}
 }
