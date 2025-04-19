@@ -51,6 +51,7 @@ Usage:
   twsla [command]
 
 Available Commands:
+  ai          ai command
   anomaly     Anomaly log detection
   completion  Generate the autocompletion script for the specified shell
   count       Count log
@@ -768,6 +769,79 @@ Global Flags:
       --sixel              show chart by sixel
   -t, --timeRange string   Time range
 ```
+
+### ai コマンド
+
+Ollama + Weaviateで構築したローカルLLMと連携してログを分析するためのコマンドです。
+
+![](https://assets.st-note.com/img/1744926116-JpLczwetad06umsiHbkMTP2S.png?width=1200)
+
+OllamaとWeaviateの環境設定は、
+[Weaviate Quit Start](https://weaviate.io/developers/weaviate/quickstart/local)
+です。
+
+```terminal
+manage ai config and export or ask ai
+
+Usage:
+  twsla ai [list|add|delete|talk] [flags]
+
+Flags:
+      --aiClass string      Weaviate class name
+      --aiLimit int         Limit value (default 2)
+      --generative string   Generative Model (default "llama3.2")
+  -h, --help                help for ai
+      --ollama string       Ollama URL (default "http://host.docker.internal:11434")
+      --text2vec string     Text to vector model (default "nomic-embed-text")
+      --weaviate string     Weaviate URL (default "http://localhost:8080")
+
+Global Flags:
+      --config string      config file (default is $HOME/.twsla.yaml)
+  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -f, --filter string      Simple filter
+  -v, --not string         Invert regexp filter
+  -r, --regex string       Regexp filter
+      --sixel              show chart by sixel
+  -t, --timeRange string   Time range
+```
+
+listは、Weaviateに登録されているクラスの一覧を表示します。
+
+```terminal
+Class  Ollama  text2vec        generative
+Logs    http://host.docker.internal:11434       nomic-embed-text        llama3.2
+Test    http://host.docker.internal:11434       nomic-embed-text        llama3.2
+
+hit/total = 2/2
+```
+
+addは、Weaviateにクラスを追加します。deleteはクラスを削除します。
+クラスとは、ログを登録するコレクションの名前です。
+
+talkは、AIと会話してログについての説明を教えたり、ログについて質問したり
+するコマンドです。分析するログを検索して表示します。
+
+
+```terminal
+$twsla ai talk -aiClass Logs <Filter>
+```
+
+フィルターを指定して起動します。
+
+![](https://assets.st-note.com/img/1745016093-VoRxcvFwBOW7kdfa8yX3Kj0C.png?width=1200)
+
+ログを選択してtキーを押してAIにログについて教えます。aキーでAIに質問できます。
+
+![](https://assets.st-note.com/img/1745016196-czop4Ced7Z68KxFlwuWgVDmR.png?width=1200)
+
+質問を入力したらCtrl+sキーでAI質問します。
+しばらくすると回答が表示されるはずです。
+
+![](https://assets.st-note.com/img/1745016253-jszZT32UGA687bHa9tBF5vlL.png?width=1200)
+
+環境の構築は、以下も参考になると思います。
+
+https://qiita.com/twsnmp/items/ed44704e7cd8a1ec0cbe
 
 
 ### completionコマンド

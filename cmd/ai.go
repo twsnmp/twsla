@@ -49,7 +49,7 @@ var aiLimit = 2
 
 // aiCmd represents the ai command
 var aiCmd = &cobra.Command{
-	Use:   "ai [list|add|delete]",
+	Use:   "ai [list|add|delete|talk]",
 	Short: "ai command",
 	Long:  `manage ai config and export or ask ai`,
 	Args: func(cmd *cobra.Command, args []string) error {
