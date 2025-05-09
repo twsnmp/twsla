@@ -19,6 +19,7 @@ require (
 	github.com/elastic/go-grok v0.3.1
 	github.com/go-echarts/go-echarts/v2 v2.4.1
 	github.com/gravwell/gravwell/v3 v3.8.31
+	github.com/mark3labs/mcp-go v0.25.0
 	github.com/mattn/go-sixel v0.0.5
 	github.com/montanaflynn/stats v0.7.1
 	github.com/oschwald/geoip2-golang v1.11.0
@@ -86,9 +87,10 @@ require (
 	github.com/soniakeys/quant v1.0.0 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.11.0 // indirect
-	github.com/spf13/cast v1.6.0 // indirect
+	github.com/spf13/cast v1.7.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
+	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	go.mongodb.org/mongo-driver v1.14.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/exp v0.0.0-20240808152545-0cdaa3abc0fa // indirect

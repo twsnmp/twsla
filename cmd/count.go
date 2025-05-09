@@ -117,7 +117,6 @@ func countSub(wg *sync.WaitGroup) {
 			log.Fatalln("no extract pattern")
 		}
 	}
-	openGeoIPDB()
 	intv := int64(getInterval()) * 1000 * 1000 * 1000
 	sti, eti := getTimeRange()
 	sk := fmt.Sprintf("%016x:", sti)

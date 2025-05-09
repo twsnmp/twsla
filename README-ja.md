@@ -60,6 +60,7 @@ Available Commands:
   heatmap     Command to tally log counts by day of the week and time of day
   help        Help about any command
   import      Import log from source
+  mcp         MCP server
   relation    Relation Analysis
   search      Search logs.
   sigma       Detect threats using SIGMA rules
@@ -842,6 +843,32 @@ $twsla ai talk -aiClass Logs <Filter>
 環境の構築は、以下も参考になると思います。
 
 https://qiita.com/twsnmp/items/ed44704e7cd8a1ec0cbe
+
+### mcp コマンド
+
+MCPサーバー
+
+```terminal
+$twsla help mcp
+MCP server for AI agent
+
+Usage:
+  twsla mcp [flags]
+
+Flags:
+      --geoip string       geo IP database file
+  -h, --help               help for mcp
+      --transport string   Help message for toggle (default "stdio")
+
+Global Flags:
+      --config string      config file (default is $HOME/.twsla.yaml)
+  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -f, --filter string      Simple filter
+  -v, --not string         Invert regexp filter
+  -r, --regex string       Regexp filter
+      --sixel              show chart by sixel
+  -t, --timeRange string   Time range
+```
 
 
 ### completionコマンド

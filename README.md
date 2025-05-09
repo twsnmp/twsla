@@ -61,6 +61,7 @@ Available Commands:
   heatmap     Command to tally log counts by day of the week and time of day
   help        Help about any command
   import      Import log from source
+  mcp         MCP server
   relation    Relation Analysis
   search      Search logs.
   sigma       Detect threats using SIGMA rules
@@ -853,6 +854,32 @@ Select a log and press t to tell AI about the log. a key can be used to ask AI a
 
 After entering a question, press Ctrl+s key to ask AI a question.
 After a while you should see the answer.
+
+### mcp command
+
+MCP server
+
+```terminal
+$twsla help mcp
+MCP server for AI agent
+
+Usage:
+  twsla mcp [flags]
+
+Flags:
+      --geoip string       geo IP database file
+  -h, --help               help for mcp
+      --transport string   Help message for toggle (default "stdio")
+
+Global Flags:
+      --config string      config file (default is $HOME/.twsla.yaml)
+  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -f, --filter string      Simple filter
+  -v, --not string         Invert regexp filter
+  -r, --regex string       Regexp filter
+      --sixel              show chart by sixel
+  -t, --timeRange string   Time range
+```
 
 ### compression command
 
