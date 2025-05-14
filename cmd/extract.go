@@ -432,6 +432,13 @@ func (m extractModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				pss = append(pss, r.PS)
 			}
 			m.table.SetRows(extractRows)
+			if len(vals) < 1 {
+				statsList = []table.Row{}
+				m.statTable.SetRows(statsList)
+				m.done = true
+				m.msg = msg
+				return m, nil
+			}
 			vMin, _ := stats.Min(vals)
 			dMin, _ := stats.Min(deltas)
 			psMin, _ := stats.Min(pss)
@@ -449,9 +456,17 @@ func (m extractModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			psMedian, _ := stats.Median(pss)
 
 			vMode, _ := stats.Mode(vals)
+			if len(vMode) < 1 {
+				vMode = []float64{0}
+			}
 			dMode, _ := stats.Mode(deltas)
+			if len(dMode) < 1 {
+				dMode = []float64{0}
+			}
 			psMode, _ := stats.Mode(pss)
-
+			if len(psMode) < 1 {
+				psMode = []float64{0}
+			}
 			vVariance, _ := stats.Variance(vals)
 			dVariance, _ := stats.Variance(deltas)
 			psVariance, _ := stats.Variance(pss)
