@@ -19,10 +19,12 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/url"
+	"net"
+	"net/http"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/domainr/dnsr"
@@ -33,6 +35,8 @@ import (
 )
 
 var mcpTrapsport = ""
+var mcpEndpoint = ""
+var mcpClients = ""
 
 // mcpCmd represents the mcp command
 var mcpCmd = &cobra.Command{
@@ -46,7 +50,9 @@ var mcpCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(mcpCmd)
-	mcpCmd.Flags().StringVar(&mcpTrapsport, "transport", "stdio", "Help message for toggle")
+	mcpCmd.Flags().StringVar(&mcpTrapsport, "transport", "stdio", "MCP server transport(stdio/sse/stream)")
+	mcpCmd.Flags().StringVar(&mcpEndpoint, "endpoint", "127.0.0.1:8085", "MCP server endpoint(bind address:port)")
+	mcpCmd.Flags().StringVar(&mcpClients, "clients", "", "IP address of MCP client to be allowed to connect Specify by comma delimiter")
 	mcpCmd.Flags().StringVar(&geoipDBPath, "geoip", "", "geo IP database file")
 }
 
@@ -55,30 +61,57 @@ func mcpServer() {
 	s := server.NewMCPServer(
 		"TWSLA MCP Server",
 		"1.0.0",
+		server.WithToolCapabilities(true),
 		server.WithLogging(),
 	)
 	addSearchTool(s)
 	addCountTool(s)
 	addExtractTool(s)
 
-	if mcpTrapsport != "stdio" {
-		u, err := url.Parse(mcpTrapsport)
-		if err != nil {
-			log.Fatalf("mcp err=%v", err)
+	switch mcpTrapsport {
+	case "stdio":
+		if err := server.ServeStdio(s); err != nil {
+			log.Printf("Server error: %v\n", err)
 		}
-
-		sseServer := server.NewSSEServer(s, server.WithBaseURL(mcpTrapsport))
-		log.Printf("SSE server listening on :%s", u.Port())
-		if err := sseServer.Start(fmt.Sprintf(":%s", u.Port())); err != nil {
+	case "sse":
+		sseServer := server.NewSSEServer(s)
+		log.Printf("SSE server listening on %s", mcpEndpoint)
+		if err := sseServer.Start(mcpEndpoint); err != nil {
 			log.Fatalf("Server error: %v", err)
 		}
-		return
+	case "stream":
+		streamServer := server.NewStreamableHTTPServer(s)
+		log.Printf("streamable server listening on %s clients='%s'", mcpEndpoint, mcpClients)
+		if mcpClients != "" {
+			var clMap sync.Map
+			for _, ip := range strings.Split(mcpClients, ",") {
+				clMap.Store(ip, true)
+			}
+			http.Handle("/mcp", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				ip, err := net.ResolveTCPAddr("tcp", r.RemoteAddr)
+				if err != nil {
+					log.Printf("err=%v", err)
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
+				if _, ok := clMap.Load(ip.IP.String()); !ok {
+					log.Printf("connection refused from %s", ip.IP.String())
+					w.WriteHeader(http.StatusNotFound)
+					return
+				}
+				streamServer.ServeHTTP(w, r)
+			}))
+			if err := http.ListenAndServe(mcpEndpoint, nil); err != nil {
+				log.Fatalf("streamable server error: %v", err)
+			}
+		} else {
+			if err := streamServer.Start(mcpEndpoint); err != nil {
+				log.Fatalf("streamable server error: %v", err)
+			}
+		}
+	default:
+		log.Fatalf("transport '%s' not suported", mcpTrapsport)
 	}
-	// サーバー起動
-	if err := server.ServeStdio(s); err != nil {
-		log.Printf("Server error: %v\n", err)
-	}
-
 }
 
 func addSearchTool(s *server.MCPServer) {
@@ -88,7 +121,6 @@ func addSearchTool(s *server.MCPServer) {
 			mcp.Description("Filter logs by regular expression"),
 		),
 		mcp.WithNumber("limit",
-			mcp.Required(),
 			mcp.DefaultNumber(100),
 			mcp.Max(10000),
 			mcp.Min(1),
@@ -108,22 +140,13 @@ Example:
 	)
 
 	s.AddTool(searchTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		if v, ok := request.Params.Arguments["filter"]; ok {
-			if f, ok := v.(string); ok {
-				regexpFilter = f
-			}
+		var err error
+		regexpFilter = request.GetString("filter", "")
+		timeRange, err = request.RequireString("timeRange")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
 		}
-		if v, ok := request.Params.Arguments["timeRange"]; ok {
-			if tr, ok := v.(string); ok {
-				timeRange = tr
-			}
-		}
-		limit := 100
-		if v, ok := request.Params.Arguments["limit"]; ok {
-			if l, ok := v.(float64); ok {
-				limit = int(l)
-			}
-		}
+		limit := request.GetInt("limit", 100)
 		setupFilter([]string{})
 		if err := openDB(); err != nil {
 			return nil, err
@@ -207,66 +230,53 @@ Example:
 	)
 
 	s.AddTool(searchTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		if v, ok := request.Params.Arguments["filter"]; ok {
-			if f, ok := v.(string); ok {
-				regexpFilter = f
-			}
-		}
+		var err error
+		regexpFilter = request.GetString("filter", "")
 		timeMode := true
 		ipm := 0
 		extract = ""
-		if v, ok := request.Params.Arguments["unit"]; ok {
-			if u, ok := v.(string); ok {
-				switch u {
-				case "mac", "email":
-					extract = u
-					timeMode = false
-				case "ip":
-					extract = "ip"
-					timeMode = false
-				case "host":
-					ipm = 1
-					extract = "ip"
-					timeMode = false
-					dnsResolver = dnsr.NewWithTimeout(10000, time.Millisecond*1000)
-				case "domain":
-					ipm = 2
-					extract = "ip"
-					timeMode = false
-					dnsResolver = dnsr.NewWithTimeout(10000, time.Millisecond*1000)
-				case "loc":
-					if err := openGeoIPDB(); err != nil {
-						return nil, err
-					}
-					ipm = 3
-					extract = "ip"
-					timeMode = false
-				case "country":
-					if err := openGeoIPDB(); err != nil {
-						return nil, err
-					}
-					ipm = 4
-					extract = "ip"
-					timeMode = false
-				}
-			}
+		unit, err := request.RequireString("unit")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
 		}
-		if v, ok := request.Params.Arguments["timeRange"]; ok {
-			if tr, ok := v.(string); ok {
-				timeRange = tr
+		switch unit {
+		case "mac", "email":
+			extract = unit
+			timeMode = false
+		case "ip":
+			extract = "ip"
+			timeMode = false
+		case "host":
+			ipm = 1
+			extract = "ip"
+			timeMode = false
+			dnsResolver = dnsr.NewWithTimeout(10000, time.Millisecond*1000)
+		case "domain":
+			ipm = 2
+			extract = "ip"
+			timeMode = false
+			dnsResolver = dnsr.NewWithTimeout(10000, time.Millisecond*1000)
+		case "loc":
+			if err := openGeoIPDB(); err != nil {
+				return nil, err
 			}
-		}
-		pos = 1
-		if v, ok := request.Params.Arguments["pos"]; ok {
-			if p, ok := v.(float64); ok {
-				pos = int(p)
+			ipm = 3
+			extract = "ip"
+			timeMode = false
+		case "country":
+			if err := openGeoIPDB(); err != nil {
+				return nil, err
 			}
+			ipm = 4
+			extract = "ip"
+			timeMode = false
 		}
-		if v, ok := request.Params.Arguments["interval"]; ok {
-			if i, ok := v.(float64); ok {
-				interval = int(i)
-			}
+		timeRange, err = request.RequireString("timeRange")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
 		}
+		pos = request.GetInt("pos", 1)
+		interval = request.GetInt("interval", 0)
 		setupFilter([]string{})
 		extPat = nil
 		setExtPat()
@@ -378,27 +388,13 @@ Example:
 	)
 
 	s.AddTool(searchTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		if v, ok := request.Params.Arguments["filter"]; ok {
-			if f, ok := v.(string); ok {
-				regexpFilter = f
-			}
-		}
-		extract = ""
-		if v, ok := request.Params.Arguments["pattern"]; ok {
-			if e, ok := v.(string); ok {
-				extract = e
-			}
-		}
-		pos = 1
-		if v, ok := request.Params.Arguments["pos"]; ok {
-			if p, ok := v.(float64); ok {
-				pos = int(p)
-			}
-		}
-		if v, ok := request.Params.Arguments["timeRange"]; ok {
-			if tr, ok := v.(string); ok {
-				timeRange = tr
-			}
+		var err error
+		regexpFilter = request.GetString("filter", "")
+		extract = request.GetString("pattern", "")
+		pos = request.GetInt("pos", 1)
+		timeRange, err = request.RequireString("timeRange")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
 		}
 		setupFilter([]string{})
 		extPat = nil

@@ -2,7 +2,7 @@ module github.com/twsnmp/twsla
 
 go 1.24
 
-toolchain go1.24.2
+toolchain go1.24.3
 
 require (
 	github.com/0xrawsec/golang-evtx v1.2.9
@@ -19,7 +19,7 @@ require (
 	github.com/elastic/go-grok v0.3.1
 	github.com/go-echarts/go-echarts/v2 v2.4.1
 	github.com/gravwell/gravwell/v3 v3.8.31
-	github.com/mark3labs/mcp-go v0.25.0
+	github.com/mark3labs/mcp-go v0.31.0
 	github.com/mattn/go-sixel v0.0.5
 	github.com/montanaflynn/stats v0.7.1
 	github.com/oschwald/geoip2-golang v1.11.0
