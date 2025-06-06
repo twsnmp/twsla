@@ -168,9 +168,9 @@ type extPatEnt struct {
 	Index  int
 }
 
-func setExtPat() {
+func setExtPat() error {
 	if extract == "" {
-		return
+		return nil
 	}
 	if pos < 1 {
 		pos = 1
@@ -195,12 +195,13 @@ func setExtPat() {
 
 	r, err := regexp.Compile(e)
 	if err != nil {
-		log.Fatalln(err)
+		return err
 	}
 	extPat = &extPatEnt{
 		ExtReg: r,
 		Index:  pos,
 	}
+	return nil
 }
 
 func wrapString(s string, w int) string {
