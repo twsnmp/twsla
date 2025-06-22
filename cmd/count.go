@@ -22,6 +22,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -44,8 +45,9 @@ var countCmd = &cobra.Command{
 	Use:   "count",
 	Short: "Count log",
 	Long: `Count the number of logs.
-Number of logs per specified time
-Number of occurrences of items extracted from the log`,
+Count logs for each specified period
+Number of occurrences of items extracted from the log.
+Count normalized logs by pattern`,
 	Run: func(cmd *cobra.Command, args []string) {
 		setupFilter(args)
 		countMain()
@@ -111,6 +113,15 @@ func countSub(wg *sync.WaitGroup) {
 		if name == "Key" {
 			name = "Time"
 		}
+	case "normalize":
+		mode = 4
+		setupTimeGrinder()
+		if tg == nil {
+			log.Fatalln("no time grinder")
+		}
+		if name == "Key" {
+			name = "Normalized Pattern"
+		}
 	default:
 		setExtPat()
 		if extPat == nil {
@@ -168,6 +179,10 @@ func countSub(wg *sync.WaitGroup) {
 					// TIME
 					d := t / intv
 					ck := time.Unix(0, d*intv).Format("2006/01/02 15:04")
+					countMap[ck]++
+					hit++
+				case 4:
+					ck := normalizeLog(l)
 					countMap[ck]++
 					hit++
 				default:
@@ -552,4 +567,24 @@ func saveCountCSVFile(path string) {
 		w.Write(wr)
 	}
 	w.Flush()
+}
+
+var regNum = regexp.MustCompile(`\d+`)
+var regUUDI = regexp.MustCompile(`[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}`)
+var regEmail = regexp.MustCompile(`\b\w+@\w+\.\w+\b`)
+
+func normalizeLog(msg string) string {
+	normalized := ""
+	// Replace common variable patterns
+	s, e, ok := tg.Match([]byte(msg))
+	if ok {
+		normalized = msg[:s] + "TIMESTAMP" + msg[e:]
+	} else {
+		normalized = msg
+	}
+	normalized = regUUDI.ReplaceAllString(normalized, "UUID")
+	normalized = regEmail.ReplaceAllString(normalized, "EMAIL")
+	normalized = regNum.ReplaceAllString(normalized, "XXX")
+
+	return normalized
 }
