@@ -46,6 +46,7 @@ var text2vecModel = ""
 var generativeModel = ""
 var aiClass = ""
 var aiLimit = 2
+var aiNormalize = false
 
 // aiCmd represents the ai command
 var aiCmd = &cobra.Command{
@@ -93,6 +94,7 @@ func init() {
 	aiCmd.Flags().StringVar(&generativeModel, "generative", "llama3.2", "Generative Model")
 	aiCmd.Flags().StringVar(&aiClass, "aiClass", "", "Weaviate class name")
 	aiCmd.Flags().IntVar(&aiLimit, "aiLimit", 2, "Limit value")
+	aiCmd.Flags().BoolVar(&aiNormalize, "aiNormalize", false, "Normalize log")
 }
 
 func aiList() {
@@ -240,6 +242,10 @@ func aiTalkSub(wg *sync.WaitGroup) {
 	defer wg.Done()
 	sti, eti := getTimeRange()
 	sk := fmt.Sprintf("%016x:", sti)
+	normalizedLogMap := make(map[string]bool)
+	if aiNormalize {
+		setupTimeGrinder()
+	}
 	i := 0
 	db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte("logs"))
@@ -256,8 +262,17 @@ func aiTalkSub(wg *sync.WaitGroup) {
 			l := string(v)
 			i++
 			if matchFilter(&l) {
-				hit++
-				aiLogList = append(aiLogList, l)
+				if aiNormalize {
+					l = normalizeLog(l)
+					if _, ok := normalizedLogMap[l]; !ok {
+						hit++
+						aiLogList = append(aiLogList, l)
+						normalizedLogMap[l] = true
+					}
+				} else {
+					hit++
+					aiLogList = append(aiLogList, l)
+				}
 			}
 			if i%100 == 0 {
 				teaProg.Send(aiMsg{Lines: i, Hit: len(aiLogList), Dur: time.Since(st)})
