@@ -558,11 +558,12 @@ func mcpImortFromZIPFile(path string) error {
 			continue
 		}
 		ext := strings.ToLower(filepath.Ext(f.Name))
-		if ext == ".gz" {
+		switch ext {
+		case ".gz":
 			if gzr, err := gzip.NewReader(r); err == nil {
 				doImport(path+":"+f.Name, gzr)
 			}
-		} else if ext == ".evtx" {
+		case ".evtx":
 			w, err := os.CreateTemp("", "winlog*.evtx")
 			if err != nil {
 				return err
@@ -571,7 +572,7 @@ func mcpImortFromZIPFile(path string) error {
 			io.Copy(w, r)
 			w.Close()
 			importFromWindowsEvtx(w.Name())
-		} else {
+		default:
 			if err := mcpDoImport(r); err != nil {
 				return err
 			}

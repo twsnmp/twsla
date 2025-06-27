@@ -76,11 +76,12 @@ func imortFromZIPFile(path string) {
 			continue
 		}
 		ext := strings.ToLower(filepath.Ext(f.Name))
-		if ext == ".gz" {
+		switch ext {
+		case ".gz":
 			if gzr, err := gzip.NewReader(r); err == nil {
 				doImport(path+":"+f.Name, gzr)
 			}
-		} else if ext == ".evtx" {
+		case ".evtx":
 			w, err := os.CreateTemp("", "winlog*.evtx")
 			if err != nil {
 				log.Fatalln(err)
@@ -89,7 +90,7 @@ func imortFromZIPFile(path string) {
 			io.Copy(w, r)
 			w.Close()
 			importFromWindowsEvtx(w.Name())
-		} else {
+		default:
 			doImport(path+":"+f.Name, r)
 		}
 	}

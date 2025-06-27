@@ -251,15 +251,16 @@ func (m timeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				} else {
 					m.lastSort = k
-					if k == "d" {
+					switch k {
+					case "d":
 						sort.Slice(timeList, func(i, j int) bool {
 							return timeList[i].Diff < timeList[j].Diff
 						})
-					} else if k == "t" {
+					case "t":
 						sort.Slice(timeList, func(i, j int) bool {
 							return timeList[i].Time < timeList[j].Time
 						})
-					} else if k == "l" {
+					case "l":
 						sort.Slice(timeList, func(i, j int) bool {
 							return timeList[i].Delta < timeList[j].Delta
 						})

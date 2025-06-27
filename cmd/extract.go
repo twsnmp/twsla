@@ -288,12 +288,13 @@ func (m extractModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg := msg.(type) {
 		case tea.KeyMsg:
 			k := msg.String()
-			if k == "esc" || k == "q" {
+			switch k {
+			case "esc", "q":
 				m.stats = false
 				return m, func() tea.Msg {
 					return tea.ClearScreen()
 				}
-			} else if k == "s" {
+			case "s":
 				m.save = true
 			}
 		}
@@ -346,19 +347,20 @@ func (m extractModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					// Change sort key
 					m.lastSort = k
-					if k == "t" {
+					switch k {
+					case "t":
 						sort.Slice(extractList, func(i, j int) bool {
 							return extractList[i].Time < extractList[j].Time
 						})
-					} else if k == "d" {
+					case "d":
 						sort.Slice(extractList, func(i, j int) bool {
 							return extractList[i].Delta < extractList[j].Delta
 						})
-					} else if k == "p" {
+					case "p":
 						sort.Slice(extractList, func(i, j int) bool {
 							return extractList[i].PS < extractList[j].PS
 						})
-					} else {
+					default:
 						sort.Slice(extractList, func(i, j int) bool {
 							if v1, err := strconv.ParseFloat(extractList[i].Value, 64); err == nil {
 								if v2, err := strconv.ParseFloat(extractList[j].Value, 64); err == nil {

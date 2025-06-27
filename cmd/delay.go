@@ -270,11 +270,12 @@ func (m delayModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				} else {
 					m.lastSort = k
-					if k == "d" {
+					switch k {
+					case "d":
 						sort.Slice(delayList, func(i, j int) bool {
 							return delayList[i].Delay < delayList[j].Delay
 						})
-					} else if k == "t" {
+					case "t":
 						sort.Slice(delayList, func(i, j int) bool {
 							return delayList[i].Time < delayList[j].Time
 						})
