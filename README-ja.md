@@ -782,19 +782,26 @@ OllamaとWeaviateの環境設定は、
 です。
 
 ```terminal
-manage ai config and export or ask ai
+manage ai config and export or ask ai.
+Log Analysis by AI
 
 Usage:
-  twsla ai [list|add|delete|talk] [flags]
+  twsla ai [list|add|delete|talk|analyze] [flags]
 
 Flags:
-      --aiClass string      Weaviate class name
-      --aiLimit int         Limit value (default 2)
-      --generative string   Generative Model (default "llama3.2")
-  -h, --help                help for ai
-      --ollama string       Ollama URL (default "http://host.docker.internal:11434")
-      --text2vec string     Text to vector model (default "nomic-embed-text")
-      --weaviate string     Weaviate URL (default "http://localhost:8080")
+      --aiAddPrompt string     Additinal prompt for AI
+      --aiClass string         Weaviate class name
+      --aiErrorLevels string   Words included in the error level log (default "error,fatal,fail,crit,alert")
+      --aiLimit int            Limit value (default 2)
+      --aiNormalize            Normalize log
+      --aiTopNError int        Number of error log patterns to be analyzed by AI (default 10)
+      --aiWarnLevels string    Words included in the warning level log (default "warn")
+      --generative string      Generative Model (default "llama3.2")
+  -h, --help                   help for ai
+      --ollama string          Ollama URL
+      --reportJA               Report in Japanese
+      --text2vec string        Text to vector model (default "nomic-embed-text")
+      --weaviate string        Weaviate URL (default "http://localhost:8080")
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
@@ -840,6 +847,60 @@ $twsla ai talk -aiClass Logs <Filter>
 
 ![](https://assets.st-note.com/img/1745016253-jszZT32UGA687bHa9tBF5vlL.png?width=1200)
 
+analyzeコマンドは、AIを使ってログを分析します。
+このコマンドは、直接Ollamaに接続します。weaviateは必要ありません。
+
+```terminal
+$twsla ai analyze --reportJA --generative qwen3:latest --aiTopNError 20
+
+/ Loading line=655,000 hit=655,000 time=4.436849458s
+
+AI thinking...
+.............................................................................................................................................................................................................................................................................................................................................................................................................................................................................
+📊 ログ分析レポート
+=====================
+
+📈 概要:
+  全ログ数: 655147
+  エラー: 449689
+  警告: 8
+  期間: 2024-12-10 06:55:46 to 2025-01-07 17:22:01
+
+🔴 件数の多いエラーパターン:
+  1. TIMESTAMP LabSZ sshd[XXX]: Failed password for root from XXX.XXX.XXX.XXX port XXX sshXXX (139818 回)
+  2. TIMESTAMP LabSZ sshd[XXX]: pam_unix(sshd:auth): authentication failure; logname= uid=XXX euid=XXX tty=ssh ruser= rhost=XXX.XXX.XXX.XXX  user=root (139572 回)
+  3. TIMESTAMP LabSZ sshd[XXX]: message repeated XXX times: [ Failed password for root from XXX.XXX.XXX.XXX port XXX sshXXX] (36966 回)
+  4. TIMESTAMP LabSZ sshd[XXX]: PAM XXX more authentication failures; logname= uid=XXX euid=XXX tty=ssh ruser= rhost=XXX.XXX.XXX.XXX  user=root (36921 回)
+  5. TIMESTAMP LabSZ sshd[XXX]: Disconnecting: Too many authentication failures for root [preauth] (36569 回)
+  6. TIMESTAMP LabSZ sshd[XXX]: pam_unix(sshd:auth): authentication failure; logname= uid=XXX euid=XXX tty=ssh ruser= rhost=XXX.XXX.XXX.XXX  (13410 回)
+  7. TIMESTAMP LabSZ sshd[XXX]: reverse mapping checking getaddrinfo for . [XXX.XXX.XXX.XXX] failed - POSSIBLE BREAK-IN ATTEMPT! (9371 回)
+  8. TIMESTAMP LabSZ sshd[XXX]: Failed password for invalid user admin from XXX.XXX.XXX.XXX port XXX sshXXX (8073 回)
+  9. TIMESTAMP LabSZ sshd[XXX]: reverse mapping checking getaddrinfo for XXX.XXX.XXX.XXX.broad.xy.jx.dynamic.XXXdata.com.cn [XXX.XXX.XXX.XXX] failed - POSSIBLE BREAK-IN ATTEMPT! (5947 回)
+  10. TIMESTAMP LabSZ sshd[XXX]: PAM XXX more authentication failures; logname= uid=XXX euid=XXX tty=ssh ruser= rhost=XXX.XXX.XXX.XXX  (1164 回)
+  11. TIMESTAMP LabSZ sshd[XXX]: reverse mapping checking getaddrinfo for XXX-XXX-XXX-XXX.rev.cloud.scaleway.com [XXX.XXX.XXX.XXX] failed - POSSIBLE BREAK-IN ATTEMPT! (1009 回)
+  12. TIMESTAMP LabSZ sshd[XXX]: fatal: Read from socket failed: Connection reset by peer [preauth] (952 回)
+  13. TIMESTAMP LabSZ sshd[XXX]: error: Received disconnect from XXX.XXX.XXX.XXX: XXX: No more user authentication methods available. [preauth] (930 回)
+  14. TIMESTAMP LabSZ sshd[XXX]: Disconnecting: Too many authentication failures for admin [preauth] (678 回)
+  15. TIMESTAMP LabSZ sshd[XXX]: reverse mapping checking getaddrinfo for hostXXX-XXX-XXX-XXX.serverdedicati.aruba.it [XXX.XXX.XXX.XXX] failed - POSSIBLE BREAK-IN ATTEMPT! (561 回)
+  16. TIMESTAMP LabSZ sshd[XXX]: Failed password for invalid user test from XXX.XXX.XXX.XXX port XXX sshXXX (543 回)
+  17. TIMESTAMP LabSZ sshd[XXX]: Failed password for invalid user oracle from XXX.XXX.XXX.XXX port XXX sshXXX (489 回)
+  18. TIMESTAMP LabSZ sshd[XXX]: Failed password for invalid user support from XXX.XXX.XXX.XXX port XXX sshXXX (486 回)
+  19. TIMESTAMP LabSZ sshd[XXX]: Failed password for invalid user XXX from XXX.XXX.XXX.XXX port XXX sshXXX (448 回)
+  20. TIMESTAMP LabSZ sshd[XXX]: pam_unix(sshd:auth): authentication failure; logname= uid=XXX euid=XXX tty=ssh ruser= rhost=XXX-XXX-XXX-XXX.hinet-ip.hinet.net  (397 回)
+
+⚠️  検知した異常:
+  security - rootユーザーに対する連続した失敗ログイン試行が検出されました。これは潜在的なブルートフォース攻撃の兆候です。 (critical)
+  error_spike - 大量の失敗ログイン試行が短時間に集中しており、システムに異常な負荷をかけている可能性があります。 (high)
+
+💡 推奨事項:
+  1. rootアカウントのパスワードを強化し、複雑なパスワードを使用してください。
+  2. SSHログインを有効なIPアドレスに制限し、不正なアクセスをブロックしてください。
+  3. ログイン失敗の試行回数を制限し、一定回数を超えた場合にアカウントをロックする設定を導入してください。
+  4. ログ監視を定期的に行い、異常なアクセスパターンを早期に検出してください。
+
+```
+
+
 環境の構築は、以下も参考になると思います。
 
 https://qiita.com/twsnmp/items/ed44704e7cd8a1ec0cbe
@@ -856,9 +917,11 @@ Usage:
   twsla mcp [flags]
 
 Flags:
+      --clients string     IP address of MCP client to be allowed to connect Specify by comma delimiter
+      --endpoint string    MCP server endpoint(bind address:port) (default "127.0.0.1:8085")
       --geoip string       geo IP database file
   -h, --help               help for mcp
-      --transport string   Help message for toggle (default "stdio")
+      --transport string   MCP server transport(stdio/sse/stream) (default "stdio")
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
@@ -869,6 +932,79 @@ Global Flags:
       --sixel              show chart by sixel
   -t, --timeRange string   Time range
 ```
+
+### MCP Serverツールの仕様
+
+---
+
+#### **1. `search_log` ツール**
+**目的**: TWSLAのDBからログを検索する
+
+**パラメータ**:
+- `filter_log_content` (string): 正規表現のフィルター、空欄はフィルターなし.
+- `limit_log_count` (number): ログの最大数 (100-10,000).
+- `time_range` (string): ログの時間範囲 (e.g., `"2025/05/07 05:59:00,1h"` or `"start,end"`).
+
+**出力**: ログの配列をJSON形式で
+
+---
+
+#### **2. `count_log` ツール**
+**目的**: 指定の項目でログの件数を集計する (time, IP, domain, etc.).
+
+**パラメータ**:
+- `count_unit` (enum): 
+  - `time` (指定の時間間隔で集計),
+  - `ip`/`mac`/`email` (アドレス単位に集計),
+  - `host`/`domain` (DNSのホスト名で集計),
+  - `country`/`loc` (geo IPにより位置情報を取得して集計),
+  - `normalize` (ログのパターンで集計).
+- `time_range` (string): 集計するログの時間範囲.
+- `top_n` (number): トップN件の集計.
+
+**Output**: 集計結果をJSON形式で出漁 (例: IPアドレス別の件数).
+
+---
+
+#### **3. `extract_data_from_log` ツール**
+**目的**: IPやメールアドレスなどのデータをログから抽出する
+
+**パラメータ**:
+- `extract_pattern` (string): 抽出項目、正規表現 (例: `ip=([0-9.]+)`).
+- `time_range` (string): ログの時間範囲
+- `pos` (number): 抽出する項目の位置
+
+**出力**: 抽出したデータと日時の配列をJSON形式で出力
+
+---
+
+#### **4. `import_log` ツール**
+**目的**: Import logs into the TWSLA database from files/directories.
+
+**パラメータ**:
+- `log_path` (string): File/directory path (supports ZIP, TAR, EVTX formats).
+- `filename_pattern` (string): Regex to filter files.
+
+**出力**: インポートしたログのサマリー (ファイル数, ライン数, バイト数).
+
+---
+
+#### **5. `get_log_summary` ツール**
+**目的**: 指定時間範囲のログのサマリーを取得
+
+**パラメータ**:
+- `time_range` (string): 時間範囲
+- `error_words`/`warning_words` (strings):  エラー、ワーニングを判断するキーワード
+- `error_top_n` (number): トップNエラーパターンの件数
+
+**出力**: ログの総数、エラー数、ワーニング数と上位エラーログパターンのリストをJSONで出力
+
+---
+
+### **MCP サーバーの設定**
+- **トランスポート**: `stdio` (console), `sse` (server-sent events), or `stream` (HTTP with client filtering).
+- **エンドポイント**: Default `127.0.0.1:8085`.
+- **クライアント**:  IPのホワイトリストをカンマ区切りで指定.
 
 
 ### completionコマンド

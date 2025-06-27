@@ -794,19 +794,26 @@ The Ollama and Weaviate preferences are
 
 
 ```terminal
-manage ai config and export or ask ai
+manage ai config and export or ask ai.
+Log Analysis by AI
 
 Usage:
-  twsla ai [list|add|delete|talk] [flags]
+  twsla ai [list|add|delete|talk|analyze] [flags]
 
 Flags:
-      --aiClass string      Weaviate class name
-      --aiLimit int         Limit value (default 2)
-      --generative string   Generative Model (default "llama3.2")
-  -h, --help                help for ai
-      --ollama string       Ollama URL (default "http://host.docker.internal:11434")
-      --text2vec string     Text to vector model (default "nomic-embed-text")
-      --weaviate string     Weaviate URL (default "http://localhost:8080")
+      --aiAddPrompt string     Additinal prompt for AI
+      --aiClass string         Weaviate class name
+      --aiErrorLevels string   Words included in the error level log (default "error,fatal,fail,crit,alert")
+      --aiLimit int            Limit value (default 2)
+      --aiNormalize            Normalize log
+      --aiTopNError int        Number of error log patterns to be analyzed by AI (default 10)
+      --aiWarnLevels string    Words included in the warning level log (default "warn")
+      --generative string      Generative Model (default "llama3.2")
+  -h, --help                   help for ai
+      --ollama string          Ollama URL
+      --reportJA               Report in Japanese
+      --text2vec string        Text to vector model (default "nomic-embed-text")
+      --weaviate string        Weaviate URL (default "http://localhost:8080")
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
@@ -818,7 +825,7 @@ Global Flags:
   -t, --timeRange string   Time range
 ```
 
-listは、Weaviateに登録されているクラスの一覧を表示します。
+The list displays a list of classes registered in Weaviate.
 
 ```terminal
 Class  Ollama  text2vec        generative
@@ -855,6 +862,44 @@ Select a log and press t to tell AI about the log. a key can be used to ask AI a
 After entering a question, press Ctrl+s key to ask AI a question.
 After a while you should see the answer.
 
+The analyze command uses AI to analyze log summaries.
+This command connects directly to Ollama; weaviate is not required.
+
+
+```terminal
+$twsla ai analyze
+📊 Log Analysis Report
+=====================
+
+📈 Summary:
+  Total Entries: 655147
+  Errors: 449689
+  Warnings: 8
+  Time Range: 2024-12-10 06:55:46 to 2025-01-07 17:22:01
+
+🔴 Top Error Patterns:
+  1. TIMESTAMP LabSZ sshd[XXX]: Failed password for root from XXX.XXX.XXX.XXX port XXX sshXXX (139818 occurrences)
+  2. TIMESTAMP LabSZ sshd[XXX]: pam_unix(sshd:auth): authentication failure; logname= uid=XXX euid=XXX tty=ssh ruser= rhost=XXX.XXX.XXX.XXX  user=root (139572 occurrences)
+  3. TIMESTAMP LabSZ sshd[XXX]: message repeated XXX times: [ Failed password for root from XXX.XXX.XXX.XXX port XXX sshXXX] (36966 occurrences)
+  4. TIMESTAMP LabSZ sshd[XXX]: PAM XXX more authentication failures; logname= uid=XXX euid=XXX tty=ssh ruser= rhost=XXX.XXX.XXX.XXX  user=root (36921 occurrences)
+  5. TIMESTAMP LabSZ sshd[XXX]: Disconnecting: Too many authentication failures for root [preauth] (36569 occurrences)
+  6. TIMESTAMP LabSZ sshd[XXX]: pam_unix(sshd:auth): authentication failure; logname= uid=XXX euid=XXX tty=ssh ruser= rhost=XXX.XXX.XXX.XXX  (13410 occurrences)
+  7. TIMESTAMP LabSZ sshd[XXX]: reverse mapping checking getaddrinfo for . [XXX.XXX.XXX.XXX] failed - POSSIBLE BREAK-IN ATTEMPT! (9371 occurrences)
+  8. TIMESTAMP LabSZ sshd[XXX]: Failed password for invalid user admin from XXX.XXX.XXX.XXX port XXX sshXXX (8073 occurrences)
+  9. TIMESTAMP LabSZ sshd[XXX]: reverse mapping checking getaddrinfo for XXX.XXX.XXX.XXX.broad.xy.jx.dynamic.XXXdata.com.cn [XXX.XXX.XXX.XXX] failed - POSSIBLE BREAK-IN ATTEMPT! (5947 occurrences)
+  10. TIMESTAMP LabSZ sshd[XXX]: PAM XXX more authentication failures; logname= uid=XXX euid=XXX tty=ssh ruser= rhost=XXX.XXX.XXX.XXX  (1164 occurrences)
+
+⚠️  Detected Anomalies:
+  security - Repeated authentication failures for root user from multiple IP addresses, indicating potential brute-force attacks. (critical)
+  performance - High number of failed password attempts from a single IP address, indicating potential denial-of-service (DoS) attacks. (high)
+  security - Unusual connection attempts from unknown IP addresses, indicating potential security threats. (medium)
+
+💡 Recommendations:
+  1. Implement rate limiting and IP blocking to prevent brute-force attacks.
+  2. Monitor connection attempts from unknown IP addresses and investigate potential security threats.
+  3. Regularly review and update firewall rules to ensure they are up-to-date and secure.
+```
+
 ### mcp command
 
 MCP server
@@ -867,9 +912,11 @@ Usage:
   twsla mcp [flags]
 
 Flags:
+      --clients string     IP address of MCP client to be allowed to connect Specify by comma delimiter
+      --endpoint string    MCP server endpoint(bind address:port) (default "127.0.0.1:8085")
       --geoip string       geo IP database file
   -h, --help               help for mcp
-      --transport string   Help message for toggle (default "stdio")
+      --transport string   MCP server transport(stdio/sse/stream) (default "stdio")
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
@@ -880,6 +927,76 @@ Global Flags:
       --sixel              show chart by sixel
   -t, --timeRange string   Time range
 ```
+
+### MCP Server Tools Specification
+
+---
+
+#### **1. `search_log` Tool**
+**Purpose**: Search logs from the TWSLA database with filters.
+**Parameters**:
+- `filter_log_content` (string): Regex pattern to filter log content (empty for no filter).
+- `limit_log_count` (number): Maximum logs to return (100-10,000).
+- `time_range` (string): Time range for logs (e.g., `"2025/05/07 05:59:00,1h"` or `"start,end"`).
+
+**Output**: JSON array of log entries matching the criteria.
+
+---
+
+#### **2. `count_log` Tool**
+**Purpose**: Count logs by specific criteria (time, IP, domain, etc.).
+**Parameters**:
+- `count_unit` (enum): 
+  - `time` (aggregate by time intervals),
+  - `ip`/`mac`/`email` (count by address),
+  - `host`/`domain` (resolve DNS),
+  - `country`/`loc` (geo IP lookup),
+  - `normalize` (pattern-based grouping).
+- `time_range` (string): Time range for analysis.
+- `top_n` (number): Limit results to top N entries.
+
+**Output**: JSON list of counted entries (e.g., IP addresses with frequencies).
+
+---
+
+#### **3. `extract_data_from_log` Tool**
+**Purpose**: Extract structured data (e.g., IPs, emails) from logs.
+**Parameters**:
+- `extract_pattern` (string): Regex to capture data (e.g., `ip=([0-9.]+)`).
+- `time_range` (string): Time range for extraction.
+- `pos` (number): Which capture group to extract.
+
+**Output**: JSON array of extracted data with timestamps.
+
+---
+
+#### **4. `import_log` Tool**
+**Purpose**: Import logs into the TWSLA database from files/directories.
+**Parameters**:
+- `log_path` (string): File/directory path (supports ZIP, TAR, EVTX formats).
+- `filename_pattern` (string): Regex to filter files.
+
+**Output**: Summary of imported logs (files, lines, bytes).
+
+---
+
+#### **5. `get_log_summary` Tool**
+**Purpose**: Generate a summary of log activity within a time range.
+**Parameters**:
+- `time_range` (string): Time range for analysis.
+- `error_words`/`warning_words` (strings): Keywords to classify errors/warnings.
+- `error_top_n` (number): Top N error patterns to return.
+
+**Output**: JSON summary with total logs, error/warning counts, and top error patterns.
+
+---
+
+### **Server Configuration**
+- **Transport**: `stdio` (console), `sse` (server-sent events), or `stream` (HTTP with client filtering).
+- **Endpoints**: Default `127.0.0.1:8085`.
+- **Clients**: Comma-separated IP whitelist for stream transport.
+
+These tools enable log analysis, data extraction, and database management via the MCP protocol. 
 
 ### compression command
 
