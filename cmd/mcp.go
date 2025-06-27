@@ -190,7 +190,11 @@ Example:
 			}
 			return nil
 		})
-		return mcp.NewToolResultText(strings.Join(results, "\n")), nil
+		ret, err := json.Marshal(&results)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		return mcp.NewToolResultText(string(ret)), nil
 	})
 }
 
@@ -386,6 +390,11 @@ Example:
 	})
 }
 
+type mcpExtractEnt struct {
+	Time  string
+	Value string
+}
+
 func addExtractTool(s *server.MCPServer) {
 	searchTool := mcp.NewTool("extract_data_from_log",
 		mcp.WithDescription(
@@ -445,7 +454,7 @@ Example:
 			return mcp.NewToolResultError(err.Error()), nil
 		}
 		defer db.Close()
-		extractList = []extractEnt{}
+		mcpExtractList := []mcpExtractEnt{}
 		sti, eti := getTimeRange()
 		sk := fmt.Sprintf("%016x:", sti)
 		db.View(func(tx *bbolt.Tx) error {
@@ -464,17 +473,17 @@ Example:
 				if matchFilter(&l) {
 					a := extPat.ExtReg.FindAllStringSubmatch(l, -1)
 					if len(a) >= extPat.Index && len(a[extPat.Index-1]) > 1 {
-						extractList = append(extractList, extractEnt{Time: t, Value: a[extPat.Index-1][1]})
+						mcpExtractList = append(mcpExtractList, mcpExtractEnt{Time: time.Unix(0, t).Format(time.RFC3339Nano), Value: a[extPat.Index-1][1]})
 					}
 				}
 			}
 			return nil
 		})
-		results := []string{}
-		for _, e := range extractList {
-			results = append(results, fmt.Sprintf("%s %s", time.Unix(0, e.Time).Format("2006/01/02T15:04:05.999"), e.Value))
+		ret, err := json.Marshal(&mcpExtractList)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
 		}
-		return mcp.NewToolResultText(strings.Join(results, "\n")), nil
+		return mcp.NewToolResultText(string(ret)), nil
 	})
 }
 
@@ -523,8 +532,19 @@ This applies to files in directories and files in archive files such as ZIP.`),
 		}
 		close(logCh)
 		wg.Wait()
-		return mcp.NewToolResultText(fmt.Sprintf("import done files=%s lines=%s bytes=%s",
-			humanize.Comma(int64(totalFiles)), humanize.Comma(int64(totalLines)), humanize.Bytes(uint64(totalBytes)))), nil
+		var r struct {
+			Files string
+			Lines string
+			Bytes string
+		}
+		r.Files = humanize.Bytes(uint64(totalFiles))
+		r.Lines = humanize.Bytes(uint64(totalLines))
+		r.Bytes = humanize.Bytes(uint64(totalBytes))
+		ret, err := json.Marshal(&r)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		return mcp.NewToolResultText(string(ret)), nil
 	})
 }
 
