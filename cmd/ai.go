@@ -51,6 +51,7 @@ var addPrompt = ""
 var aiErrorLevels = "error,fatal,fail,crit,alert"
 var aiWarnLevels = "warn"
 var aiRfeportJA = false
+var aiTopNError = 10
 
 // aiCmd represents the ai command
 var aiCmd = &cobra.Command{
@@ -114,6 +115,7 @@ func init() {
 	aiCmd.Flags().StringVar(&addPrompt, "aiWarnLevels", "warn", "Words included in the warning level log")
 	aiCmd.Flags().StringVar(&addPrompt, "aiAddPrompt", "", "Additinal prompt for AI")
 	aiCmd.Flags().IntVar(&aiLimit, "aiLimit", 2, "Limit value")
+	aiCmd.Flags().IntVar(&aiTopNError, "aiTopNError", 10, "Number of error log patterns to be analyzed by AI")
 	aiCmd.Flags().BoolVar(&aiNormalize, "aiNormalize", false, "Normalize log")
 	aiCmd.Flags().BoolVar(&aiRfeportJA, "reportJA", false, "Report in Japanese")
 }
