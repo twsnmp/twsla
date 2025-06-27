@@ -47,12 +47,17 @@ var generativeModel = ""
 var aiClass = ""
 var aiLimit = 2
 var aiNormalize = false
+var addPrompt = ""
+var aiErrorLevels = "error,fatal,fail,crit,alert"
+var aiWarnLevels = "warn"
+var aiRfeportJA = false
 
 // aiCmd represents the ai command
 var aiCmd = &cobra.Command{
-	Use:   "ai [list|add|delete|talk]",
+	Use:   "ai [list|add|delete|talk|analyze]",
 	Short: "ai command",
-	Long:  `manage ai config and export or ask ai`,
+	Long: `manage ai config and export or ask ai.
+Log Analysis by AI`,
 	Args: func(cmd *cobra.Command, args []string) error {
 		if err := cobra.MinimumNArgs(1)(cmd, args); err != nil {
 			return err
@@ -62,6 +67,7 @@ var aiCmd = &cobra.Command{
 		case "add":
 		case "delete":
 		case "talk":
+		case "analyze":
 		default:
 			return fmt.Errorf("invalid subcommand specified: %s", args[0])
 		}
@@ -71,6 +77,14 @@ var aiCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
 			log.Fatalln("you have to specify subcommand.")
+		}
+		if ollamaURL == "" {
+			if args[0] == "analyze" {
+				ollamaURL = "http://localhost:11434"
+			} else {
+				// In docker
+				ollamaURL = "http://host.docker.internal:11434"
+			}
 		}
 		switch args[0] {
 		case "list":
@@ -82,6 +96,9 @@ var aiCmd = &cobra.Command{
 		case "talk":
 			setupFilter(args[1:])
 			aiTalk()
+		case "analyze":
+			setupFilter(args[1:])
+			aiAnalyze()
 		}
 	},
 }
@@ -89,12 +106,16 @@ var aiCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(aiCmd)
 	aiCmd.Flags().StringVar(&weaviateURL, "weaviate", "http://localhost:8080", "Weaviate URL")
-	aiCmd.Flags().StringVar(&ollamaURL, "ollama", "http://host.docker.internal:11434", "Ollama URL")
+	aiCmd.Flags().StringVar(&ollamaURL, "ollama", "", "Ollama URL")
 	aiCmd.Flags().StringVar(&text2vecModel, "text2vec", "nomic-embed-text", "Text to vector model")
 	aiCmd.Flags().StringVar(&generativeModel, "generative", "llama3.2", "Generative Model")
 	aiCmd.Flags().StringVar(&aiClass, "aiClass", "", "Weaviate class name")
+	aiCmd.Flags().StringVar(&aiErrorLevels, "aiErrorLevels", "error,fatal,fail,crit,alert", "Words included in the error level log")
+	aiCmd.Flags().StringVar(&addPrompt, "aiWarnLevels", "warn", "Words included in the warning level log")
+	aiCmd.Flags().StringVar(&addPrompt, "aiAddPrompt", "", "Additinal prompt for AI")
 	aiCmd.Flags().IntVar(&aiLimit, "aiLimit", 2, "Limit value")
 	aiCmd.Flags().BoolVar(&aiNormalize, "aiNormalize", false, "Normalize log")
+	aiCmd.Flags().BoolVar(&aiRfeportJA, "reportJA", false, "Report in Japanese")
 }
 
 func aiList() {
