@@ -21,6 +21,7 @@ import (
 	"bufio"
 	"compress/gzip"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -193,6 +194,11 @@ Example:
 	})
 }
 
+type mcpCountEnt struct {
+	Key   string
+	Count int
+}
+
 func addCountTool(s *server.MCPServer) {
 	searchTool := mcp.NewTool("count_log",
 		mcp.WithDescription(
@@ -213,8 +219,9 @@ The number of logs can be counted by time, IP address, MAC address, e-mail addre
  domain: Count by domain name of IP address
  country: Count by country of IP address
  loc: Count by geo location of IP address
+ normalize: Count by normalized pattern
 `),
-			mcp.Enum("time", "ip", "email", "mac", "host", "domain", "country", "loc"),
+			mcp.Enum("time", "ip", "email", "mac", "host", "domain", "country", "loc", "normalize"),
 		),
 		mcp.WithString("time_range",
 			mcp.Required(),
@@ -233,6 +240,12 @@ Example:
 			mcp.Min(1),
 			mcp.Description("position of unit"),
 		),
+		mcp.WithNumber("top_n",
+			mcp.DefaultNumber(10),
+			mcp.Max(1000),
+			mcp.Min(1),
+			mcp.Description("limit top n"),
+		),
 		mcp.WithNumber("interval",
 			mcp.DefaultNumber(0),
 			mcp.Max(3600*24),
@@ -245,6 +258,7 @@ Example:
 		var err error
 		regexpFilter = request.GetString("filter_log_content", "")
 		timeMode := true
+		normalizeMode := false
 		ipm := 0
 		extract = ""
 		unit, err := request.RequireString("count_unit")
@@ -282,6 +296,9 @@ Example:
 			ipm = 4
 			extract = "ip"
 			timeMode = false
+		case "normalize":
+			timeMode = false
+			normalizeMode = true
 		}
 		timeRange, err = request.RequireString("time_range")
 		if err != nil {
@@ -289,11 +306,15 @@ Example:
 		}
 		pos = request.GetInt("pos", 1)
 		interval = request.GetInt("interval", 0)
+		topN := request.GetInt("topN", 10)
 		setupFilter([]string{})
 		extPat = nil
 		setExtPat()
-		if !timeMode && extPat == nil {
+		if !timeMode && extPat == nil && !normalizeMode {
 			return mcp.NewToolResultError("invalid unit"), nil
+		}
+		if normalizeMode {
+			setupTimeGrinder()
 		}
 		if err := openDB(); err != nil {
 			return nil, err
@@ -321,6 +342,9 @@ Example:
 						d := t / intv
 						ck := time.Unix(0, d*intv).Format("2006/01/02 15:04")
 						countMap[ck]++
+					} else if normalizeMode {
+						ck := normalizeLog(l)
+						countMap[ck]++
 					} else {
 						a := extPat.ExtReg.FindAllStringSubmatch(l, -1)
 						if len(a) >= extPat.Index {
@@ -335,9 +359,9 @@ Example:
 			}
 			return nil
 		})
-		cl := []countEnt{}
+		cl := []mcpCountEnt{}
 		for k, v := range countMap {
-			cl = append(cl, countEnt{
+			cl = append(cl, mcpCountEnt{
 				Key:   k,
 				Count: v,
 			})
@@ -350,12 +374,15 @@ Example:
 			sort.Slice(cl, func(i, j int) bool {
 				return cl[i].Count > cl[j].Count
 			})
+			if len(cl) > topN {
+				cl = cl[:topN]
+			}
 		}
-		results := []string{}
-		for _, c := range cl {
-			results = append(results, fmt.Sprintf("%s %d", c.Key, c.Count))
+		ret, err := json.Marshal(&cl)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
 		}
-		return mcp.NewToolResultText(strings.Join(results, "\n")), nil
+		return mcp.NewToolResultText(string(ret)), nil
 	})
 }
 
