@@ -330,20 +330,20 @@ func aiAnalyzeImport(wg *sync.WaitGroup) {
 				break
 			}
 		}
-		if !stopAIAnalyze {
-			aiErrorPatternList = []*aiErrorPattern{}
-			for _, v := range errorLogMap {
-				aiErrorPatternList = append(aiErrorPatternList, v)
-			}
-			sort.Slice(aiErrorPatternList, func(i, j int) bool {
-				return aiErrorPatternList[i].Count > aiErrorPatternList[j].Count
-			})
-			if len(aiErrorPatternList) > 10 {
-				aiErrorPatternList = aiErrorPatternList[:10]
-			}
-		}
 		return nil
 	})
+	if !stopAIAnalyze {
+		aiErrorPatternList = []*aiErrorPattern{}
+		for _, v := range errorLogMap {
+			aiErrorPatternList = append(aiErrorPatternList, v)
+		}
+		sort.Slice(aiErrorPatternList, func(i, j int) bool {
+			return aiErrorPatternList[i].Count > aiErrorPatternList[j].Count
+		})
+		if len(aiErrorPatternList) > 10 {
+			aiErrorPatternList = aiErrorPatternList[:10]
+		}
+	}
 	teaProg.Send(aiMsg{Done: true, Lines: i, Hit: len(aiSampleLogList), Dur: time.Since(st)})
 }
 

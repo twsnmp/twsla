@@ -79,6 +79,7 @@ func mcpServer() {
 	addCountTool(s)
 	addExtractTool(s)
 	addImportTool(s)
+	addLogSummaryTool(s)
 
 	// Start MCP server
 	switch mcpTrapsport {
@@ -756,4 +757,143 @@ func mcpImportFromWindowsEvtx(path string) error {
 		}
 	}
 	return nil
+}
+
+type mcpLogSummaryEnt struct {
+	Total            int
+	Errors           int
+	Warnings         int
+	TimeRange        string
+	TopNErrorPattern []*aiErrorPattern
+}
+
+func addLogSummaryTool(s *server.MCPServer) {
+	searchTool := mcp.NewTool("get_log_summary",
+		mcp.WithDescription("Get a summary of logs for a specified period from TWSLA DB"),
+		mcp.WithString("filter_log_content",
+			mcp.Description("Filter logs by regular expression. Empty is no filter"),
+		),
+		mcp.WithString("error_words",
+			mcp.DefaultString("error,fatal,fail,crit,alert"),
+			mcp.Description("Specify keywords, separated by commas, that determine the level of logging as an error."),
+		),
+		mcp.WithString("warning_words",
+			mcp.DefaultString("warn"),
+			mcp.Description("Specify keywords, separated by commas, that determine the level of logging as an warning."),
+		),
+		mcp.WithNumber("error_top_n",
+			mcp.DefaultNumber(10),
+			mcp.Max(1000),
+			mcp.Min(1),
+			mcp.Description("limit top n error pattern"),
+		),
+		mcp.WithString("time_range",
+			mcp.Required(),
+			mcp.Description(
+				`Time range of logs to search 
+format is "start date/time, period" 
+or "start date/time, end date/time".
+Example: 
+2025/05/07 05:59:00,1h 
+2025/05/07 05:59:00,2025/05/07 06:59:00
+`),
+		),
+	)
+
+	s.AddTool(searchTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		var err error
+		regexpFilter = request.GetString("filter_log_content", "")
+		timeRange, err = request.RequireString("time_range")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		aiErrorLevels = request.GetString("error_words", "error,fatal,fail,crit,alert")
+		aiWarnLevels = request.GetString("warning_words", "warn")
+		errCheckList = strings.Split(strings.ToLower(aiErrorLevels), ",")
+		warnCheckList = strings.Split(strings.ToLower(aiWarnLevels), ",")
+		topN := request.GetInt("error_top_n", 10)
+
+		setupFilter([]string{})
+		if err := openDB(); err != nil {
+			return nil, err
+		}
+		defer db.Close()
+		results = []string{}
+		sti, eti := getTimeRange()
+		sk := fmt.Sprintf("%016x:", sti)
+		errorLogMap := make(map[string]*aiErrorPattern)
+		setupTimeGrinder()
+		aiStartTime = time.Now().Add(time.Hour * 24 * 365 * 100).UnixNano()
+		aiEndTime = 0
+		aiErrorCount = 0
+		aiWarningCount = 0
+		aiTotalEntries = 0
+		db.View(func(tx *bbolt.Tx) error {
+			b := tx.Bucket([]byte("logs"))
+			c := b.Cursor()
+			for k, v := c.Seek([]byte(sk)); k != nil; k, v = c.Next() {
+				a := strings.Split(string(k), ":")
+				if len(a) < 1 {
+					continue
+				}
+				t, err := strconv.ParseInt(a[0], 16, 64)
+				if err == nil && t > eti {
+					break
+				}
+				l := string(v)
+				if matchFilter(&l) {
+					level := getAILogLevel(&l)
+					switch level {
+					case "ERROR":
+						aiErrorCount++
+						nl := normalizeLog(l)
+						if p, ok := errorLogMap[nl]; !ok {
+							errorLogMap[nl] = &aiErrorPattern{
+								Pattern: nl,
+								Count:   1,
+								Example: l,
+							}
+						} else {
+							p.Count++
+						}
+					case "WARN":
+						aiWarningCount++
+					default:
+					}
+					if aiStartTime > t {
+						aiStartTime = t
+					}
+					if aiEndTime < t {
+						aiEndTime = t
+					}
+					aiTotalEntries++
+				}
+			}
+			return nil
+		})
+		aiErrorPatternList = []*aiErrorPattern{}
+		for _, v := range errorLogMap {
+			aiErrorPatternList = append(aiErrorPatternList, v)
+		}
+		sort.Slice(aiErrorPatternList, func(i, j int) bool {
+			return aiErrorPatternList[i].Count > aiErrorPatternList[j].Count
+		})
+		if len(aiErrorPatternList) > topN {
+			aiErrorPatternList = aiErrorPatternList[:topN]
+		}
+		summary := mcpLogSummaryEnt{
+			Total:    aiTotalEntries,
+			Errors:   aiErrorCount,
+			Warnings: aiWarningCount,
+			TimeRange: fmt.Sprintf("%s to %s",
+				time.Unix(0, aiStartTime).Format("2006-01-02 15:04:05"),
+				time.Unix(0, aiEndTime).Format("2006-01-02 15:04:05")),
+			TopNErrorPattern: aiErrorPatternList,
+		}
+		ret, err := json.Marshal(&summary)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		return mcp.NewToolResultText(string(ret)), nil
+	})
 }
