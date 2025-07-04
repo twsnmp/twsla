@@ -569,9 +569,11 @@ func saveCountCSVFile(path string) {
 	w.Flush()
 }
 
-var regNum = regexp.MustCompile(`\d+`)
+var regNum = regexp.MustCompile(`\b-?\d+(\.\d+)?\b`)
 var regUUDI = regexp.MustCompile(`[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}`)
-var regEmail = regexp.MustCompile(`\b\w+@\w+\.\w+\b`)
+var regEmail = regexp.MustCompile(`\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b`)
+var regIP = regexp.MustCompile(`\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b`)
+var regMAC = regexp.MustCompile(`\b(?:[0-9a-fA-F]{2}[:-]){5}(?:[0-9a-fA-F]{2})\b`)
 
 func normalizeLog(msg string) string {
 	normalized := ""
@@ -582,9 +584,11 @@ func normalizeLog(msg string) string {
 	} else {
 		normalized = msg
 	}
-	normalized = regUUDI.ReplaceAllString(normalized, "UUID")
-	normalized = regEmail.ReplaceAllString(normalized, "EMAIL")
-	normalized = regNum.ReplaceAllString(normalized, "XXX")
+	normalized = regUUDI.ReplaceAllString(normalized, "#UUID#")
+	normalized = regEmail.ReplaceAllString(normalized, "#EMAIL#")
+	normalized = regIP.ReplaceAllString(normalized, "#IP#")
+	normalized = regMAC.ReplaceAllString(normalized, "#MAC#")
+	normalized = regNum.ReplaceAllString(normalized, "#NUM#")
 
 	return normalized
 }
