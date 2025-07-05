@@ -252,6 +252,7 @@ type countModel struct {
 	save      bool
 	textInput textinput.Model
 	sixel     string
+	log       string
 }
 
 func initCountModel() countModel {
@@ -397,6 +398,18 @@ func (m countModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.table.SetRows(rows)
 			}
 			return m, nil
+		case "enter":
+			if m.done && extract == "normalize" {
+				if m.log == "" {
+					w := m.table.Width()
+					if sel := m.table.SelectedRow(); sel != nil {
+						s := sel[0]
+						m.log = wrapString(setColorNormalize(s), w)
+					}
+				} else {
+					m.log = ""
+				}
+			}
 		default:
 			if !m.done {
 				return m, nil
@@ -404,7 +417,7 @@ func (m countModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.WindowSizeMsg:
 		m.table.SetWidth(msg.Width - 6)
-		m.table.SetHeight(msg.Height - 6)
+		m.table.SetHeight(msg.Height - 5)
 		w := m.table.Width() - 4
 		if timeMode {
 			w -= 2
@@ -416,8 +429,8 @@ func (m countModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.table.SetColumns(columns)
 		} else {
 			columns := []table.Column{
-				{Title: name, Width: 7 * w / 10},
-				{Title: "Count", Width: 3 * w / 10},
+				{Title: name, Width: 9 * w / 10},
+				{Title: "Count", Width: 1 * w / 10},
 			}
 			m.table.SetColumns(columns)
 		}
@@ -434,8 +447,8 @@ func (m countModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.table.SetColumns(columns)
 			} else {
 				columns := []table.Column{
-					{Title: name, Width: 7 * w / 10},
-					{Title: "Count", Width: 3 * w / 10},
+					{Title: name, Width: 9 * w / 10},
+					{Title: "Count", Width: 1 * w / 10},
 				}
 				m.table.SetColumns(columns)
 			}
@@ -494,6 +507,9 @@ func (m countModel) View() string {
 		return "\n\n" + m.sixel + "\n(esc to quit)"
 	}
 	if m.done {
+		if m.log != "" {
+			return m.log
+		}
 		return fmt.Sprintf("%s\n%s\n", m.headerView(), baseStyle.Render(m.table.View()))
 	}
 	str := fmt.Sprintf("\n%s Searching line=%s hit=%s time=%v",
@@ -580,7 +596,7 @@ func normalizeLog(msg string) string {
 	// Replace common variable patterns
 	s, e, ok := tg.Match([]byte(msg))
 	if ok {
-		normalized = msg[:s] + "TIMESTAMP" + msg[e:]
+		normalized = msg[:s] + "#TIMESTAMP#" + msg[e:]
 	} else {
 		normalized = msg
 	}
@@ -591,4 +607,26 @@ func normalizeLog(msg string) string {
 	normalized = regNum.ReplaceAllString(normalized, "#NUM#")
 
 	return normalized
+}
+
+func setColorNormalize(l string) string {
+	l = regexp.MustCompile("#TIMESTAMP#").ReplaceAllStringFunc(l, func(s string) string {
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Render(s)
+	})
+	l = regexp.MustCompile("#UUID#").ReplaceAllStringFunc(l, func(s string) string {
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Render(s)
+	})
+	l = regexp.MustCompile("#EMAIL#").ReplaceAllStringFunc(l, func(s string) string {
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("12")).Render(s)
+	})
+	l = regexp.MustCompile("#IP#").ReplaceAllStringFunc(l, func(s string) string {
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Render(s)
+	})
+	l = regexp.MustCompile("#MAC#").ReplaceAllStringFunc(l, func(s string) string {
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Render(s)
+	})
+	l = regexp.MustCompile("#NUM#").ReplaceAllStringFunc(l, func(s string) string {
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Render(s)
+	})
+	return l
 }
