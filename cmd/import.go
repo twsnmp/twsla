@@ -271,18 +271,68 @@ func doImport(path string, r io.Reader) {
 
 func logSaver(wg *sync.WaitGroup) {
 	defer wg.Done()
-	db.Batch(func(tx *bbolt.Tx) error {
-		bl := tx.Bucket([]byte("logs"))
-		bd := tx.Bucket([]byte("delta"))
-		for l := range logCh {
-			id := fmt.Sprintf("%016x:%s:%x", l.Time, l.Hash, l.Line)
-			bl.Put([]byte(id), []byte(l.Log))
-			if l.Delta < 0 {
-				bd.Put([]byte(id), []byte(fmt.Sprintf("%d", l.Delta)))
-			}
+
+	const batchSize = 10000 // 適切なバッチサイズに調整
+	logsBuffer := make([]struct {
+		ID    []byte
+		Log   []byte
+		Delta []byte // Deltaが存在する場合のみ使用
+	}, 0, batchSize)
+
+	for l := range logCh {
+		id := []byte(fmt.Sprintf("%016x:%s:%x", l.Time, l.Hash, l.Line))
+		logsBuffer = append(logsBuffer, struct {
+			ID    []byte
+			Log   []byte
+			Delta []byte
+		}{ID: id, Log: []byte(l.Log), Delta: nil})
+
+		if l.Delta < 0 {
+			logsBuffer[len(logsBuffer)-1].Delta = []byte(fmt.Sprintf("%d", l.Delta))
 		}
-		return nil
-	})
+
+		if len(logsBuffer) >= batchSize {
+			if err := db.Batch(func(tx *bbolt.Tx) error {
+				bl := tx.Bucket([]byte("logs"))
+				bd := tx.Bucket([]byte("delta"))
+				for _, data := range logsBuffer {
+					if err := bl.Put(data.ID, data.Log); err != nil {
+						return err
+					}
+					if data.Delta != nil {
+						if err := bd.Put(data.ID, data.Delta); err != nil {
+							return err
+						}
+					}
+				}
+				return nil
+			}); err != nil {
+				log.Printf("Error during batch commit: %v\n", err)
+			}
+			logsBuffer = logsBuffer[:0] // バッファをクリア
+		}
+	}
+
+	// チャネルが閉じられた後に残っているログを処理
+	if len(logsBuffer) > 0 {
+		if err := db.Batch(func(tx *bbolt.Tx) error {
+			bl := tx.Bucket([]byte("logs"))
+			bd := tx.Bucket([]byte("delta"))
+			for _, data := range logsBuffer {
+				if err := bl.Put(data.ID, data.Log); err != nil {
+					return err
+				}
+				if data.Delta != nil {
+					if err := bd.Put(data.ID, data.Delta); err != nil {
+						return err
+					}
+				}
+			}
+			return nil
+		}); err != nil {
+			log.Printf("Error during final batch commit: %v\n", err)
+		}
+	}
 }
 
 func getSHA1(str string) string {
