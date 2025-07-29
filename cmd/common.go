@@ -103,6 +103,18 @@ func getSimpleFilter(f string) *regexp.Regexp {
 	if f == "" {
 		return nil
 	}
+	switch f {
+	case "#LOCAL_IP":
+		return regexpLocalIP
+	case "#IP":
+		return regexpIP
+	case "#EMAIL":
+		return regexpEMail
+	case "#URL":
+		return regexpURL
+	case "#MAC":
+		return regexpMAC
+	}
 	f = regexp.QuoteMeta(f)
 	f = strings.ReplaceAll(f, "\\*", ".*")
 	f = strings.ReplaceAll(f, "\\?", ".")
@@ -227,6 +239,7 @@ var regexpEMail = regexp.MustCompile(`[a-zA-Z0-9_.+-]+@[a-zA-Z0-9_.+-]+`)
 var regexpURL = regexp.MustCompile(`https?://[\w!?/+\-_~;.,*&@#$%()'[\]]+`)
 var regexpKV = regexp.MustCompile(`\w+=\w+[ ,]?`)
 var regexpGrok = regexp.MustCompile(`%\{.+\}`)
+var regexpLocalIP = regexp.MustCompile(`\b(10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|127\.0\.0\.1)\b`)
 
 // Filters
 
