@@ -1106,6 +1106,16 @@ Specify with -f for the command option.This is the method of the file name.The r
 Until v1.1.0, the only one for the -f and -r filters was effective, but after v1.2.0, both and later were changed to both and conditions.Because this is more convenient.
 In v1.6.0 or later, the filter can be specified by argument.
 
+Starting with **v1.15.0**, keyword support has been added.
+
+| Keyword | Content |
+|---|---|
+| `#IP` | Includes IP addresses |
+| `#MAC` | Includes MAC addresses |
+| `#LOCAL_IP` | Includes local IP addresses |
+| `#EMAIL` | Includes email addresses |
+| `#URL` | Includes URLs |
+
 
 ### exclusion filter
 
