@@ -256,12 +256,18 @@ Usage:
   twsla count [flags]
 
 Flags:
+      --delay int        Delay filter
   -e, --extract string   Extract pattern
       --geoip string     geo IP database file
+  -g, --grok string      grok pattern definitions
+  -x, --grokPat string   grok pattern
   -h, --help             help for count
   -i, --interval int     Specify the aggregation interval in seconds.
+      --ip string        IP info mode(host|domain|loc|country)
   -n, --name string      Name of key (default "Key")
   -p, --pos int          Specify variable location (default 1)
+  -q, --timePos int      Specify second time stamp position
+      --utc              Force UTC
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
@@ -269,8 +275,8 @@ Global Flags:
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
+      --sixel              show chart by sixel
   -t, --timeRange string   Time range
-
 ```
 
 You can filter in the same way as search.
@@ -302,6 +308,23 @@ The result is.You can also sort this.If you save it on the graph
 ![](https://assets.st-note.com/img/1716674623362-MkHGX4qUZ2.png?width=1200)
 
 The ratio of TOP10 is the graph like this.
+
+A delay time filter has been added in v1.16.0.
+
+```
+--delay <number>
+```
+Specifying this will cause the delay command to display the delay time specified by the number or higher from the logs.
+
+
+```
+  -q, --timePos int      Specify second time stamp position
+      --utc              Force UTC
+```
+is a mode that detects the time difference between two timestamps in the log,
+similar to the delay command.
+
+Translated with DeepL.com (free version)
 
 ### extract command
 
@@ -1187,13 +1210,18 @@ Usage:
   twsla count [flags]
 
 Flags:
+      --delay int        Delay filter
   -e, --extract string   Extract pattern
+      --geoip string     geo IP database file
   -g, --grok string      grok pattern definitions
   -x, --grokPat string   grok pattern
   -h, --help             help for count
   -i, --interval int     Specify the aggregation interval in seconds.
+      --ip string        IP info mode(host|domain|loc|country)
   -n, --name string      Name of key (default "Key")
   -p, --pos int          Specify variable location (default 1)
+  -q, --timePos int      Specify second time stamp position
+      --utc              Force UTC
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
@@ -1201,6 +1229,7 @@ Global Flags:
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
+      --sixel              show chart by sixel
   -t, --timeRange string   Time range
 ```
 
@@ -1253,10 +1282,10 @@ https://dev.maxmind.com/geoip/geolite2-free-geolocation-data/
 
 |Key|Descr|
 |---|---|
-| HOST | Host name |
-| Domain | Domain name |
-| LOC | Location information |
-| Country | Country code |
+| host | Host name |
+| domain | Domain name |
+| loc | Location information |
+| country | Country code |
 
 It corresponds to.Only LOC and Country have an IP position information database.
 

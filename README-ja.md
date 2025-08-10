@@ -252,12 +252,18 @@ Usage:
   twsla count [flags]
 
 Flags:
+      --delay int        Delay filter
   -e, --extract string   Extract pattern
       --geoip string     geo IP database file
+  -g, --grok string      grok pattern definitions
+  -x, --grokPat string   grok pattern
   -h, --help             help for count
   -i, --interval int     Specify the aggregation interval in seconds.
+      --ip string        IP info mode(host|domain|loc|country)
   -n, --name string      Name of key (default "Key")
   -p, --pos int          Specify variable location (default 1)
+  -q, --timePos int      Specify second time stamp position
+      --utc              Force UTC
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
@@ -265,6 +271,7 @@ Global Flags:
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
+      --sixel              show chart by sixel
   -t, --timeRange string   Time range
 
 ```
@@ -297,6 +304,22 @@ v1.5.0から拡張子をhtmlで保存するとHTMLファイルのグラフを保
 ![](https://assets.st-note.com/img/1716674623362-MkHGX4qUZ2.png?width=1200)
 
 のようにTOP10の割合がグラフになります。
+
+v1.16.0から遅延時間のフィルターを追加しました。
+
+```
+--delay <数値>
+```
+を指定するとdelayコマンドで表示される遅延時間が指定の数値以上のログから
+集計します。
+
+```
+  -q, --timePos int      Specify second time stamp position
+      --utc              Force UTC
+```
+は、delayコマンドと同様にログの中の２つのタイムスタンプの時差を
+検知するモードです。
+
 
 ### extractコマンド
 
