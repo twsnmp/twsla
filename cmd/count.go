@@ -54,16 +54,21 @@ Count normalized logs by pattern`,
 	},
 }
 
+var delayFilter int
+
 func init() {
 	rootCmd.AddCommand(countCmd)
 	countCmd.Flags().IntVarP(&interval, "interval", "i", 0, "Specify the aggregation interval in seconds.")
 	countCmd.Flags().IntVarP(&pos, "pos", "p", 1, "Specify variable location")
+	countCmd.Flags().IntVar(&delayFilter, "delay", 0, "Delay filter")
 	countCmd.Flags().StringVarP(&extract, "extract", "e", "", "Extract pattern")
 	countCmd.Flags().StringVarP(&name, "name", "n", "Key", "Name of key")
 	countCmd.Flags().StringVarP(&grokPat, "grokPat", "x", "", "grok pattern")
 	countCmd.Flags().StringVarP(&grokDef, "grok", "g", "", "grok pattern definitions")
 	countCmd.Flags().StringVar(&geoipDBPath, "geoip", "", "geo IP database file")
 	countCmd.Flags().StringVar(&ipInfoMode, "ip", "", "IP info mode(host|domain|loc|country)")
+	countCmd.Flags().IntVarP(&posDelay, "timePos", "q", 0, "Specify second time stamp position")
+	countCmd.Flags().BoolVar(&utc, "utc", false, "Force UTC")
 }
 
 var mean float64
@@ -128,6 +133,13 @@ func countSub(wg *sync.WaitGroup) {
 			log.Fatalln("no extract pattern")
 		}
 	}
+	if posDelay > 0 {
+		var err error
+		tg, err = getTimeGrinder()
+		if err != nil || tg == nil {
+			log.Fatalln(err)
+		}
+	}
 	intv := int64(getInterval()) * 1000 * 1000 * 1000
 	sti, eti := getTimeRange()
 	sk := fmt.Sprintf("%016x:", sti)
@@ -135,6 +147,7 @@ func countSub(wg *sync.WaitGroup) {
 	hit := 0
 	db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte("logs"))
+		bd := tx.Bucket([]byte("delta"))
 		c := b.Cursor()
 		for k, v := c.Seek([]byte(sk)); k != nil; k, v = c.Next() {
 			a := strings.Split(string(k), ":")
@@ -148,6 +161,24 @@ func countSub(wg *sync.WaitGroup) {
 			l := string(v)
 			i++
 			if matchFilter(&l) {
+				if delayFilter > 0 {
+					dth := int64(delayFilter) * (1000 * 1000 * 1000)
+					if posDelay > 0 {
+						t2 := getTimestamp(v)
+						if t2 == 0 || dth < (t-t2) {
+							continue
+						}
+					} else {
+						vd := bd.Get(k)
+						if vd == nil {
+							continue
+						}
+						d, err := strconv.ParseFloat(string(vd), 64)
+						if err != nil || -d < float64(dth) {
+							continue
+						}
+					}
+				}
 				switch mode {
 				case 1:
 					// JSON
@@ -188,7 +219,7 @@ func countSub(wg *sync.WaitGroup) {
 				default:
 					// TWSLA
 					a := extPat.ExtReg.FindAllStringSubmatch(l, -1)
-					if len(a) >= extPat.Index {
+					if len(a) >= extPat.Index && len(a[extPat.Index-1]) > 1 {
 						ck := a[extPat.Index-1][1]
 						if ipm > 0 {
 							ck = getIPInfo(ck, ipm)
@@ -429,8 +460,8 @@ func (m countModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.table.SetColumns(columns)
 		} else {
 			columns := []table.Column{
-				{Title: name, Width: 9 * w / 10},
-				{Title: "Count", Width: 1 * w / 10},
+				{Title: name, Width: 8 * w / 10},
+				{Title: "Count", Width: 2 * w / 10},
 			}
 			m.table.SetColumns(columns)
 		}
@@ -447,8 +478,8 @@ func (m countModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.table.SetColumns(columns)
 			} else {
 				columns := []table.Column{
-					{Title: name, Width: 9 * w / 10},
-					{Title: "Count", Width: 1 * w / 10},
+					{Title: name, Width: 8 * w / 10},
+					{Title: "Count", Width: 2 * w / 10},
 				}
 				m.table.SetColumns(columns)
 			}
