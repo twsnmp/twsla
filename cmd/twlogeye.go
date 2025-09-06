@@ -50,8 +50,8 @@ var twLogEyeAnomalyReportType string
 // twlogeyeCmd represents the twlogeye command
 var twlogeyeCmd = &cobra.Command{
 	Use:   "twlogeye",
-	Short: "Inmport notify and log from twlogeye",
-	Long: `Import notify and log from twlogeye
+	Short: "Inmport notify,logs and report from twlogeye",
+	Long: `Import notify,logs and report from twlogeye
 twsla twlogeye <target> [<sub target>] [<anomaly report type>]
   taregt: notify | logs | report 
 	logs sub target: syslog | trap | netflow | winevent 

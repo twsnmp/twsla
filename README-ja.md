@@ -766,24 +766,31 @@ TwLogEye
 
 https://github.com/twsnmp/twlogeye
 
+https://twsnmp.github.io/twlogeye/
+
 というログサーバーからgRPCで脅威検知通知やログをインポートします。
 
 ```terminal
-Import notify and log from twlogeye
-twsla twlogeye <target>
-  taregt: notify | syslog | trap | netflow | windows
+Import notify,logs and report from twlogeye
+twsla twlogeye <target> [<sub target>] [<anomaly report type>]
+  taregt: notify | logs | report
+        logs sub target: syslog | trap | netflow | winevent
+        report sub target: syslog | trap | netflow | winevent | monitor | anomaly
+        anomaly report type: syslog | trap | netflow | winevent | monitor | anomaly
 
 Usage:
   twsla twlogeye [flags]
 
 Flags:
+      --anomaly string     Anomaly report type (default "monitor")
       --apiPort int        twlogeye api port number (default 8081)
       --apiServer string   twlogeye api server ip address
       --ca string          CA Cert file path
       --cert string        Client cert file path
-      --filter string      Notfiy level or Log search text
+      --filter string      Log search text
   -h, --help               help for twlogeye
       --key string         Client key file path
+      --level string       Notfiy level
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
