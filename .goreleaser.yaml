@@ -25,6 +25,7 @@ builds:
     goarch:
       - amd64
       - arm64
+    id: twsla
 
 archives:
   - formats: [ 'tar.gz' ]
@@ -48,8 +49,21 @@ changelog:
       - "^docs:"
       - "^test:"
 
-brews:
+homebrew_casks:
   - repository:
       owner: twsnmp
       name: homebrew-tap
       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+
+nfpms:
+  -
+    ids: [twsla]
+    homepage: https://github.com/twsnmp/twsla
+    maintainer: Masayuki Yamai <twsnmp@gmail.com>
+    description: twsla is AI-Native log analysis tool.
+    license: Apache 2.0
+    formats:
+      - deb
+      - rpm
+    bindir: /usr/sbin
+    epoch: 1
