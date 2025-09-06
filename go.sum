@@ -280,8 +280,8 @@ github.com/subosito/gotenv v1.6.0 h1:9NlTDc1FTs4qu0DDq7AEtTPNw6SVm7uBMsUCUjABIf8
 github.com/subosito/gotenv v1.6.0/go.mod h1:Dk4QP5c2W3ibzajGcXpNraDfq2IrhjMIvMSWPKKo0FU=
 github.com/tmc/langchaingo v0.1.13 h1:rcpMWBIi2y3B90XxfE4Ao8dhCQPVDMaNPnN5cGB1CaA=
 github.com/tmc/langchaingo v0.1.13/go.mod h1:vpQ5NOIhpzxDfTZK9B6tf2GM/MoaHewPWM5KXXGh7hg=
-github.com/twsnmp/twlogeye/api v0.1.1 h1:lB9oRonMZlK2hEUV3rqFQuZy3Iw7mMSw/IXVsMXTdPA=
-github.com/twsnmp/twlogeye/api v0.1.1/go.mod h1:TnYeZLPqNet1mr+L9/vC28xTEsNKz7BATK3WfM0OQvM=
+github.com/twsnmp/twlogeye/api v0.2.1 h1:c2ATVZjcauUetqurcSjLTdgtZzDP0fpUTM79FJzjwIE=
+github.com/twsnmp/twlogeye/api v0.2.1/go.mod h1:TnYeZLPqNet1mr+L9/vC28xTEsNKz7BATK3WfM0OQvM=
 github.com/twsnmp/twsnmpfc/client v0.0.0-20240913214048-858814736e0b h1:5l1Q0nQCz+QJMZvIT305S/R6hch5XEdJ8zT+H75lV7I=
 github.com/twsnmp/twsnmpfc/client v0.0.0-20240913214048-858814736e0b/go.mod h1:9O++KY5M5cjQ/1AAxWlHaYpesrqzREfhDkLUA1y8Fb8=
 github.com/viant/afs v1.25.1 h1:IPcqwzsPUaWqsSkQXoM1vXwQuRI6u7ZgqQHKQZ8Wxyg=
