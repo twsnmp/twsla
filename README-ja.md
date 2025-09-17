@@ -245,22 +245,28 @@ cキーを押すと入力画面が表示さえます。mキーを押すと
 ```terminal
 ＄twsla  help  count
 Count the number of logs.
-Number of logs per specified time
-Number of occurrences of items extracted from the log
+Count logs for each specified period
+Number of occurrences of items extracted from the log.
+Count normalized logs by pattern
+ $twsla count -e normalize
+Count word in logs.
+ $twsla count -e word
+Count json key.
+ $twsla count -e json -n Score
 
 Usage:
   twsla count [flags]
 
 Flags:
       --delay int        Delay filter
-  -e, --extract string   Extract pattern
+  -e, --extract string   Extract pattern or mode. mode is json,grok,word,normalize
       --geoip string     geo IP database file
   -g, --grok string      grok pattern definitions
   -x, --grokPat string   grok pattern
   -h, --help             help for count
   -i, --interval int     Specify the aggregation interval in seconds.
       --ip string        IP info mode(host|domain|loc|country)
-  -n, --name string      Name of key (default "Key")
+  -n, --name string      Name of key
   -p, --pos int          Specify variable location (default 1)
   -q, --timePos int      Specify second time stamp position
       --utc              Force UTC
@@ -273,7 +279,6 @@ Global Flags:
   -r, --regex string       Regexp filter
       --sixel              show chart by sixel
   -t, --timeRange string   Time range
-
 ```
 
 検索と同じようにフィルターをかけることができます。

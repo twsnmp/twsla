@@ -47,7 +47,13 @@ var countCmd = &cobra.Command{
 	Long: `Count the number of logs.
 Count logs for each specified period
 Number of occurrences of items extracted from the log.
-Count normalized logs by pattern`,
+Count normalized logs by pattern
+ $twsla count -e normalize
+Count word in logs.
+ $twsla count -e word
+Count json key.
+ $twsla count -e json -n Score
+`,
 	Run: func(cmd *cobra.Command, args []string) {
 		setupFilter(args)
 		countMain()
@@ -61,8 +67,8 @@ func init() {
 	countCmd.Flags().IntVarP(&interval, "interval", "i", 0, "Specify the aggregation interval in seconds.")
 	countCmd.Flags().IntVarP(&pos, "pos", "p", 1, "Specify variable location")
 	countCmd.Flags().IntVar(&delayFilter, "delay", 0, "Delay filter")
-	countCmd.Flags().StringVarP(&extract, "extract", "e", "", "Extract pattern")
-	countCmd.Flags().StringVarP(&name, "name", "n", "Key", "Name of key")
+	countCmd.Flags().StringVarP(&extract, "extract", "e", "", "Extract pattern or mode. mode is json,grok,word,normalize")
+	countCmd.Flags().StringVarP(&name, "name", "n", "", "Name of key")
 	countCmd.Flags().StringVarP(&grokPat, "grokPat", "x", "", "grok pattern")
 	countCmd.Flags().StringVarP(&grokDef, "grok", "g", "", "grok pattern definitions")
 	countCmd.Flags().StringVar(&geoipDBPath, "geoip", "", "geo IP database file")
@@ -115,7 +121,7 @@ func countSub(wg *sync.WaitGroup) {
 	case "":
 		// Time mode
 		mode = 3
-		if name == "Key" {
+		if name == "" {
 			name = "Time"
 		}
 	case "normalize":
@@ -124,14 +130,22 @@ func countSub(wg *sync.WaitGroup) {
 		if tg == nil {
 			log.Fatalln("no time grinder")
 		}
-		if name == "Key" {
+		if name == "" {
 			name = "Normalized Pattern"
+		}
+	case "word":
+		mode = 5
+		if name == "" {
+			name = "Word"
 		}
 	default:
 		setExtPat()
 		if extPat == nil {
 			log.Fatalln("no extract pattern")
 		}
+	}
+	if name == "" {
+		name = "Key"
 	}
 	if posDelay > 0 {
 		var err error
@@ -216,6 +230,16 @@ func countSub(wg *sync.WaitGroup) {
 					ck := normalizeLog(l)
 					countMap[ck]++
 					hit++
+				case 5:
+					words := strings.Fields(strings.ToLower(l))
+					for _, word := range words {
+						if len(word) >= 2 && len(word) <= 50 {
+							word = strings.Trim(word, ".,!?;:()[]{}\"'")
+							if len(word) >= 2 {
+								countMap[word]++
+							}
+						}
+					}
 				default:
 					// TWSLA
 					a := extPat.ExtReg.FindAllStringSubmatch(l, -1)

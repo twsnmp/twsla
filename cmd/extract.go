@@ -58,7 +58,7 @@ func init() {
 	rootCmd.AddCommand(extractCmd)
 	extractCmd.Flags().StringVarP(&extract, "extract", "e", "", "Extract pattern")
 	extractCmd.Flags().IntVarP(&pos, "pos", "p", 1, "Specify variable location")
-	extractCmd.Flags().StringVarP(&name, "name", "n", "Value", "Name of value")
+	extractCmd.Flags().StringVarP(&name, "name", "n", "", "Name of value")
 	extractCmd.Flags().StringVarP(&grokPat, "grokPat", "x", "", "grok pattern")
 	extractCmd.Flags().StringVarP(&grokDef, "grok", "g", "", "grok pattern definitions")
 	extractCmd.Flags().StringVar(&geoipDBPath, "geoip", "", "geo IP database file")
@@ -66,6 +66,9 @@ func init() {
 }
 
 func extractMain() {
+	if name == "" {
+		name = "Value"
+	}
 	st = time.Now()
 	if err := openDB(); err != nil {
 		log.Fatalln(err)
