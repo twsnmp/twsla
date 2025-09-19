@@ -28,6 +28,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/NimbleMarkets/ntcharts/sparkline"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -350,6 +351,7 @@ func getCommand() string {
 
 type importModel struct {
 	spinner  spinner.Model
+	sl       sparkline.Model
 	quitting bool
 	err      error
 	msg      ImportMsg
@@ -359,7 +361,8 @@ func initImportModel() importModel {
 	s := spinner.New()
 	s.Spinner = spinner.Line
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#00efff"))
-	return importModel{spinner: s}
+	sl := sparkline.New(50, 1, sparkline.WithStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("#0099ff"))))
+	return importModel{spinner: s, sl: sl}
 }
 
 func (m importModel) Init() tea.Cmd {
@@ -368,6 +371,9 @@ func (m importModel) Init() tea.Cmd {
 
 func (m importModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.sl = sparkline.New(msg.Width-15, 1, sparkline.WithStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("#0099ff"))))
+		return m, nil
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "q", "esc", "ctrl+c":
@@ -398,6 +404,7 @@ func (m importModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 var helpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#626262")).Render
 var errorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#c00000")).Render
+var importStatsStyle = lipgloss.NewStyle().Border(lipgloss.NormalBorder())
 
 func (m importModel) View() string {
 	if m.err != nil {
@@ -406,8 +413,10 @@ func (m importModel) View() string {
 	d := time.Now().Unix() - st.Unix()
 	if d > 0 {
 		d = int64(totalBytes) / d
+		m.sl.Push(float64(d))
+		m.sl.Draw()
 	}
-	str := fmt.Sprintf("\n%s Loading path=%s line=%s byte=%s\n  Total file=%s line=%s byte=%s speed=%s/Sec time=%v",
+	str := fmt.Sprintf("%s Loading path=%s line=%s byte=%s\n  Total file=%s line=%s byte=%s time=%v\n%s %s/Sec",
 		m.spinner.View(),
 		m.msg.Path,
 		humanize.Comma(int64(m.msg.Lines)),
@@ -415,9 +424,11 @@ func (m importModel) View() string {
 		humanize.Comma(int64(totalFiles)),
 		humanize.Comma(int64(totalLines)),
 		humanize.Bytes(uint64(totalBytes)),
-		humanize.Bytes(uint64(d)),
 		time.Since(st),
+		m.sl.View(),
+		humanize.Bytes(uint64(d)),
 	)
+	str = importStatsStyle.Render(str)
 	if m.quitting {
 		return str + "\n"
 	}
