@@ -17,233 +17,128 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
-	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/PaesslerAG/jsonpath"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/table"
-	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/dustin/go-humanize"
 	"github.com/spf13/cobra"
-	"github.com/weaviate/weaviate-go-client/v4/weaviate"
-	"github.com/weaviate/weaviate-go-client/v4/weaviate/graphql"
-	"github.com/weaviate/weaviate/entities/models"
+	"github.com/tmc/langchaingo/llms"
+	"github.com/tmc/langchaingo/llms/ollama"
+	"github.com/tmc/langchaingo/llms/openai"
+	"github.com/tmc/langchaingo/prompts"
 	"go.etcd.io/bbolt"
 )
 
-var weaviateURL = ""
-var ollamaURL = ""
-var text2vecModel = ""
-var generativeModel = ""
-var aiClass = ""
-var aiLimit = 2
-var aiNormalize = false
-var addPrompt = ""
+var aiProvider = "ollama"
+var aiBaseURL = ""
+var llmModel = ""
 var aiErrorLevels = "error,fatal,fail,crit,alert"
 var aiWarnLevels = "warn"
-var aiRfeportJA = false
+var aiLang = ""
 var aiTopNError = 10
+var aiSampleSize = 50
+
+var aiTotalEntries int
+var aiErrorCount int
+var aiWarningCount int
+var aiStartTime int64
+var aiEndTime int64
+
+type aiLogEntry struct {
+	Time       int64
+	Level      string
+	Log        string
+	AIResponce string
+}
+
+var aiLogs = []*aiLogEntry{}
+
+type aiErrorPattern struct {
+	Pattern string
+	Count   int
+	Example string
+}
+
+var aiErrorPatternList = []*aiErrorPattern{}
+
+var errCheckList = []string{}
+var warnCheckList = []string{}
+
+type aiAnomaly struct {
+	Type        string   `json:"type"`
+	Description string   `json:"description"`
+	Severity    string   `json:"severity"`
+	Examples    []string `json:"examples"`
+}
 
 // aiCmd represents the ai command
 var aiCmd = &cobra.Command{
-	Use:   "ai [list|add|delete|talk|analyze]",
-	Short: "ai command",
-	Long: `manage ai config and export or ask ai.
-Log Analysis by AI`,
-	Args: func(cmd *cobra.Command, args []string) error {
-		if err := cobra.MinimumNArgs(1)(cmd, args); err != nil {
-			return err
-		}
-		switch args[0] {
-		case "list":
-		case "add":
-		case "delete":
-		case "talk":
-		case "analyze":
-		default:
-			return fmt.Errorf("invalid subcommand specified: %s", args[0])
-		}
-		return nil
-	},
-
+	Use:   "ai <filter>...",
+	Short: "AI-powered log analysis",
+	Long:  `AI-powered log analysis`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) < 1 {
-			log.Fatalln("you have to specify subcommand.")
+		setupFilter(args)
+		if aiProvider == "" {
+			aiProvider = findAIProvider()
 		}
-		if ollamaURL == "" {
-			if args[0] == "analyze" {
-				ollamaURL = "http://localhost:11434"
-			} else {
-				// In docker
-				ollamaURL = "http://host.docker.internal:11434"
+		if aiProvider == "ollama" {
+			if aiBaseURL == "" {
+				aiBaseURL = "http://localhost:11434"
+			}
+			if llmModel == "" {
+				llmModel = "qwen3:latest"
 			}
 		}
-		switch args[0] {
-		case "list":
-			aiList()
-		case "add":
-			aiAdd()
-		case "delete":
-			aiDelete()
-		case "talk":
-			setupFilter(args[1:])
-			aiTalk()
-		case "analyze":
-			setupFilter(args[1:])
-			aiAnalyze()
-		}
+		// Check LLM
+		getLLM()
+		aiMain()
 	},
+}
+
+func findAIProvider() string {
+	if os.Getenv("OPENAI_API_KEY") != "" {
+		return "openai"
+	}
+	if os.Getenv("ANTHROPIC_API_KEY") != "" {
+		return "anthropic"
+	}
+	if os.Getenv("GOOGLE_API_KEY") != "" {
+		return "gemini"
+	}
+	return "ollama"
 }
 
 func init() {
 	rootCmd.AddCommand(aiCmd)
-	aiCmd.Flags().StringVar(&weaviateURL, "weaviate", "http://localhost:8080", "Weaviate URL")
-	aiCmd.Flags().StringVar(&ollamaURL, "ollama", "", "Ollama URL")
-	aiCmd.Flags().StringVar(&text2vecModel, "text2vec", "nomic-embed-text", "Text to vector model")
-	aiCmd.Flags().StringVar(&generativeModel, "generative", "llama3.2", "Generative Model")
-	aiCmd.Flags().StringVar(&aiClass, "aiClass", "", "Weaviate class name")
+	aiCmd.Flags().StringVar(&aiProvider, "aiProvider", "", "AI provider")
+	aiCmd.Flags().StringVar(&aiBaseURL, "aiBaseURL", "", "AI base URL")
+	aiCmd.Flags().StringVar(&llmModel, "model", "", "LLM Model")
 	aiCmd.Flags().StringVar(&aiErrorLevels, "aiErrorLevels", "error,fatal,fail,crit,alert", "Words included in the error level log")
-	aiCmd.Flags().StringVar(&addPrompt, "aiWarnLevels", "warn", "Words included in the warning level log")
-	aiCmd.Flags().StringVar(&addPrompt, "aiAddPrompt", "", "Additinal prompt for AI")
-	aiCmd.Flags().IntVar(&aiLimit, "aiLimit", 2, "Limit value")
+	aiCmd.Flags().StringVar(&aiWarnLevels, "aiWarnLevels", "warn", "Words included in the warning level log")
 	aiCmd.Flags().IntVar(&aiTopNError, "aiTopNError", 10, "Number of error log patterns to be analyzed by AI")
-	aiCmd.Flags().BoolVar(&aiNormalize, "aiNormalize", false, "Normalize log")
-	aiCmd.Flags().BoolVar(&aiRfeportJA, "reportJA", false, "Report in Japanese")
+	aiCmd.Flags().IntVar(&aiSampleSize, "aiSampleSize", 50, "Number of sample log to be analyzed by AI")
+	aiCmd.Flags().StringVar(&aiLang, "aiLang", "", "Language of the response")
 }
 
-func aiList() {
-	if weaviateURL == "" {
-		log.Fatalln("you have to specify weaviate url")
-	}
-	client, err := getWeaviateClient()
-	if err != nil {
-		log.Fatalln(err)
-	}
-	schema, err := client.Schema().Getter().Do(context.Background())
-	if err != nil {
-		log.Fatalln(err)
-	}
-	hit := 0
-	fmt.Println("Class\tOllama\ttext2vec\tgenerative")
-	for _, c := range schema.Classes {
-		oa, err := jsonpath.Get(`$["generative-ollama"].apiEndpoint`, c.ModuleConfig)
-		if err != nil {
-			continue
-		}
-		va, err := jsonpath.Get(`$["text2vec-ollama"].apiEndpoint`, c.ModuleConfig)
-		if err != nil {
-			continue
-		}
-		if va != oa {
-			continue
-		}
-		o, ok := oa.(string)
-		if !ok {
-			continue
-		}
-		gm, err := jsonpath.Get(`$["generative-ollama"].model`, c.ModuleConfig)
-		if err != nil {
-			continue
-		}
-		vm, err := jsonpath.Get(`$["text2vec-ollama"].model`, c.ModuleConfig)
-		if err != nil {
-			continue
-		}
-		g, ok := gm.(string)
-		if !ok {
-			continue
-		}
-		v, ok := vm.(string)
-		if !ok {
-			continue
-		}
-		fmt.Printf("%s\t%s\t%s\t%s\n", c.Class, o, v, g)
-		hit++
-	}
-	fmt.Printf("\nhit/total = %d/%d\n", hit, len(schema.Classes))
-}
-
-func aiAdd() {
-	if weaviateURL == "" {
-		log.Fatalln("you have to specify weaviate url")
-	}
-	if aiClass == "" {
-		log.Fatalln("you have to specify weaviate class name")
-	}
-	if ollamaURL == "" {
-		log.Fatalln("you have to specify ollama url")
-	}
-	if text2vecModel == "" {
-		log.Fatalln("you have to specify text to vector model")
-	}
-	if generativeModel == "" {
-		log.Fatalln("you have to specify generative model")
-	}
-	client, err := getWeaviateClient()
-	if err != nil {
-		log.Fatalln(err)
-	}
-	classObj := &models.Class{
-		Class:      aiClass,
-		Vectorizer: "text2vec-ollama",
-		ModuleConfig: map[string]interface{}{
-			"text2vec-ollama": map[string]interface{}{
-				"apiEndpoint": ollamaURL,
-				"model":       text2vecModel,
-			},
-			"generative-ollama": map[string]interface{}{
-				"apiEndpoint": ollamaURL,
-				"model":       generativeModel,
-			},
-		},
-	}
-	err = client.Schema().ClassCreator().WithClass(classObj).Do(context.Background())
-	if err != nil {
-		log.Fatalln(err)
-	}
-}
-
-func aiDelete() {
-	if weaviateURL == "" {
-		log.Fatalln("you have to specify weaviate url")
-	}
-	if aiClass == "" {
-		log.Fatalln("you have to specify weaviate class name")
-	}
-	client, err := getWeaviateClient()
-	if err == nil {
-		err = client.Schema().ClassDeleter().WithClassName(aiClass).Do(context.Background())
-	}
-	if err != nil {
-		log.Fatalln(err)
-	}
-}
-
-type aiMsg struct {
+type aiImportMsg struct {
 	Done  bool
 	Lines int
 	Hit   int
 	Dur   time.Duration
 }
 
-type aiAnswer string
-
-func aiTalk() {
-	if weaviateURL == "" {
-		log.Fatalln("you have to specify weaviate url")
-	}
-	if aiClass == "" {
-		log.Fatalln("you have to specify weaviate class name")
-	}
+func aiMain() {
 	st = time.Now()
 	if err := openDB(); err != nil {
 		log.Fatalln(err)
@@ -252,23 +147,23 @@ func aiTalk() {
 	teaProg = tea.NewProgram(initAIModel())
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go aiTalkSub(&wg)
+	go aiSub(&wg)
 	if _, err := teaProg.Run(); err != nil {
 		log.Fatalln(err)
 	}
 	wg.Wait()
 }
 
-var aiLogList = []string{}
-
-func aiTalkSub(wg *sync.WaitGroup) {
+func aiSub(wg *sync.WaitGroup) {
 	defer wg.Done()
+	errorLogMap := make(map[string]*aiErrorPattern)
+	aiStartTime = time.Now().Add(time.Hour * 24 * 365 * 100).UnixNano()
+	aiEndTime = 0
+	errCheckList = strings.Split(strings.ToLower(aiErrorLevels), ",")
+	warnCheckList = strings.Split(strings.ToLower(aiWarnLevels), ",")
 	sti, eti := getTimeRange()
 	sk := fmt.Sprintf("%016x:", sti)
-	normalizedLogMap := make(map[string]bool)
-	if aiNormalize {
-		setupTimeGrinder()
-	}
+	setupTimeGrinder()
 	i := 0
 	db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte("logs"))
@@ -285,20 +180,40 @@ func aiTalkSub(wg *sync.WaitGroup) {
 			l := string(v)
 			i++
 			if matchFilter(&l) {
-				if aiNormalize {
-					l = normalizeLog(l)
-					if _, ok := normalizedLogMap[l]; !ok {
-						hit++
-						aiLogList = append(aiLogList, l)
-						normalizedLogMap[l] = true
+				hit++
+				level := getAILogLevel(&l)
+				switch level {
+				case "ERROR":
+					aiErrorCount++
+					nl := normalizeLog(l)
+					if p, ok := errorLogMap[nl]; !ok {
+						errorLogMap[nl] = &aiErrorPattern{
+							Pattern: nl,
+							Count:   1,
+							Example: l,
+						}
+					} else {
+						p.Count++
 					}
-				} else {
-					hit++
-					aiLogList = append(aiLogList, l)
+				case "WARN":
+					aiWarningCount++
+				default:
 				}
+				if aiStartTime > t {
+					aiStartTime = t
+				}
+				if aiEndTime < t {
+					aiEndTime = t
+				}
+				aiTotalEntries++
+				aiLogs = append(aiLogs, &aiLogEntry{
+					Time:  t,
+					Log:   l,
+					Level: level,
+				})
 			}
 			if i%100 == 0 {
-				teaProg.Send(aiMsg{Lines: i, Hit: len(aiLogList), Dur: time.Since(st)})
+				teaProg.Send(aiImportMsg{Lines: i, Hit: hit, Dur: time.Since(st)})
 			}
 			if stopSearch {
 				break
@@ -306,23 +221,25 @@ func aiTalkSub(wg *sync.WaitGroup) {
 		}
 		return nil
 	})
-	teaProg.Send(aiMsg{Done: true, Lines: i, Hit: len(aiLogList), Dur: time.Since(st)})
+	teaProg.Send(aiImportMsg{Done: true, Lines: i, Hit: hit, Dur: time.Since(st)})
 }
 
 type aiModel struct {
-	spinner       spinner.Model
-	table         table.Model
-	viewport      viewport.Model
-	done          bool
-	log           string
-	answer        string
-	quitting      bool
-	msg           aiMsg
-	ask           bool
-	wait          bool
-	teach         bool
-	textareaAsk   textarea.Model
-	textareaTeach textarea.Model
+	spinner   spinner.Model
+	table     table.Model
+	viewport  viewport.Model
+	done      bool
+	log       string
+	answer    string
+	quitting  bool
+	wait      bool
+	analize   bool
+	importMsg aiImportMsg
+}
+
+type aiAnswerMsg struct {
+	Done bool
+	Text string
 }
 
 func initAIModel() aiModel {
@@ -349,16 +266,8 @@ func initAIModel() aiModel {
 		Background(lipgloss.Color("57")).
 		Bold(false)
 	t.SetStyles(ts)
-	tad := textarea.New()
-	tad.Placeholder = "Descr"
-	tad.Focus()
-	tad.CharLimit = 4096
-	taa := textarea.New()
-	taa.Placeholder = "Question"
-	taa.Focus()
-	taa.CharLimit = 4096
 	vp := viewport.New(100, 100)
-	return aiModel{spinner: s, table: t, textareaTeach: tad, textareaAsk: taa, viewport: vp}
+	return aiModel{spinner: s, table: t, viewport: vp}
 }
 
 func (m aiModel) Init() tea.Cmd {
@@ -368,38 +277,43 @@ func (m aiModel) Init() tea.Cmd {
 var lastAICursor = -1
 
 func (m aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if m.ask {
-		return m.askUpdate(msg)
-	}
-	if m.teach {
-		return m.teachUpdate(msg)
-	}
+	var (
+		cmd  tea.Cmd
+		cmds []tea.Cmd
+	)
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "q", "esc", "ctrl+c":
+			if !m.wait && (m.answer != "" || m.log != "") {
+				m.log = ""
+				m.answer = ""
+				m.viewport.SetContent(m.answer)
+				return m, nil
+			}
 			if m.done {
 				return m, tea.Quit
 			}
 			m.quitting = true
 			stopSearch = true
 			return m, nil
-		case "t":
-			if m.done {
-				lastAICursor = m.table.Cursor()
-				if lastAICursor >= 0 && lastAICursor < len(aiLogList) {
-					m.teach = true
-				}
-			}
-			return m, nil
 		case "a":
-			if m.done {
+			if m.done && !m.wait {
+				m.wait = true
+				m.analize = true
+				go aiAnalyze()
+				return m, m.spinner.Tick
+			}
+		case "e":
+			if m.done && !m.wait {
 				lastAICursor = m.table.Cursor()
-				if lastAICursor >= 0 && lastAICursor < len(aiLogList) {
-					m.ask = true
+				if lastAICursor >= 0 && lastAICursor < len(aiLogs) {
+					m.wait = true
+					m.analize = false
+					go askToAI()
+					return m, m.spinner.Tick
 				}
 			}
-			return m, nil
 		case "enter":
 			if m.done {
 				if m.log == "" && m.answer == "" {
@@ -411,6 +325,8 @@ func (m aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					m.log = ""
 					m.answer = ""
+					m.viewport.SetContent(m.answer)
+					return m, nil
 				}
 			}
 		default:
@@ -421,31 +337,32 @@ func (m aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.table.SetWidth(msg.Width - 6)
 		m.table.SetHeight(msg.Height - 5)
-		m.viewport.Height = msg.Height - 5
-		m.viewport.Width = msg.Width
-		m.textareaAsk.SetWidth(msg.Width - 6)
-		m.textareaAsk.SetHeight(msg.Height - 5)
-		m.textareaTeach.SetWidth(msg.Width - 6)
-		m.textareaTeach.SetHeight(msg.Height - 5)
+		m.viewport.Height = msg.Height - 4
+		m.viewport.Width = msg.Width - 2
 		columns := []table.Column{
 			{Title: "Log", Width: m.table.Width() - 2},
 		}
 		m.table.SetColumns(columns)
-	case aiMsg:
+	case aiImportMsg:
 		if msg.Done {
 			rows := []table.Row{}
-			for _, l := range aiLogList {
-				rows = append(rows, table.Row{l})
+			for _, l := range aiLogs {
+				rows = append(rows, table.Row{l.Log})
 			}
 			m.table.SetRows(rows)
 			m.done = true
 		}
-		m.msg = msg
+		m.importMsg = msg
 		return m, nil
-	case aiAnswer:
-		m.answer = string(msg)
+	case aiAnswerMsg:
+		if msg.Done {
+			m.wait = false
+			m.answer = msg.Text
+		} else {
+			m.answer += msg.Text
+		}
 		m.viewport.SetContent(m.answer)
-		m.wait = false
+		m.viewport.GotoBottom()
 	default:
 		if !m.done || m.wait {
 			var cmd tea.Cmd
@@ -453,67 +370,32 @@ func (m aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	}
-	var cmd tea.Cmd
-	m.table, cmd = m.table.Update(msg)
-	return m, cmd
+	if m.log != "" || m.answer != "" {
+		m.viewport, cmd = m.viewport.Update(msg)
+		cmds = append(cmds, cmd)
+	} else {
+		m.table, cmd = m.table.Update(msg)
+		cmds = append(cmds, cmd)
+	}
+	return m, tea.Batch(cmds...)
 }
 
-func (m aiModel) askUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmd tea.Cmd
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyCtrlS:
-			m.wait = true
-			go askToAI(m.textareaAsk.Value())
-			m.ask = false
-			return m, m.spinner.Tick
-		case tea.KeyCtrlD:
-			m.textareaAsk.SetValue("")
-			return m, nil
-		case tea.KeyCtrlC, tea.KeyEsc:
-			m.ask = false
-			return m, nil
-		}
-	}
-	m.textareaAsk, cmd = m.textareaAsk.Update(msg)
-	return m, cmd
-}
-
-func (m aiModel) teachUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmd tea.Cmd
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyCtrlS:
-			m.wait = true
-			go teachToAI(m.textareaTeach.Value())
-			m.teach = false
-			return m, m.spinner.Tick
-		case tea.KeyCtrlD:
-			m.textareaTeach.SetValue("")
-			return m, nil
-		case tea.KeyCtrlC, tea.KeyEsc:
-			m.teach = false
-			return m, nil
-		}
-	}
-	m.textareaTeach, cmd = m.textareaTeach.Update(msg)
-	return m, cmd
-}
+var vpStyle = lipgloss.NewStyle().
+	Border(lipgloss.NormalBorder()).
+	BorderForeground(lipgloss.Color("#BCBEC0"))
 
 func (m aiModel) View() string {
 	if m.wait {
-		return fmt.Sprintf("%s AI is thinking...", m.spinner.View())
-	}
-	if m.ask {
-		return fmt.Sprintf("Enter a question about this log.\n\n%s\n\n(ctl+s: ask / ctl+d: clear / esc: quit)", m.textareaAsk.View())
-	}
-	if m.teach {
-		return fmt.Sprintf("Tell me about this log.\n\n%s\n\n(ctl+s: teach / ctl+d: clear / esc: quit)", m.textareaTeach.View())
+		if m.analize {
+			return fmt.Sprintf("%s AI is thinking... Press esc to quit.\n\n%s", m.spinner.View(), vpStyle.Render(m.viewport.View()))
+		}
+		return fmt.Sprintf("%s AI is thinking... Press esc to quit.\n%s\n%s", m.spinner.View(), aiLogs[lastAICursor].Log, vpStyle.Render(m.viewport.View()))
 	}
 	if m.answer != "" {
-		return m.viewport.View()
+		if m.analize {
+			return fmt.Sprintf("AI response Press enter | q | esc to back.\n\n%s", vpStyle.Render(m.viewport.View()))
+		}
+		return fmt.Sprintf("AI response Press enter | q | esc to back.\n%s\n%s", aiLogs[lastAICursor].Log, vpStyle.Render(m.viewport.View()))
 	}
 	if m.done {
 		if m.log != "" {
@@ -523,9 +405,9 @@ func (m aiModel) View() string {
 	}
 	str := fmt.Sprintf("\nSearch %s line=%s hit=%s time=%v",
 		m.spinner.View(),
-		humanize.Comma(int64(m.msg.Lines)),
-		humanize.Comma(int64(m.msg.Hit)),
-		m.msg.Dur,
+		humanize.Comma(int64(m.importMsg.Lines)),
+		humanize.Comma(int64(m.importMsg.Hit)),
+		m.importMsg.Dur,
 	)
 	if m.quitting {
 		return str + "\n"
@@ -534,92 +416,316 @@ func (m aiModel) View() string {
 }
 
 func (m aiModel) headerView() string {
-	title := titleStyle.Render(fmt.Sprintf("Results %d/%d s:%s", m.msg.Hit, m.msg.Lines, m.msg.Dur.Truncate(time.Millisecond)))
-	help := helpStyle("enter: Show / t: Teach / a: Ask / q : Quit") + "  "
+	title := titleStyle.Render(fmt.Sprintf("Results %d/%d s:%s", m.importMsg.Hit, m.importMsg.Lines, m.importMsg.Dur.Truncate(time.Millisecond)))
+	help := helpStyle("enter: Show / a: Analyze / e: Explain  q | esc: Quit") + "  "
 	gap := strings.Repeat(" ", max(0, m.table.Width()-lipgloss.Width(title)-lipgloss.Width(help)))
 	return lipgloss.JoinHorizontal(lipgloss.Center, title, gap, help)
 }
 
-func teachToAI(d string) {
-	client, err := getWeaviateClient()
-	if err != nil {
-		teaProg.Send(aiAnswer(err.Error()))
+func askToAI() {
+	le := aiLogs[lastAICursor]
+	if le.AIResponce != "" {
+		teaProg.Send(aiAnswerMsg{
+			Text: string(le.AIResponce),
+			Done: true,
+		})
 		return
 	}
-	objects := []*models.Object{
-		{
-			Class: aiClass,
-			Properties: map[string]any{
-				"log":   aiLogList[lastAICursor],
-				"descr": d,
-			},
-		},
+	template := prompts.NewPromptTemplate(`
+You are an expert log analyst. Help me understand what this log message means and its implications.
+
+Log Details:
+- Timestamp: {{.timestamp}}
+- Severity: {{.severity}}
+- Message:  {{.message}}
+
+Please provide:
+1. What this log message indicates (what happened)
+2. Whether this is normal/expected or indicates a problem
+3. If it's a problem, what might be the root cause
+4. Any recommended actions or things to investigate
+5. Context about what this type of log typically means in applications
+
+Keep your response concise but informative. Focus on practical insights that would help a developer or operator understand and respond to this log entry.
+{{.add_prompt}}
+`, []string{"message", "severity", "timestamp", "add_prompt"})
+
+	addPrompt := ""
+	if aiLang != "" {
+		addPrompt = fmt.Sprintf("Responce in %s.", aiLang)
 	}
-	batchRes, err := client.Batch().ObjectsBatcher().WithObjects(objects...).Do(context.Background())
+
+	prompt, err := template.Format(map[string]any{
+		"message":    le.Log,
+		"severity":   le.Level,
+		"timestamp":  time.Unix(0, le.Time).Format(time.RFC3339),
+		"add_prompt": addPrompt,
+	})
 	if err != nil {
-		teaProg.Send(aiAnswer(err.Error()))
+		log.Fatalf("formatting prompt: %v", err)
+	}
+	llm := getLLM()
+	ctx := context.Background()
+	response, err := llm.GenerateContent(ctx, []llms.MessageContent{
+		llms.TextParts(llms.ChatMessageTypeHuman, prompt),
+	},
+		llms.WithStreamingFunc(func(ctx context.Context, chunk []byte) error {
+			teaProg.Send(aiAnswerMsg{
+				Text: string(chunk),
+			})
+			return nil
+		}),
+	)
+	if err != nil {
+		log.Fatalf("generating analysis: %v", err)
+	}
+	le.AIResponce = string(response.Choices[0].Content)
+	teaProg.Send(aiAnswerMsg{
+		Text: le.AIResponce,
+		Done: true,
+	})
+}
+
+var analizeAnswer = ""
+
+func aiAnalyze() {
+	if analizeAnswer != "" {
+		teaProg.Send(aiAnswerMsg{Done: true, Text: analizeAnswer})
 		return
 	}
-	errs := []string{}
-	for _, res := range batchRes {
-		if res.Result.Errors != nil {
-			errs = append(errs, fmt.Sprintf("%v", res.Result.Errors.Error))
+	sampleSize := aiSampleSize
+	if len(aiLogs) < sampleSize {
+		sampleSize = len(aiLogs)
+	}
+	sample := aiLogs[len(aiLogs)-sampleSize:]
+	template := prompts.NewPromptTemplate(`
+You are an expert system administrator analyzing application logs. Based on the log data provided, identify:
+
+1. **Anomalies**: Unusual patterns, spikes, or unexpected behaviors
+2. **Recommendations**: Specific actions to improve system reliability
+3. **Critical Issues**: Problems requiring immediate attention
+
+Log Summary:
+- Total Entries: {{.total_entries}}
+- Errors: {{.error_count}}
+- Warnings: {{.warning_count}}
+- Time Range: {{.time_range}}
+
+Top Error Patterns:
+{{range .top_errors}}
+- {{.pattern}} ({{.count}} occurrences)
+{{end}}
+
+Recent Log Sample:
+{{range .sample}}
+{{.timestamp}} [{{.level}}] {{.message}}
+{{end}}
+
+Respond in JSON format:
+{
+  "anomalies": [
+    {
+      "type": "error_spike|performance|security|other",
+      "description": "What was detected",
+      "severity": "critical|high|medium|low",
+      "examples": ["example log entries"]
+    }
+  ],
+  "recommendations": [
+    "Specific actionable recommendations"
+  ]
+}
+{{.add_prompt}}
+`, []string{"total_entries", "error_count", "warning_count", "time_range", "top_errors", "sample", "add_prompt"})
+
+	sampleData := make([]map[string]string, len(sample))
+	for i, entry := range sample {
+		sampleData[i] = map[string]string{
+			"timestamp": time.Unix(0, entry.Time).Format(time.RFC3339),
+			"level":     entry.Level,
+			"message":   entry.Log,
 		}
 	}
-	if len(errs) > 0 {
-		teaProg.Send(aiAnswer(strings.Join(errs, "\n")))
-	}
-	teaProg.Send(aiAnswer(""))
-}
 
-func askToAI(p string) {
-	client, err := getWeaviateClient()
-	if err != nil {
-		teaProg.Send(aiAnswer(err.Error()))
-		return
+	topErrors := make([]map[string]string, len(aiErrorPatternList))
+	for i, entry := range aiErrorPatternList {
+		topErrors[i] = map[string]string{
+			"pattern": entry.Pattern,
+			"count":   fmt.Sprintf("%d", entry.Count),
+		}
 	}
+	addPrompt := ""
+	if aiLang != "" {
+		addPrompt = fmt.Sprintf("Please provide the description and recommendations for anomalies in %s.", aiLang)
+	}
+
+	prompt, err := template.Format(map[string]any{
+		"total_entries": aiTotalEntries,
+		"error_count":   aiErrorCount,
+		"warning_count": aiWarningCount,
+		"time_range":    fmt.Sprintf("%s to %s", time.Unix(0, aiStartTime).Format(time.RFC3339), time.Unix(0, aiEndTime).Format(time.RFC3339)),
+		"top_errors":    topErrors,
+		"sample":        sampleData,
+		"add_prompt":    addPrompt,
+	})
+	if err != nil {
+		log.Fatalf("formatting prompt: %v", err)
+	}
+	llm := getLLM()
 	ctx := context.Background()
-	gs := graphql.NewGenerativeSearch().GroupedResult(p)
-	concepts := []string{aiLogList[lastAICursor]}
-	response, err := client.GraphQL().Get().
-		WithClassName(aiClass).
-		WithFields(
-			graphql.Field{Name: "log"},
-			graphql.Field{Name: "descr"},
-		).
-		WithGenerativeSearch(gs).
-		WithNearText(client.GraphQL().NearTextArgBuilder().
-			WithConcepts(concepts)).
-		WithLimit(aiLimit).
-		Do(ctx)
+	response, err := llm.GenerateContent(ctx, []llms.MessageContent{
+		llms.TextParts(llms.ChatMessageTypeHuman, prompt),
+	}, llms.WithJSONMode(),
+		llms.WithStreamingFunc(func(ctx context.Context, chunk []byte) error {
+			teaProg.Send(aiAnswerMsg{
+				Text: string(chunk),
+			})
+			return nil
+		}),
+	)
 	if err != nil {
-		teaProg.Send(aiAnswer(err.Error()))
-		return
+		log.Fatalf("generating analysis: %v", err)
 	}
-	errs := []string{}
-	for _, e := range response.Errors {
-		errs = append(errs, fmt.Sprintf("%v", e))
+
+	var aiResult struct {
+		Anomalies       []aiAnomaly `json:"anomalies"`
+		Recommendations []string    `json:"recommendations"`
 	}
-	if len(errs) > 0 {
-		teaProg.Send(aiAnswer(strings.Join(errs, "\n")))
-		return
+
+	if err := json.Unmarshal([]byte(response.Choices[0].Content), &aiResult); err != nil {
+		log.Fatalf("parsing AI response: %v", err)
 	}
-	r, err := jsonpath.Get("$..groupedResult", response.Data["Get"])
-	if err != nil {
-		teaProg.Send(aiAnswer(err.Error()))
-		return
+	lines := []string{}
+	if strings.ToLower(aiLang) == "japanese" {
+		lines = append(lines, "")
+		lines = append(lines, "📊 ログ分析レポート")
+		lines = append(lines, "=====================")
+		lines = append(lines, "")
+		lines = append(lines, "📈 概要:")
+		lines = append(lines, fmt.Sprintf("  全ログ数: %d", aiTotalEntries))
+		lines = append(lines, fmt.Sprintf("  エラー: %d", aiErrorCount))
+		lines = append(lines, fmt.Sprintf("  警告: %d", aiWarningCount))
+		lines = append(lines, fmt.Sprintf("  期間: %s to %s",
+			time.Unix(0, aiStartTime).Format("2006-01-02 15:04:05"),
+			time.Unix(0, aiEndTime).Format("2006-01-02 15:04:05")))
+
+		if len(aiErrorPatternList) > 0 {
+			lines = append(lines, "🔴 件数の多いエラーパターン:")
+			for i, pattern := range aiErrorPatternList {
+				lines = append(lines, fmt.Sprintf("  %d. %s (%d 回)", i+1, pattern.Pattern, pattern.Count))
+			}
+			fmt.Println()
+		}
+		if len(aiResult.Anomalies) > 0 {
+			lines = append(lines, "⚠️  検知した異常:")
+			for _, anomaly := range aiResult.Anomalies {
+				lines = append(lines, fmt.Sprintf("  %s - %s (%s)", anomaly.Type, anomaly.Description, anomaly.Severity))
+				for _, e := range anomaly.Examples {
+					lines = append(lines, fmt.Sprintf("   Example: %s", e))
+				}
+			}
+			fmt.Println()
+		}
+
+		if len(aiResult.Recommendations) > 0 {
+			lines = append(lines, "💡 推奨事項:\n")
+			for i, rec := range aiResult.Recommendations {
+				lines = append(lines, fmt.Sprintf("  %d. %s", i+1, rec))
+			}
+			fmt.Println()
+		}
+	} else {
+		lines = append(lines, "")
+		lines = append(lines, "📊 Log Analysis Report")
+		lines = append(lines, "=====================")
+		lines = append(lines, "")
+		lines = append(lines, "📈 Summary:")
+		lines = append(lines, fmt.Sprintf("  Total Entries: %d", aiTotalEntries))
+		lines = append(lines, fmt.Sprintf("  Errors: %d", aiErrorCount))
+		lines = append(lines, fmt.Sprintf("  Warnings: %d", aiWarningCount))
+		lines = append(lines, fmt.Sprintf("  Time Range: %s to %s",
+			time.Unix(0, aiStartTime).Format("2006-01-02 15:04:05"),
+			time.Unix(0, aiEndTime).Format("2006-01-02 15:04:05")))
+		lines = append(lines, "")
+		if len(aiErrorPatternList) > 0 {
+			lines = append(lines, "🔴 Top Error Patterns:")
+			for i, pattern := range aiErrorPatternList {
+				lines = append(lines, fmt.Sprintf("  %d. %s (%d occurrences)", i+1, pattern.Pattern, pattern.Count))
+			}
+			lines = append(lines, "")
+		}
+
+		if len(aiResult.Anomalies) > 0 {
+			lines = append(lines, "⚠️  Detected Anomalies:")
+			for _, anomaly := range aiResult.Anomalies {
+				lines = append(lines, fmt.Sprintf("  %s - %s (%s)", anomaly.Type, anomaly.Description, anomaly.Severity))
+				for _, e := range anomaly.Examples {
+					lines = append(lines, fmt.Sprintf("   Example: %s", e))
+				}
+			}
+			lines = append(lines, "")
+		}
+
+		if len(aiResult.Recommendations) > 0 {
+			lines = append(lines, "💡 Recommendations:")
+			for i, rec := range aiResult.Recommendations {
+				lines = append(lines, fmt.Sprintf("  %d. %s", i+1, rec))
+			}
+			lines = append(lines, "")
+		}
 	}
-	teaProg.Send(aiAnswer(fmt.Sprintf("%v", r)))
+	analizeAnswer = strings.Join(lines, "\n")
+	teaProg.Send(aiAnswerMsg{Text: analizeAnswer, Done: true})
 }
 
-func getWeaviateClient() (*weaviate.Client, error) {
-	u, err := url.Parse(weaviateURL)
-	if err != nil {
-		return nil, err
+func getAILogLevel(l *string) string {
+	ll := strings.ToLower(*l)
+	for _, e := range errCheckList {
+		if strings.Contains(ll, e) {
+			return "ERROR"
+		}
 	}
-	cfg := weaviate.Config{
-		Host:   u.Host,
-		Scheme: u.Scheme,
+	for _, w := range warnCheckList {
+		if strings.Contains(ll, w) {
+			return "WARN"
+		}
 	}
-	return weaviate.NewClient(cfg)
+	if strings.Contains(ll, "debug") {
+		return "DEBUG"
+	}
+	return "INFO"
+}
+
+func getLLM() llms.Model {
+	switch aiProvider {
+	case "ollama":
+		llm, err := ollama.New(
+			ollama.WithModel(llmModel),
+			ollama.WithServerURL(aiBaseURL),
+		)
+		if err != nil {
+			log.Fatalf("get llm err=%v", err)
+		}
+		return llm
+	case "gemini", "googleai":
+
+	case "openai":
+		if llmModel != "" {
+			llm, err := openai.New(openai.WithModel(llmModel))
+			if err != nil {
+				log.Fatalf("get llm err=%v", err)
+			}
+			return llm
+		} else {
+			llm, err := openai.New()
+			if err != nil {
+				log.Fatalf("get llm err=%v", err)
+			}
+			return llm
+		}
+	case "anthropic", "claude":
+
+	}
+	log.Fatalln("llm not found")
+	return nil
 }

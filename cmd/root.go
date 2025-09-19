@@ -165,12 +165,4 @@ func initConfig() {
 		fmt.Fprintln(os.Stderr, " sixel:", v)
 		sixelChart = v
 	}
-	if v := viper.GetString("aiClass"); v != "" {
-		fmt.Fprintln(os.Stderr, " aiClas:", v)
-		aiClass = v
-	}
-	if v := viper.GetString("weaviate"); v != "" {
-		fmt.Fprintln(os.Stderr, " weaviate:", v)
-		weaviateURL = v
-	}
 }
