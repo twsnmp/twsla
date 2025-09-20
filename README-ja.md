@@ -145,6 +145,13 @@ $twsla import -s ~/Downloads/Linux_2k.log
   Total file=1 line=2,000 byte=212 kB time=75.410115ms
 ```
 
+v1.17.0からインポートのステータス表示が変わりました。
+
+![](https://assets.st-note.com/img/1758319263-BqyMKkbUO0PT91w75IvZucgi.png?width=1200)
+
+スパークラインを表示します。
+
+
 ZIPファイルやtar.gz形式のファイルから読み込む場合もファイル名のパターンを指定できます。
 
 読み込む時に、シンプルフィルター、正規表現のフィルターや時間範囲を指定することができます。読み込む量を減らすことができます。
@@ -808,35 +815,32 @@ Global Flags:
 
 ### ai コマンド
 
-Ollama + Weaviateで構築したローカルLLMと連携してログを分析するためのコマンドです。
+LLMと連携してログを分析するためのコマンドです。
+v1.17.0で大きく変更しました。
 
-![](https://assets.st-note.com/img/1744926116-JpLczwetad06umsiHbkMTP2S.png?width=1200)
+![](https://assets.st-note.com/img/1758318692-ujPGHdgEcA40JOQLNhCVz7bU.png?width=1200)
 
-OllamaとWeaviateの環境設定は、
-[Weaviate Quit Start](https://weaviate.io/developers/weaviate/quickstart/local)
-です。
 
 ```terminal
-manage ai config and export or ask ai.
-Log Analysis by AI
+AI-powered log analysis
+Using environment variable for API key.
+ GOOGLE_API_KEY : gemini
+ ANTHROPIC_API_KEY : claude
+ OPENAI_API_KEY: openai
 
 Usage:
-  twsla ai [list|add|delete|talk|analyze] [flags]
+  twsla ai <filter>... [flags]
 
 Flags:
-      --aiAddPrompt string     Additinal prompt for AI
-      --aiClass string         Weaviate class name
+      --aiBaseURL string       AI base URL
       --aiErrorLevels string   Words included in the error level log (default "error,fatal,fail,crit,alert")
-      --aiLimit int            Limit value (default 2)
-      --aiNormalize            Normalize log
+      --aiLang string          Language of the response
+      --aiModel string         LLM Model name
+      --aiProvider string      AI provider(ollama|gemini|openai|claude)
+      --aiSampleSize int       Number of sample log to be analyzed by AI (default 50)
       --aiTopNError int        Number of error log patterns to be analyzed by AI (default 10)
       --aiWarnLevels string    Words included in the warning level log (default "warn")
-      --generative string      Generative Model (default "llama3.2")
   -h, --help                   help for ai
-      --ollama string          Ollama URL
-      --reportJA               Report in Japanese
-      --text2vec string        Text to vector model (default "nomic-embed-text")
-      --weaviate string        Weaviate URL (default "http://localhost:8080")
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
@@ -848,97 +852,38 @@ Global Flags:
   -t, --timeRange string   Time range
 ```
 
-listは、Weaviateに登録されているクラスの一覧を表示します。
+aiコマンドでログを分析するためには、AI(LLM）のプロバイダー、モデル、APIキー
+とログを検索するフィルターを指定して起動します。
+APIキーは、環境変数で指定します。
+ GOOGLE_API_KEY : gemini
+ ANTHROPIC_API_KEY : claude
+ OPENAI_API_KEY: openai
 
-```terminal
-Class  Ollama  text2vec        generative
-Logs    http://host.docker.internal:11434       nomic-embed-text        llama3.2
-Test    http://host.docker.internal:11434       nomic-embed-text        llama3.2
-
-hit/total = 2/2
-```
-
-addは、Weaviateにクラスを追加します。deleteはクラスを削除します。
-クラスとは、ログを登録するコレクションの名前です。
-
-talkは、AIと会話してログについての説明を教えたり、ログについて質問したり
-するコマンドです。分析するログを検索して表示します。
+Ollamaの場合はAPIキーは必要ありません。
 
 
 ```terminal
-$twsla ai talk -aiClass Logs <Filter>
+$twsla ai -aiProvider -aiModel ollama qwen3:latest <Filter>
 ```
+ログ検索して
 
-フィルターを指定して起動します。
+![](https://assets.st-note.com/img/1758318933-VnEzfqCPXT3a9hY0k6KLpy1o.png?width=1200)
 
-![](https://assets.st-note.com/img/1745016093-VoRxcvFwBOW7kdfa8yX3Kj0C.png?width=1200)
+のような画面が表示されます。
 
-ログを選択してtキーを押してAIにログについて教えます。aキーでAIに質問できます。
+ログを選択してeキーを押すと
 
-![](https://assets.st-note.com/img/1745016196-czop4Ced7Z68KxFlwuWgVDmR.png?width=1200)
+![](https://assets.st-note.com/img/1758351613-VDajhwiCFATymgfnWGIYv67S.png?width=1200)
 
-質問を入力したらCtrl+sキーでAI質問します。
-しばらくすると回答が表示されるはずです。
+AIによるログに関する説明が表示されます。
 
-![](https://assets.st-note.com/img/1745016253-jszZT32UGA687bHa9tBF5vlL.png?width=1200)
-
-analyzeコマンドは、AIを使ってログを分析します。
-このコマンドは、直接Ollamaに接続します。weaviateは必要ありません。
-
-```terminal
-$twsla ai analyze --reportJA --generative qwen3:latest --aiTopNError 20
-
-/ Loading line=655,000 hit=655,000 time=4.436849458s
-
-AI thinking...
-.............................................................................................................................................................................................................................................................................................................................................................................................................................................................................
-📊 ログ分析レポート
-=====================
-
-📈 概要:
-  全ログ数: 655147
-  エラー: 449689
-  警告: 8
-  期間: 2024-12-10 06:55:46 to 2025-01-07 17:22:01
-
-🔴 件数の多いエラーパターン:
-  1. TIMESTAMP LabSZ sshd[XXX]: Failed password for root from XXX.XXX.XXX.XXX port XXX sshXXX (139818 回)
-  2. TIMESTAMP LabSZ sshd[XXX]: pam_unix(sshd:auth): authentication failure; logname= uid=XXX euid=XXX tty=ssh ruser= rhost=XXX.XXX.XXX.XXX  user=root (139572 回)
-  3. TIMESTAMP LabSZ sshd[XXX]: message repeated XXX times: [ Failed password for root from XXX.XXX.XXX.XXX port XXX sshXXX] (36966 回)
-  4. TIMESTAMP LabSZ sshd[XXX]: PAM XXX more authentication failures; logname= uid=XXX euid=XXX tty=ssh ruser= rhost=XXX.XXX.XXX.XXX  user=root (36921 回)
-  5. TIMESTAMP LabSZ sshd[XXX]: Disconnecting: Too many authentication failures for root [preauth] (36569 回)
-  6. TIMESTAMP LabSZ sshd[XXX]: pam_unix(sshd:auth): authentication failure; logname= uid=XXX euid=XXX tty=ssh ruser= rhost=XXX.XXX.XXX.XXX  (13410 回)
-  7. TIMESTAMP LabSZ sshd[XXX]: reverse mapping checking getaddrinfo for . [XXX.XXX.XXX.XXX] failed - POSSIBLE BREAK-IN ATTEMPT! (9371 回)
-  8. TIMESTAMP LabSZ sshd[XXX]: Failed password for invalid user admin from XXX.XXX.XXX.XXX port XXX sshXXX (8073 回)
-  9. TIMESTAMP LabSZ sshd[XXX]: reverse mapping checking getaddrinfo for XXX.XXX.XXX.XXX.broad.xy.jx.dynamic.XXXdata.com.cn [XXX.XXX.XXX.XXX] failed - POSSIBLE BREAK-IN ATTEMPT! (5947 回)
-  10. TIMESTAMP LabSZ sshd[XXX]: PAM XXX more authentication failures; logname= uid=XXX euid=XXX tty=ssh ruser= rhost=XXX.XXX.XXX.XXX  (1164 回)
-  11. TIMESTAMP LabSZ sshd[XXX]: reverse mapping checking getaddrinfo for XXX-XXX-XXX-XXX.rev.cloud.scaleway.com [XXX.XXX.XXX.XXX] failed - POSSIBLE BREAK-IN ATTEMPT! (1009 回)
-  12. TIMESTAMP LabSZ sshd[XXX]: fatal: Read from socket failed: Connection reset by peer [preauth] (952 回)
-  13. TIMESTAMP LabSZ sshd[XXX]: error: Received disconnect from XXX.XXX.XXX.XXX: XXX: No more user authentication methods available. [preauth] (930 回)
-  14. TIMESTAMP LabSZ sshd[XXX]: Disconnecting: Too many authentication failures for admin [preauth] (678 回)
-  15. TIMESTAMP LabSZ sshd[XXX]: reverse mapping checking getaddrinfo for hostXXX-XXX-XXX-XXX.serverdedicati.aruba.it [XXX.XXX.XXX.XXX] failed - POSSIBLE BREAK-IN ATTEMPT! (561 回)
-  16. TIMESTAMP LabSZ sshd[XXX]: Failed password for invalid user test from XXX.XXX.XXX.XXX port XXX sshXXX (543 回)
-  17. TIMESTAMP LabSZ sshd[XXX]: Failed password for invalid user oracle from XXX.XXX.XXX.XXX port XXX sshXXX (489 回)
-  18. TIMESTAMP LabSZ sshd[XXX]: Failed password for invalid user support from XXX.XXX.XXX.XXX port XXX sshXXX (486 回)
-  19. TIMESTAMP LabSZ sshd[XXX]: Failed password for invalid user XXX from XXX.XXX.XXX.XXX port XXX sshXXX (448 回)
-  20. TIMESTAMP LabSZ sshd[XXX]: pam_unix(sshd:auth): authentication failure; logname= uid=XXX euid=XXX tty=ssh ruser= rhost=XXX-XXX-XXX-XXX.hinet-ip.hinet.net  (397 回)
-
-⚠️  検知した異常:
-  security - rootユーザーに対する連続した失敗ログイン試行が検出されました。これは潜在的なブルートフォース攻撃の兆候です。 (critical)
-  error_spike - 大量の失敗ログイン試行が短時間に集中しており、システムに異常な負荷をかけている可能性があります。 (high)
-
-💡 推奨事項:
-  1. rootアカウントのパスワードを強化し、複雑なパスワードを使用してください。
-  2. SSHログインを有効なIPアドレスに制限し、不正なアクセスをブロックしてください。
-  3. ログイン失敗の試行回数を制限し、一定回数を超えた場合にアカウントをロックする設定を導入してください。
-  4. ログ監視を定期的に行い、異常なアクセスパターンを早期に検出してください。
-
-```
+aキーを押すと検索したログ全体に関するAIの分析が表示されます。
 
 
-環境の構築は、以下も参考になると思います。
+![](https://assets.st-note.com/img/1758351831-hxMeayErWLgRJ2CUduSXDcbA.png?width=1200)
 
-https://qiita.com/twsnmp/items/ed44704e7cd8a1ec0cbe
+AIの回答は画面を閉じるまで記憶しています。aキーやログを選択してeキーを
+押した時に、即座に画面が表示されます。
 
 ### mcp コマンド
 

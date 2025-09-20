@@ -55,6 +55,12 @@ homebrew_casks:
       name: homebrew-tap
       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
 
+brews:
+  - repository:
+      owner: twsnmp
+      name: homebrew-tap
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+
 nfpms:
   -
     ids: [twsla]

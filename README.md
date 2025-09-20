@@ -145,6 +145,12 @@ When you specify the directory, read the file in the directory.If you specify th
   Total file=1 line=2,000 byte=212 kB time=75.410115ms
 ```
 
+ Starting with v1.17.0, the import status display has changed.
+
+![](https://assets.st-note.com/img/1758319263-BqyMKkbUO0PT91w75IvZucgi.png?width=1200)
+
+Displays sparklines.
+
 You can also specify the file name pattern when reading from a zip file or Tar.gz format file.
 
 When reading, you can specify a simple filter, regular expression filter and time range.You can reduce the amount you read.
@@ -821,35 +827,34 @@ Global Flags:
 
 ### ai Command
 
-This command is used to analyze logs in conjunction with a local LLM built with Ollama + Weaviate.
+This command analyzes logs in conjunction with LLM.
+Significant changes were made in v1.17.0.
 
-![](https://assets.st-note.com/img/1744926116-JpLczwetad06umsiHbkMTP2S.png?width=1200)
 
-The Ollama and Weaviate preferences are 
-[Weaviate Quit Start](https://weaviate.io/developers/weaviate/quickstart/local)
+![](https://assets.st-note.com/img/1758318692-ujPGHdgEcA40JOQLNhCVz7bU.png?width=1200)
+
 
 
 ```terminal
-manage ai config and export or ask ai.
-Log Analysis by AI
+AI-powered log analysis
+Using environment variable for API key.
+ GOOGLE_API_KEY : gemini
+ ANTHROPIC_API_KEY : claude
+ OPENAI_API_KEY: openai
 
 Usage:
-  twsla ai [list|add|delete|talk|analyze] [flags]
+  twsla ai <filter>... [flags]
 
 Flags:
-      --aiAddPrompt string     Additinal prompt for AI
-      --aiClass string         Weaviate class name
+      --aiBaseURL string       AI base URL
       --aiErrorLevels string   Words included in the error level log (default "error,fatal,fail,crit,alert")
-      --aiLimit int            Limit value (default 2)
-      --aiNormalize            Normalize log
+      --aiLang string          Language of the response
+      --aiModel string         LLM Model name
+      --aiProvider string      AI provider(ollama|gemini|openai|claude)
+      --aiSampleSize int       Number of sample log to be analyzed by AI (default 50)
       --aiTopNError int        Number of error log patterns to be analyzed by AI (default 10)
       --aiWarnLevels string    Words included in the warning level log (default "warn")
-      --generative string      Generative Model (default "llama3.2")
   -h, --help                   help for ai
-      --ollama string          Ollama URL
-      --reportJA               Report in Japanese
-      --text2vec string        Text to vector model (default "nomic-embed-text")
-      --weaviate string        Weaviate URL (default "http://localhost:8080")
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
@@ -861,80 +866,38 @@ Global Flags:
   -t, --timeRange string   Time range
 ```
 
-The list displays a list of classes registered in Weaviate.
+To analyze logs with the ai command, specify the AI (LLM) provider, model, API key, and the filter to search the logs before launching.
+The API key is specified via environment variables.
+GOOGLE_API_KEY : gemini
+ANTHROPIC_API_KEY : claude
+OPENAI_API_KEY: openai
 
-```terminal
-Class  Ollama  text2vec        generative
-Logs    http://host.docker.internal:11434       nomic-embed-text        llama3.2
-Test    http://host.docker.internal:11434       nomic-embed-text        llama3.2
-
-hit/total = 2/2
-```
-
-add: adds a class to the Weaviate.
-delete: deletes a class.
-
-A class is the name of a collection of logs.
-
-talk is a command to talk to the AI and tell it about the logs, ask it questions about the logs, or Search retrieves and displays logs to be analyzed.
-
-```terminal
-$twsla ai talk -aiClass Logs <Filter>
-```
-
-![](https://assets.st-note.com/img/1745016093-VoRxcvFwBOW7kdfa8yX3Kj0C.png?width=1200)
-
-
-Activate by specifying a filter.
-
-![](https://assets.st-note.com/img/1745016196-czop4Ced7Z68KxFlwuWgVDmR.png?width=1200)
-
-
-Select a log and press t to tell AI about the log. a key can be used to ask AI a question.
-
-![](https://assets.st-note.com/img/1745016253-jszZT32UGA687bHa9tBF5vlL.png?width=1200)
-
-
-After entering a question, press Ctrl+s key to ask AI a question.
-After a while you should see the answer.
-
-The analyze command uses AI to analyze log summaries.
-This command connects directly to Ollama; weaviate is not required.
+No API key is required for Ollama.
 
 
 ```terminal
-$twsla ai analyze
-📊 Log Analysis Report
-=====================
-
-📈 Summary:
-  Total Entries: 655147
-  Errors: 449689
-  Warnings: 8
-  Time Range: 2024-12-10 06:55:46 to 2025-01-07 17:22:01
-
-🔴 Top Error Patterns:
-  1. TIMESTAMP LabSZ sshd[XXX]: Failed password for root from XXX.XXX.XXX.XXX port XXX sshXXX (139818 occurrences)
-  2. TIMESTAMP LabSZ sshd[XXX]: pam_unix(sshd:auth): authentication failure; logname= uid=XXX euid=XXX tty=ssh ruser= rhost=XXX.XXX.XXX.XXX  user=root (139572 occurrences)
-  3. TIMESTAMP LabSZ sshd[XXX]: message repeated XXX times: [ Failed password for root from XXX.XXX.XXX.XXX port XXX sshXXX] (36966 occurrences)
-  4. TIMESTAMP LabSZ sshd[XXX]: PAM XXX more authentication failures; logname= uid=XXX euid=XXX tty=ssh ruser= rhost=XXX.XXX.XXX.XXX  user=root (36921 occurrences)
-  5. TIMESTAMP LabSZ sshd[XXX]: Disconnecting: Too many authentication failures for root [preauth] (36569 occurrences)
-  6. TIMESTAMP LabSZ sshd[XXX]: pam_unix(sshd:auth): authentication failure; logname= uid=XXX euid=XXX tty=ssh ruser= rhost=XXX.XXX.XXX.XXX  (13410 occurrences)
-  7. TIMESTAMP LabSZ sshd[XXX]: reverse mapping checking getaddrinfo for . [XXX.XXX.XXX.XXX] failed - POSSIBLE BREAK-IN ATTEMPT! (9371 occurrences)
-  8. TIMESTAMP LabSZ sshd[XXX]: Failed password for invalid user admin from XXX.XXX.XXX.XXX port XXX sshXXX (8073 occurrences)
-  9. TIMESTAMP LabSZ sshd[XXX]: reverse mapping checking getaddrinfo for XXX.XXX.XXX.XXX.broad.xy.jx.dynamic.XXXdata.com.cn [XXX.XXX.XXX.XXX] failed - POSSIBLE BREAK-IN ATTEMPT! (5947 occurrences)
-  10. TIMESTAMP LabSZ sshd[XXX]: PAM XXX more authentication failures; logname= uid=XXX euid=XXX tty=ssh ruser= rhost=XXX.XXX.XXX.XXX  (1164 occurrences)
-
-⚠️  Detected Anomalies:
-  security - Repeated authentication failures for root user from multiple IP addresses, indicating potential brute-force attacks. (critical)
-  performance - High number of failed password attempts from a single IP address, indicating potential denial-of-service (DoS) attacks. (high)
-  security - Unusual connection attempts from unknown IP addresses, indicating potential security threats. (medium)
-
-💡 Recommendations:
-  1. Implement rate limiting and IP blocking to prevent brute-force attacks.
-  2. Monitor connection attempts from unknown IP addresses and investigate potential security threats.
-  3. Regularly review and update firewall rules to ensure they are up-to-date and secure.
+$twsla ai -aiProvider -aiModel ollama qwen3:latest <Filter>
 ```
+Searching the logs displays a screen like this:
+
+![](https://assets.st-note.com/img/1758318933-VnEzfqCPXT3a9hY0k6KLpy1o.png?width=1200)
+
+A screen like this will appear.
+
+Select a log and press the e key
+
+![](https://assets.st-note.com/img/1758352154-IHNFWpQdTta6fS97AD8e2nGV.png?width=1200)
+
+An AI-generated explanation about the log will be displayed.
+
+Press the a key to see the AI's analysis of the entire searched log.
+
+
+![](https://assets.st-note.com/img/1758352084-BnFKucxeG4mqSoYCT6tNprH3.png?width=1200)
+
+The AI's response remains in memory until the screen is closed. Pressing the a key or selecting a log and pressing the e key
+will immediately display the screen.
+
 
 ### mcp command
 
