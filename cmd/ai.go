@@ -17,7 +17,6 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -32,8 +31,11 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/dustin/go-humanize"
+	"github.com/muesli/reflow/wordwrap"
 	"github.com/spf13/cobra"
 	"github.com/tmc/langchaingo/llms"
+	"github.com/tmc/langchaingo/llms/anthropic"
+	"github.com/tmc/langchaingo/llms/googleai"
 	"github.com/tmc/langchaingo/llms/ollama"
 	"github.com/tmc/langchaingo/llms/openai"
 	"github.com/tmc/langchaingo/prompts"
@@ -42,7 +44,7 @@ import (
 
 var aiProvider = "ollama"
 var aiBaseURL = ""
-var llmModel = ""
+var aiModelName = ""
 var aiErrorLevels = "error,fatal,fail,crit,alert"
 var aiWarnLevels = "warn"
 var aiLang = ""
@@ -75,18 +77,16 @@ var aiErrorPatternList = []*aiErrorPattern{}
 var errCheckList = []string{}
 var warnCheckList = []string{}
 
-type aiAnomaly struct {
-	Type        string   `json:"type"`
-	Description string   `json:"description"`
-	Severity    string   `json:"severity"`
-	Examples    []string `json:"examples"`
-}
-
 // aiCmd represents the ai command
 var aiCmd = &cobra.Command{
 	Use:   "ai <filter>...",
 	Short: "AI-powered log analysis",
-	Long:  `AI-powered log analysis`,
+	Long: `AI-powered log analysis
+Using environment variable for API key.
+ GOOGLE_API_KEY : gemini
+ ANTHROPIC_API_KEY : claude
+ OPENAI_API_KEY: openai
+`,
 	Run: func(cmd *cobra.Command, args []string) {
 		setupFilter(args)
 		if aiProvider == "" {
@@ -96,8 +96,8 @@ var aiCmd = &cobra.Command{
 			if aiBaseURL == "" {
 				aiBaseURL = "http://localhost:11434"
 			}
-			if llmModel == "" {
-				llmModel = "qwen3:latest"
+			if aiModelName == "" {
+				aiModelName = "qwen3:latest"
 			}
 		}
 		// Check LLM
@@ -106,24 +106,11 @@ var aiCmd = &cobra.Command{
 	},
 }
 
-func findAIProvider() string {
-	if os.Getenv("OPENAI_API_KEY") != "" {
-		return "openai"
-	}
-	if os.Getenv("ANTHROPIC_API_KEY") != "" {
-		return "anthropic"
-	}
-	if os.Getenv("GOOGLE_API_KEY") != "" {
-		return "gemini"
-	}
-	return "ollama"
-}
-
 func init() {
 	rootCmd.AddCommand(aiCmd)
-	aiCmd.Flags().StringVar(&aiProvider, "aiProvider", "", "AI provider")
+	aiCmd.Flags().StringVar(&aiProvider, "aiProvider", "", "AI provider(ollama|gemini|openai|claude)")
 	aiCmd.Flags().StringVar(&aiBaseURL, "aiBaseURL", "", "AI base URL")
-	aiCmd.Flags().StringVar(&llmModel, "model", "", "LLM Model")
+	aiCmd.Flags().StringVar(&aiModelName, "aiModel", "", "LLM Model name")
 	aiCmd.Flags().StringVar(&aiErrorLevels, "aiErrorLevels", "error,fatal,fail,crit,alert", "Words included in the error level log")
 	aiCmd.Flags().StringVar(&aiWarnLevels, "aiWarnLevels", "warn", "Words included in the warning level log")
 	aiCmd.Flags().IntVar(&aiTopNError, "aiTopNError", 10, "Number of error log patterns to be analyzed by AI")
@@ -343,6 +330,9 @@ func (m aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			{Title: "Log", Width: m.table.Width() - 2},
 		}
 		m.table.SetColumns(columns)
+		if m.answer != "" {
+			m.viewport.SetContent(wordwrap.String(m.answer, m.viewport.Width))
+		}
 	case aiImportMsg:
 		if msg.Done {
 			rows := []table.Row{}
@@ -361,7 +351,7 @@ func (m aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.answer += msg.Text
 		}
-		m.viewport.SetContent(m.answer)
+		m.viewport.SetContent(wordwrap.String(m.answer, m.viewport.Width))
 		m.viewport.GotoBottom()
 	default:
 		if !m.done || m.wait {
@@ -380,22 +370,20 @@ func (m aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-var vpStyle = lipgloss.NewStyle().
-	Border(lipgloss.NormalBorder()).
-	BorderForeground(lipgloss.Color("#BCBEC0"))
-
 func (m aiModel) View() string {
+	per := fmt.Sprintf(" %3.1f%%", m.viewport.ScrollPercent()*100)
+	div := strings.Repeat("─", max(0, m.viewport.Width-len(per)))
 	if m.wait {
 		if m.analize {
-			return fmt.Sprintf("%s AI is thinking... Press esc to quit.\n\n%s", m.spinner.View(), vpStyle.Render(m.viewport.View()))
+			return fmt.Sprintf("%s AI is thinking... Press esc to quit.\n\n%s%s\n%s", m.spinner.View(), div, per, m.viewport.View())
 		}
-		return fmt.Sprintf("%s AI is thinking... Press esc to quit.\n%s\n%s", m.spinner.View(), aiLogs[lastAICursor].Log, vpStyle.Render(m.viewport.View()))
+		return fmt.Sprintf("%s AI is thinking... Press esc to quit.\n%s\n%s%s\n%s", m.spinner.View(), aiLogs[lastAICursor].Log, div, per, m.viewport.View())
 	}
 	if m.answer != "" {
 		if m.analize {
-			return fmt.Sprintf("AI response Press enter | q | esc to back.\n\n%s", vpStyle.Render(m.viewport.View()))
+			return fmt.Sprintf("AI response Press enter | q | esc to back.\n\n%s%s\n%s", div, per, m.viewport.View())
 		}
-		return fmt.Sprintf("AI response Press enter | q | esc to back.\n%s\n%s", aiLogs[lastAICursor].Log, vpStyle.Render(m.viewport.View()))
+		return fmt.Sprintf("AI response Press enter | q | esc to back.\n%s\n%s%s\n%s", aiLogs[lastAICursor].Log, div, per, m.viewport.View())
 	}
 	if m.done {
 		if m.log != "" {
@@ -479,7 +467,7 @@ Keep your response concise but informative. Focus on practical insights that wou
 	if err != nil {
 		log.Fatalf("generating analysis: %v", err)
 	}
-	le.AIResponce = string(response.Choices[0].Content)
+	le.AIResponce = response.Choices[0].Content + "\n\n"
 	teaProg.Send(aiAnswerMsg{
 		Text: le.AIResponce,
 		Done: true,
@@ -499,7 +487,7 @@ func aiAnalyze() {
 	}
 	sample := aiLogs[len(aiLogs)-sampleSize:]
 	template := prompts.NewPromptTemplate(`
-You are an expert system administrator analyzing application logs. Based on the log data provided, identify:
+You are an expert system administrator analyzing logs. Based on the log data provided, identify:
 
 1. **Anomalies**: Unusual patterns, spikes, or unexpected behaviors
 2. **Recommendations**: Specific actions to improve system reliability
@@ -521,20 +509,21 @@ Recent Log Sample:
 {{.timestamp}} [{{.level}}] {{.message}}
 {{end}}
 
-Respond in JSON format:
-{
-  "anomalies": [
-    {
-      "type": "error_spike|performance|security|other",
-      "description": "What was detected",
-      "severity": "critical|high|medium|low",
-      "examples": ["example log entries"]
-    }
-  ],
-  "recommendations": [
-    "Specific actionable recommendations"
-  ]
-}
+
+Please include the following information in your response. format in markdown.
+- Summary:
+  - Total log count
+	- Error log count
+	- Warning log count
+	- Period
+- anomalies: 
+  - type: "error_spike|performance|security|other
+  - description: What was detected,
+  - severity: critical|high|medium|low,
+  - examples: example log entries
+
+- recommendations: Specific actionable recommendations
+
 {{.add_prompt}}
 `, []string{"total_entries", "error_count", "warning_count", "time_range", "top_errors", "sample", "add_prompt"})
 
@@ -556,7 +545,7 @@ Respond in JSON format:
 	}
 	addPrompt := ""
 	if aiLang != "" {
-		addPrompt = fmt.Sprintf("Please provide the description and recommendations for anomalies in %s.", aiLang)
+		addPrompt = fmt.Sprintf("Responce in %s.", aiLang)
 	}
 
 	prompt, err := template.Format(map[string]any{
@@ -575,7 +564,7 @@ Respond in JSON format:
 	ctx := context.Background()
 	response, err := llm.GenerateContent(ctx, []llms.MessageContent{
 		llms.TextParts(llms.ChatMessageTypeHuman, prompt),
-	}, llms.WithJSONMode(),
+	},
 		llms.WithStreamingFunc(func(ctx context.Context, chunk []byte) error {
 			teaProg.Send(aiAnswerMsg{
 				Text: string(chunk),
@@ -586,95 +575,7 @@ Respond in JSON format:
 	if err != nil {
 		log.Fatalf("generating analysis: %v", err)
 	}
-
-	var aiResult struct {
-		Anomalies       []aiAnomaly `json:"anomalies"`
-		Recommendations []string    `json:"recommendations"`
-	}
-
-	if err := json.Unmarshal([]byte(response.Choices[0].Content), &aiResult); err != nil {
-		log.Fatalf("parsing AI response: %v", err)
-	}
-	lines := []string{}
-	if strings.ToLower(aiLang) == "japanese" {
-		lines = append(lines, "")
-		lines = append(lines, "📊 ログ分析レポート")
-		lines = append(lines, "=====================")
-		lines = append(lines, "")
-		lines = append(lines, "📈 概要:")
-		lines = append(lines, fmt.Sprintf("  全ログ数: %d", aiTotalEntries))
-		lines = append(lines, fmt.Sprintf("  エラー: %d", aiErrorCount))
-		lines = append(lines, fmt.Sprintf("  警告: %d", aiWarningCount))
-		lines = append(lines, fmt.Sprintf("  期間: %s to %s",
-			time.Unix(0, aiStartTime).Format("2006-01-02 15:04:05"),
-			time.Unix(0, aiEndTime).Format("2006-01-02 15:04:05")))
-
-		if len(aiErrorPatternList) > 0 {
-			lines = append(lines, "🔴 件数の多いエラーパターン:")
-			for i, pattern := range aiErrorPatternList {
-				lines = append(lines, fmt.Sprintf("  %d. %s (%d 回)", i+1, pattern.Pattern, pattern.Count))
-			}
-			fmt.Println()
-		}
-		if len(aiResult.Anomalies) > 0 {
-			lines = append(lines, "⚠️  検知した異常:")
-			for _, anomaly := range aiResult.Anomalies {
-				lines = append(lines, fmt.Sprintf("  %s - %s (%s)", anomaly.Type, anomaly.Description, anomaly.Severity))
-				for _, e := range anomaly.Examples {
-					lines = append(lines, fmt.Sprintf("   Example: %s", e))
-				}
-			}
-			fmt.Println()
-		}
-
-		if len(aiResult.Recommendations) > 0 {
-			lines = append(lines, "💡 推奨事項:\n")
-			for i, rec := range aiResult.Recommendations {
-				lines = append(lines, fmt.Sprintf("  %d. %s", i+1, rec))
-			}
-			fmt.Println()
-		}
-	} else {
-		lines = append(lines, "")
-		lines = append(lines, "📊 Log Analysis Report")
-		lines = append(lines, "=====================")
-		lines = append(lines, "")
-		lines = append(lines, "📈 Summary:")
-		lines = append(lines, fmt.Sprintf("  Total Entries: %d", aiTotalEntries))
-		lines = append(lines, fmt.Sprintf("  Errors: %d", aiErrorCount))
-		lines = append(lines, fmt.Sprintf("  Warnings: %d", aiWarningCount))
-		lines = append(lines, fmt.Sprintf("  Time Range: %s to %s",
-			time.Unix(0, aiStartTime).Format("2006-01-02 15:04:05"),
-			time.Unix(0, aiEndTime).Format("2006-01-02 15:04:05")))
-		lines = append(lines, "")
-		if len(aiErrorPatternList) > 0 {
-			lines = append(lines, "🔴 Top Error Patterns:")
-			for i, pattern := range aiErrorPatternList {
-				lines = append(lines, fmt.Sprintf("  %d. %s (%d occurrences)", i+1, pattern.Pattern, pattern.Count))
-			}
-			lines = append(lines, "")
-		}
-
-		if len(aiResult.Anomalies) > 0 {
-			lines = append(lines, "⚠️  Detected Anomalies:")
-			for _, anomaly := range aiResult.Anomalies {
-				lines = append(lines, fmt.Sprintf("  %s - %s (%s)", anomaly.Type, anomaly.Description, anomaly.Severity))
-				for _, e := range anomaly.Examples {
-					lines = append(lines, fmt.Sprintf("   Example: %s", e))
-				}
-			}
-			lines = append(lines, "")
-		}
-
-		if len(aiResult.Recommendations) > 0 {
-			lines = append(lines, "💡 Recommendations:")
-			for i, rec := range aiResult.Recommendations {
-				lines = append(lines, fmt.Sprintf("  %d. %s", i+1, rec))
-			}
-			lines = append(lines, "")
-		}
-	}
-	analizeAnswer = strings.Join(lines, "\n")
+	analizeAnswer = response.Choices[0].Content + "\n\n"
 	teaProg.Send(aiAnswerMsg{Text: analizeAnswer, Done: true})
 }
 
@@ -696,11 +597,24 @@ func getAILogLevel(l *string) string {
 	return "INFO"
 }
 
+func findAIProvider() string {
+	if os.Getenv("OPENAI_API_KEY") != "" {
+		return "openai"
+	}
+	if os.Getenv("ANTHROPIC_API_KEY") != "" {
+		return "anthropic"
+	}
+	if os.Getenv("GOOGLE_API_KEY") != "" {
+		return "gemini"
+	}
+	return "ollama"
+}
+
 func getLLM() llms.Model {
 	switch aiProvider {
 	case "ollama":
 		llm, err := ollama.New(
-			ollama.WithModel(llmModel),
+			ollama.WithModel(aiModelName),
 			ollama.WithServerURL(aiBaseURL),
 		)
 		if err != nil {
@@ -708,10 +622,22 @@ func getLLM() llms.Model {
 		}
 		return llm
 	case "gemini", "googleai":
-
+		if aiModelName != "" {
+			llm, err := googleai.New(context.Background(), googleai.WithDefaultModel(aiModelName))
+			if err != nil {
+				log.Fatalf("get llm err=%v", err)
+			}
+			return llm
+		} else {
+			llm, err := googleai.New(context.Background())
+			if err != nil {
+				log.Fatalf("get llm err=%v", err)
+			}
+			return llm
+		}
 	case "openai":
-		if llmModel != "" {
-			llm, err := openai.New(openai.WithModel(llmModel))
+		if aiModelName != "" {
+			llm, err := openai.New(openai.WithModel(aiModelName))
 			if err != nil {
 				log.Fatalf("get llm err=%v", err)
 			}
@@ -724,7 +650,19 @@ func getLLM() llms.Model {
 			return llm
 		}
 	case "anthropic", "claude":
-
+		if aiModelName != "" {
+			llm, err := anthropic.New(anthropic.WithModel(aiModelName))
+			if err != nil {
+				log.Fatalf("get llm err=%v", err)
+			}
+			return llm
+		} else {
+			llm, err := anthropic.New()
+			if err != nil {
+				log.Fatalf("get llm err=%v", err)
+			}
+			return llm
+		}
 	}
 	log.Fatalln("llm not found")
 	return nil
