@@ -140,7 +140,7 @@ func getFilter(f string) *regexp.Regexp {
 
 func getTimeRange() (int64, int64) {
 	st := time.Unix(0, 0)
-	et := time.Now()
+	et := time.Now().AddDate(1, 0, 0)
 	a := strings.SplitN(timeRange, ",", 2)
 	if len(a) == 1 && a[0] != "" {
 		if d, err := str2duration.ParseDuration(a[0]); err == nil {

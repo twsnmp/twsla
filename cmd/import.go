@@ -49,6 +49,7 @@ var apiTLS bool
 var apiSkip bool
 var logType string
 var noDeltaCheck bool
+var noTimeStamp bool
 
 var tg *timegrinder.TimeGrinder
 var importFilter *regexp.Regexp
@@ -98,6 +99,7 @@ func init() {
 	importCmd.Flags().BoolVar(&apiMode, "api", false, "TWSNMP FC API Mode")
 	importCmd.Flags().BoolVar(&apiTLS, "tls", false, "TWSNMP FC API TLS")
 	importCmd.Flags().BoolVar(&apiSkip, "skip", true, "TWSNMP FC API skip verify certificate")
+	importCmd.Flags().BoolVar(&noTimeStamp, "noTS", false, "Import no time stamp file")
 	importCmd.Flags().StringVarP(&source, "source", "s", "", "Log source")
 	importCmd.Flags().StringVarP(&command, "command", "c", "", "SSH Command")
 	importCmd.Flags().StringVarP(&sshKey, "key", "k", "", "SSH Key")
@@ -219,11 +221,16 @@ func doImport(path string, r io.Reader) {
 			return
 		}
 		l := scanner.Text()
-		ts, ok, _ := tg.Extract([]byte(l))
-		if !ok {
-			continue
+		var t int64
+		if noTimeStamp {
+			t = time.Now().UnixNano()
+		} else {
+			ts, ok, _ := tg.Extract([]byte(l))
+			if !ok {
+				continue
+			}
+			t = ts.UnixNano()
 		}
-		t := ts.UnixNano()
 		readBytes += int64(len(l))
 		totalBytes += int64(len(l))
 		readLines++
