@@ -304,6 +304,7 @@ func initSigmaModel() sigmaModel {
 	ti.CharLimit = 156
 	ti.Width = 20
 	vp := viewport.New(100, 100)
+	vp.SetHorizontalStep(1)
 	return sigmaModel{spinner: s, table: t, textInput: ti, viewport: vp, countTable: ct}
 }
 

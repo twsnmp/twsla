@@ -32,6 +32,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/dustin/go-humanize"
+	"github.com/muesli/reflow/wordwrap"
 	"go.etcd.io/bbolt"
 
 	"github.com/spf13/cobra"
@@ -39,6 +40,8 @@ import (
 
 var stopSearch bool
 var results []string
+
+var wrap = false
 
 type SearchMsg struct {
 	Done  bool
@@ -67,6 +70,7 @@ var colorList = []*colorMapEnt{}
 func init() {
 	rootCmd.AddCommand(searchCmd)
 	searchCmd.Flags().StringVarP(&colorMode, "color", "c", "", "Color mode")
+	searchCmd.Flags().BoolVarP(&wrap, "wrap", "w", false, "Wrap or scroll x.")
 }
 
 func searchMain() {
@@ -192,7 +196,7 @@ func makeColorList() {
 	}
 }
 
-func getColoredResults(pretty bool) []string {
+func getColoredResults(pretty bool, width int) string {
 	r := []string{}
 	var markerReg *regexp.Regexp
 	if strings.HasPrefix(marker, "regex:") {
@@ -217,7 +221,11 @@ func getColoredResults(pretty bool) []string {
 		}
 		r = append(r, l)
 	}
-	return r
+	s := strings.Join(r, "\n")
+	if wrap {
+		return wordwrap.String(s, width)
+	}
+	return s
 }
 
 func prettyJSON(l string) string {
@@ -313,12 +321,12 @@ func (m searchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				for i, j := 0, len(results)-1; i < j; i, j = i+1, j-1 {
 					results[i], results[j] = results[j], results[i]
 				}
-				m.viewport.SetContent(strings.Join(getColoredResults(false), "\n"))
+				m.viewport.SetContent(getColoredResults(false, m.viewport.Width))
 			}
 			return m, nil
 		case "d", "p":
 			if m.done {
-				m.viewport.SetContent(strings.Join(getColoredResults(msg.String() == "p"), "\n"))
+				m.viewport.SetContent(getColoredResults(msg.String() == "p", m.viewport.Width))
 			}
 			return m, nil
 		default:
@@ -332,7 +340,10 @@ func (m searchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.ready = true
 			m.viewport = viewport.New(msg.Width, msg.Height-headerHeight)
 			m.viewport.YPosition = headerHeight + 1
-			m.viewport.SetContent(strings.Join(getColoredResults(false), "\n"))
+			if !wrap {
+				m.viewport.SetHorizontalStep(1)
+			}
+			m.viewport.SetContent(getColoredResults(false, m.viewport.Width))
 		} else {
 			m.viewport.Width = msg.Width
 			m.viewport.Height = msg.Height - headerHeight
@@ -340,7 +351,7 @@ func (m searchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case SearchMsg:
 		if msg.Done {
 			if m.ready {
-				m.viewport.SetContent(strings.Join(getColoredResults(false), "\n"))
+				m.viewport.SetContent(getColoredResults(false, m.viewport.Width))
 			}
 			m.done = true
 		}
@@ -387,7 +398,7 @@ func (m searchModel) ColorUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 			colorMode = m.colorModeInput.Value()
 			m.color = false
 			makeColorList()
-			m.viewport.SetContent(strings.Join(getColoredResults(false), "\n"))
+			m.viewport.SetContent(getColoredResults(false, m.viewport.Width))
 			return m, nil
 		case tea.KeyCtrlC, tea.KeyEsc:
 			m.color = false
@@ -409,7 +420,7 @@ func (m searchModel) MarkerUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 			marker = m.markerInput.Value()
 			m.marker = false
 			makeColorList()
-			m.viewport.SetContent(strings.Join(getColoredResults(false), "\n"))
+			m.viewport.SetContent(getColoredResults(false, m.viewport.Width))
 			return m, nil
 		case tea.KeyCtrlC, tea.KeyEsc:
 			m.marker = false
