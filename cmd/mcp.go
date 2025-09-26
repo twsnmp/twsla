@@ -215,7 +215,7 @@ The number of logs can be counted by time, IP address, MAC address, e-mail addre
 		mcp.WithString("count_unit",
 			mcp.Required(),
 			mcp.Description(
-				`Unit of counting(time, ip, email, mac, host,domain, country,loc)
+				`Unit of counting(time, ip, email, mac, host,domain, country, loc, word, field)
  time:Count hourly or minutely
  ip: Count by IP address
  email:Count  by email
@@ -225,8 +225,10 @@ The number of logs can be counted by time, IP address, MAC address, e-mail addre
  country: Count by country of IP address
  loc: Count by geo location of IP address
  normalize: Count by normalized pattern
+ word: Count by word
+ field: Count by field
 `),
-			mcp.Enum("time", "ip", "email", "mac", "host", "domain", "country", "loc", "normalize"),
+			mcp.Enum("time", "ip", "email", "mac", "host", "domain", "country", "loc", "normalize", "word", "field"),
 		),
 		mcp.WithString("time_range",
 			mcp.Required(),
@@ -262,8 +264,10 @@ Example:
 	s.AddTool(searchTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		var err error
 		regexpFilter = request.GetString("filter_log_content", "")
-		timeMode := true
-		normalizeMode := false
+		pos = request.GetInt("pos", 1)
+		interval = request.GetInt("interval", 0)
+		topN := request.GetInt("topN", 10)
+		mode := 1
 		ipm := 0
 		extract = ""
 		unit, err := request.RequireString("count_unit")
@@ -273,19 +277,15 @@ Example:
 		switch unit {
 		case "mac", "email":
 			extract = unit
-			timeMode = false
 		case "ip":
 			extract = "ip"
-			timeMode = false
 		case "host":
 			ipm = 1
 			extract = "ip"
-			timeMode = false
 			dnsResolver = dnsr.NewWithTimeout(10000, time.Millisecond*1000)
 		case "domain":
 			ipm = 2
 			extract = "ip"
-			timeMode = false
 			dnsResolver = dnsr.NewWithTimeout(10000, time.Millisecond*1000)
 		case "loc":
 			if err := openGeoIPDB(); err != nil {
@@ -293,32 +293,37 @@ Example:
 			}
 			ipm = 3
 			extract = "ip"
-			timeMode = false
 		case "country":
 			if err := openGeoIPDB(); err != nil {
 				return nil, err
 			}
 			ipm = 4
 			extract = "ip"
-			timeMode = false
 		case "normalize":
-			timeMode = false
-			normalizeMode = true
+			mode = 2
+		case "word":
+			mode = 3
+		case "field":
+			mode = 4
+			pos -= 1
+			if pos < 0 {
+				pos = 0
+			}
+		default:
+			// Time mode
+			mode = 0
 		}
 		timeRange, err = request.RequireString("time_range")
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
-		pos = request.GetInt("pos", 1)
-		interval = request.GetInt("interval", 0)
-		topN := request.GetInt("topN", 10)
 		setupFilter([]string{})
 		extPat = nil
 		setExtPat()
-		if !timeMode && extPat == nil && !normalizeMode {
+		if mode == 1 && extPat == nil {
 			return mcp.NewToolResultError("invalid unit"), nil
 		}
-		if normalizeMode {
+		if mode == 2 {
 			setupTimeGrinder()
 		}
 		if err := openDB(); err != nil {
@@ -343,14 +348,8 @@ Example:
 				}
 				l := string(v)
 				if matchFilter(&l) {
-					if timeMode {
-						d := t / intv
-						ck := time.Unix(0, d*intv).Format("2006/01/02 15:04")
-						countMap[ck]++
-					} else if normalizeMode {
-						ck := normalizeLog(l)
-						countMap[ck]++
-					} else {
+					switch mode {
+					case 1:
 						a := extPat.ExtReg.FindAllStringSubmatch(l, -1)
 						if len(a) >= extPat.Index {
 							ck := a[extPat.Index-1][1]
@@ -359,6 +358,31 @@ Example:
 							}
 							countMap[ck]++
 						}
+					case 2:
+						ck := normalizeLog(l)
+						countMap[ck]++
+					case 3:
+						// Word
+						words := strings.Fields(strings.ToLower(l))
+						for _, word := range words {
+							if len(word) >= 2 && len(word) <= 50 {
+								word = strings.Trim(word, ".,!?;:()[]{}\"'")
+								if len(word) >= 2 {
+									countMap[word]++
+								}
+							}
+						}
+					case 4:
+						// Field
+						f := strings.Fields(l)
+						if len(f) > pos {
+							k := f[pos]
+							countMap[k]++
+						}
+					default:
+						d := t / intv
+						ck := time.Unix(0, d*intv).Format("2006/01/02 15:04")
+						countMap[ck]++
 					}
 				}
 			}
@@ -371,7 +395,7 @@ Example:
 				Count: v,
 			})
 		}
-		if timeMode {
+		if mode == 0 {
 			sort.Slice(cl, func(i, j int) bool {
 				return cl[i].Key < cl[j].Key
 			})

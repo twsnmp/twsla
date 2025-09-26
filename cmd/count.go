@@ -53,6 +53,12 @@ Count word in logs.
  $twsla count -e word
 Count json key.
  $twsla count -e json -n Score
+Count field of log
+ $twsla count -e field -p 0
+Count csv of log
+ $twsla count -e csv -p 0
+Count tsv of log
+ $twsla count -e tsv -p 0
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		setupFilter(args)
@@ -106,6 +112,7 @@ var countList = []countEnt{}
 
 func countSub(wg *sync.WaitGroup) {
 	var countMap = make(map[string]int)
+	sep := ","
 	defer wg.Done()
 	mode := 0
 	ipm := getIPInfoMode()
@@ -138,6 +145,14 @@ func countSub(wg *sync.WaitGroup) {
 		if name == "" {
 			name = "Word"
 		}
+	case "field":
+		mode = 6
+	case "csv":
+		mode = 7
+		sep = ","
+	case "tsv":
+		mode = 7
+		sep = "\t"
 	default:
 		setExtPat()
 		if extPat == nil {
@@ -239,6 +254,18 @@ func countSub(wg *sync.WaitGroup) {
 								countMap[word]++
 							}
 						}
+					}
+				case 6:
+					f := strings.Fields(l)
+					if len(f) > pos {
+						k := f[pos]
+						countMap[k]++
+					}
+				case 7:
+					f := strings.Split(l, sep)
+					if len(f) > pos {
+						k := strings.TrimSpace(f[pos])
+						countMap[k]++
 					}
 				default:
 					// TWSLA

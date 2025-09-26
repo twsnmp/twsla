@@ -47,6 +47,16 @@ var extractCmd = &cobra.Command{
 	Long: `Extract data from the log.
 Numeric data, IP addresses, MAC addresses, email addresses
 words, etc. can be extracted.
+Extract regex pattern in logs.
+ $twsla extract -e "key=%{number}"
+Extract json key.
+ $twsla extract -e json -n Score
+Extract field of log
+ $twsla extract -e field -p 0
+Extract csv of log
+ $twsla extract -e csv -p 0
+Extract tsv of log
+ $twsla extract -e tsv -p 0
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		setupFilter(args)
@@ -98,6 +108,7 @@ var extractList = []extractEnt{}
 func extractSub(wg *sync.WaitGroup) {
 	defer wg.Done()
 	mode := 0
+	sep := ""
 	ipm := getIPInfoMode()
 	switch extract {
 	case "json":
@@ -108,6 +119,14 @@ func extractSub(wg *sync.WaitGroup) {
 		if gr == nil {
 			log.Fatalln("no grok")
 		}
+	case "field":
+		mode = 3
+	case "csv":
+		mode = 4
+		sep = ","
+	case "tsv":
+		mode = 4
+		sep = "\t"
 	default:
 		setExtPat()
 		if extPat == nil {
@@ -159,6 +178,22 @@ func extractSub(wg *sync.WaitGroup) {
 							}
 							extractList = append(extractList, extractEnt{Time: t, Value: val})
 							hit++
+						}
+					}
+				case 3:
+					f := strings.Fields(l)
+					if pos < len(f) {
+						val := strings.TrimSpace(f[pos])
+						if val != "" {
+							extractList = append(extractList, extractEnt{Time: t, Value: val})
+						}
+					}
+				case 4:
+					f := strings.Split(l, sep)
+					if pos < len(f) {
+						val := strings.TrimSpace(f[pos])
+						if val != "" {
+							extractList = append(extractList, extractEnt{Time: t, Value: val})
 						}
 					}
 				default:
