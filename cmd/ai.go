@@ -275,7 +275,7 @@ func (m aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if !m.wait && (m.answer != "" || m.log != "") {
 				m.log = ""
 				m.answer = ""
-				m.viewport.SetContent(m.answer)
+				m.viewport.SetContent(wordwrap.String(m.answer, m.viewport.Width))
 				return m, nil
 			}
 			if m.done {
@@ -312,7 +312,7 @@ func (m aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					m.log = ""
 					m.answer = ""
-					m.viewport.SetContent(m.answer)
+					m.viewport.SetContent(wordwrap.String(m.answer, m.viewport.Width))
 					return m, nil
 				}
 			}
