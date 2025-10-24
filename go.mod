@@ -14,10 +14,12 @@ require (
 	github.com/charmbracelet/bubbletea v1.3.4
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/codegaudi/go-iforest v0.0.1
+	github.com/common-nighthawk/go-figure v0.0.0-20210622060536-734e95fb86be
 	github.com/dkgv/go-tf-idf v0.0.0-20220422104447-dad26aa7b2f4
 	github.com/domainr/dnsr v0.0.0-20241209094514-246c78985dc2
 	github.com/dustin/go-humanize v1.0.1
 	github.com/elastic/go-grok v0.3.1
+	github.com/fatih/color v1.17.0
 	github.com/go-echarts/go-echarts/v2 v2.4.1
 	github.com/gravwell/gravwell/v3 v3.8.31
 	github.com/mark3labs/mcp-go v0.38.0
