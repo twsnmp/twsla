@@ -38,13 +38,12 @@ import (
 	"github.com/0xrawsec/golang-evtx/evtx"
 	"github.com/domainr/dnsr"
 	"github.com/dustin/go-humanize"
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
 	"go.etcd.io/bbolt"
 )
 
-var mcpTrapsport = ""
+var mcpTransport = ""
 var mcpEndpoint = ""
 var mcpClients = ""
 
@@ -60,7 +59,7 @@ var mcpCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(mcpCmd)
-	mcpCmd.Flags().StringVar(&mcpTrapsport, "transport", "stdio", "MCP server transport(stdio/sse/stream)")
+	mcpCmd.Flags().StringVar(&mcpTransport, "transport", "stdio", "MCP server transport(stdio/sse/stream)")
 	mcpCmd.Flags().StringVar(&mcpEndpoint, "endpoint", "127.0.0.1:8085", "MCP server endpoint(bind address:port)")
 	mcpCmd.Flags().StringVar(&mcpClients, "clients", "", "IP address of MCP client to be allowed to connect Specify by comma delimiter")
 	mcpCmd.Flags().StringVar(&geoipDBPath, "geoip", "", "geo IP database file")
@@ -68,351 +67,555 @@ func init() {
 
 func mcpServer() {
 	// Create MCP Server
-	s := server.NewMCPServer(
-		"TWSLA MCP Server",
-		"1.0.0",
-		server.WithToolCapabilities(true),
-		server.WithLogging(),
-	)
+	s := mcp.NewServer(
+		&mcp.Implementation{
+			Name:    "TWSLA MCP Server",
+			Version: Version,
+		}, nil)
+
 	// Add tools to MCP server
-	addSearchTool(s)
-	addCountTool(s)
-	addExtractTool(s)
-	addImportTool(s)
-	addLogSummaryTool(s)
+	addTools(s)
+	// Add prompts to MCP server
+	addPrompts(s)
 
 	// Start MCP server
-	switch mcpTrapsport {
+	switch mcpTransport {
 	case "stdio":
-		if err := server.ServeStdio(s); err != nil {
-			log.Printf("Server error: %v\n", err)
+		if err := s.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
+			log.Fatal(err)
 		}
 	case "sse":
-		sseServer := server.NewSSEServer(s)
+		handler := mcp.NewSSEHandler(func(request *http.Request) *mcp.Server {
+			return s
+		}, nil)
 		log.Printf("SSE server listening on %s", mcpEndpoint)
-		if err := sseServer.Start(mcpEndpoint); err != nil {
+		if err := http.ListenAndServe(mcpEndpoint, handler); err != nil {
 			log.Fatalf("Server error: %v", err)
 		}
 	case "stream":
-		streamServer := server.NewStreamableHTTPServer(s)
-		log.Printf("streamable server listening on %s clients='%s'", mcpEndpoint, mcpClients)
+		var clMap sync.Map
 		if mcpClients != "" {
-			var clMap sync.Map
 			for _, ip := range strings.Split(mcpClients, ",") {
 				clMap.Store(ip, true)
 			}
-			http.Handle("/mcp", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		}
+		handler := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
+			if mcpClients != "" {
 				ip, err := net.ResolveTCPAddr("tcp", r.RemoteAddr)
 				if err != nil {
-					log.Printf("err=%v", err)
-					w.WriteHeader(http.StatusBadRequest)
-					return
+					return nil
 				}
 				if _, ok := clMap.Load(ip.IP.String()); !ok {
-					log.Printf("connection refused from %s", ip.IP.String())
-					w.WriteHeader(http.StatusNotFound)
-					return
+					return nil
 				}
-				streamServer.ServeHTTP(w, r)
-			}))
-			if err := http.ListenAndServe(mcpEndpoint, nil); err != nil {
-				log.Fatalf("streamable server error: %v", err)
 			}
-		} else {
-			if err := streamServer.Start(mcpEndpoint); err != nil {
-				log.Fatalf("streamable server error: %v", err)
-			}
+			return s
+		}, nil)
+		if err := http.ListenAndServe(mcpEndpoint, handler); err != nil {
+			log.Fatalf("streamable server error: %v", err)
 		}
 	default:
-		log.Fatalf("transport '%s' not suported", mcpTrapsport)
+		log.Fatalf("transport '%s' not supported", mcpTransport)
 	}
 }
 
-func addSearchTool(s *server.MCPServer) {
-	searchTool := mcp.NewTool("search_log",
-		mcp.WithDescription("Search logs from TWSLA DB"),
-		mcp.WithString("filter_log_content",
-			mcp.Description("Filter logs by regular expression. Empty is no filter"),
-		),
-		mcp.WithNumber("limit_log_count",
-			mcp.DefaultNumber(100),
-			mcp.Max(10000),
-			mcp.Min(1),
-			mcp.Description("Limit on number of logs retrieved. min 100,max 10000"),
-		),
-		mcp.WithString("time_range",
-			mcp.Required(),
-			mcp.Description(
-				`Time range of logs to search 
-format is "start date/time, period" 
-or "start date/time, end date/time".
-Example: 
-2025/05/07 05:59:00,1h 
-2025/05/07 05:59:00,2025/05/07 06:59:00
-`),
-		),
-	)
+func addTools(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "search_log",
+		Description: "Search log",
+	}, searchLog)
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "count_log",
+		Description: "Count log",
+	}, countLog)
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "extract_data_from_log",
+		Description: "This tool extracts data from the logs on the TWSLA database.",
+	}, extractDataFromLog)
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "import_log",
+		Description: "This tool imports the logs to the TWSLA database.",
+	}, importLog)
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "get_log_summary",
+		Description: "Get a summary of logs for a specified period from TWSLA DB",
+	}, summaryLog)
+}
 
-	s.AddTool(searchTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		var err error
-		regexpFilter = request.GetString("filter_log_content", "")
-		timeRange, err = request.RequireString("time_range")
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-		limit := request.GetInt("limit_log_count", 100)
-		setupFilter([]string{})
-		if err := openDB(); err != nil {
-			return nil, err
-		}
-		defer db.Close()
-		results = []string{}
-		sti, eti := getTimeRange()
-		sk := fmt.Sprintf("%016x:", sti)
-		db.View(func(tx *bbolt.Tx) error {
-			b := tx.Bucket([]byte("logs"))
-			c := b.Cursor()
-			for k, v := c.Seek([]byte(sk)); k != nil; k, v = c.Next() {
-				a := strings.Split(string(k), ":")
-				if len(a) < 1 {
-					continue
-				}
-				t, err := strconv.ParseInt(a[0], 16, 64)
-				if err == nil && t > eti {
+// Add prompts
+func addPrompts(s *mcp.Server) {
+	s.AddPrompt(&mcp.Prompt{
+		Name:        "search_log",
+		Title:       "Search log",
+		Description: "Search log with filters.",
+		Arguments: []*mcp.PromptArgument{
+			{
+				Name:        "filter",
+				Title:       "Filter logs by regular expression. Empty is no filter.",
+				Description: "Filter logs by regular expression. Empty is no filter.",
+				Required:    false,
+			},
+			{
+				Name:        "limit",
+				Title:       "Limit on number of logs retrieved. min 100,max 10000",
+				Description: "Limit on number of logs retrieved. min 100,max 10000",
+				Required:    false,
+			},
+			{
+				Name:        "start",
+				Title:       "Start date and time for log search. Example: 2025/10/26 11:00:00",
+				Description: "Start date and time for log search. Example: 2025/10/26 11:00:00",
+				Required:    false,
+			},
+			{
+				Name:        "end",
+				Title:       "End date and time for log search. Example: 2025/10/26 11:00:00",
+				Description: "End date and time for log search. Example: 2025/10/26 11:00:00",
+				Required:    false,
+			},
+		},
+	}, searchLogPrompt)
+	s.AddPrompt(&mcp.Prompt{
+		Name:        "count_log",
+		Title:       "Count log",
+		Description: "Count logs using the specified unit and filter.",
+		Arguments: []*mcp.PromptArgument{
+			{
+				Name:        "filter",
+				Title:       "Filter logs by regular expression. Empty is no filter.",
+				Description: "Filter logs by regular expression. Empty is no filter.",
+				Required:    false,
+			},
+			{
+				Name:        "unit",
+				Title:       "Unit of counting",
+				Description: "Unit of counting(time, ip, email, mac, host,domain, country, loc, word, field,normalize).Default:time",
+				Required:    false,
+			},
+			{
+				Name:        "unit_pos",
+				Title:       "Position of unit",
+				Description: "Position of unit.Default:1",
+				Required:    false,
+			},
+			{
+				Name:        "top_n",
+				Title:       "Limit top n",
+				Description: "Limit top n.Default: 10",
+				Required:    false,
+			},
+			{
+				Name:        "interval",
+				Title:       "If unit is time,specify the aggregation interval in seconds.",
+				Description: "If unit is time,specify the aggregation interval in seconds. 0 is auto select interval",
+				Required:    false,
+			},
+			{
+				Name:        "start",
+				Title:       "Start date and time for log search. Example: 2025/10/26 11:00:00",
+				Description: "Start date and time for log search. Example: 2025/10/26 11:00:00",
+				Required:    false,
+			},
+			{
+				Name:        "end",
+				Title:       "End date and time for log search. Example: 2025/10/26 11:00:00",
+				Description: "End date and time for log search. Example: 2025/10/26 11:00:00",
+				Required:    false,
+			},
+		},
+	}, countLogPrompt)
+	s.AddPrompt(&mcp.Prompt{
+		Name:        "extract_data_from_log",
+		Title:       "Extract data from the logs on the TWSLA database",
+		Description: "Extract data from the logs on the TWSLA database.",
+		Arguments: []*mcp.PromptArgument{
+			{
+				Name:        "filter",
+				Title:       "Filter logs by regular expression. Empty is no filter.",
+				Description: "Filter logs by regular expression. Empty is no filter.",
+				Required:    false,
+			},
+			{
+				Name:        "pattern",
+				Title:       "Specifies the pattern of data to be extracted",
+				Description: "Specifies the pattern of data to be extracted.(ip,mac,email,number,regular expression)",
+				Required:    false,
+			},
+			{
+				Name:        "pos",
+				Title:       "Position of extract data",
+				Description: "Position of extract data.Default: 1",
+				Required:    false,
+			},
+			{
+				Name:        "start",
+				Title:       "Start date and time for log search. Example: 2025/10/26 11:00:00",
+				Description: "Start date and time for log search. Example: 2025/10/26 11:00:00",
+				Required:    false,
+			},
+			{
+				Name:        "end",
+				Title:       "End date and time for log search. Example: 2025/10/26 11:00:00",
+				Description: "End date and time for log search. Example: 2025/10/26 11:00:00",
+				Required:    false,
+			},
+		},
+	}, extractDataFromLogPrompt)
+	s.AddPrompt(&mcp.Prompt{
+		Name:        "import_log",
+		Title:       "Import the logs to the TWSLA database",
+		Description: "Import the logs to the TWSLA database.",
+		Arguments: []*mcp.PromptArgument{
+			{
+				Name:        "path",
+				Title:       "Log file or directory path to import",
+				Description: "Log file or directory path to import.Files inside archive files such as zip, tar.gz, gz, etc. can be targeted for import.",
+				Required:    true,
+			},
+			{
+				Name:        "pattern",
+				Title:       "Log file name regular expression pattern filter to import.",
+				Description: "Log file name regular expression pattern filter to import.This applies to files in directories and files in archive files such as ZIP.",
+				Required:    false,
+			},
+		},
+	}, importLogPrompt)
+	s.AddPrompt(&mcp.Prompt{
+		Name:        "get_log_summary",
+		Title:       "Get a summary of logs for a specified period",
+		Description: "Get a summary of logs for a specified period from TWSLA DB.",
+		Arguments: []*mcp.PromptArgument{
+			{
+				Name:        "filter",
+				Title:       "Filter logs by regular expression. Empty is no filter.",
+				Description: "Filter logs by regular expression. Empty is no filter.",
+				Required:    false,
+			},
+			{
+				Name:        "top_n",
+				Title:       "Limit top n error pattern",
+				Description: "Limit top n error pattern.Default: 10",
+				Required:    false,
+			},
+			{
+				Name:        "start",
+				Title:       "Start date and time for log search. Example: 2025/10/26 11:00:00",
+				Description: "Start date and time for log search. Example: 2025/10/26 11:00:00",
+				Required:    false,
+			},
+			{
+				Name:        "end",
+				Title:       "End date and time for log search. Example: 2025/10/26 11:00:00",
+				Description: "End date and time for log search. Example: 2025/10/26 11:00:00",
+				Required:    false,
+			},
+		},
+	}, getLogSummaryPrompt)
+}
+
+type searchLogParams struct {
+	Filter string `json:"filter" jsonschema:"Filter logs by regular expression. Empty is no filter"`
+	Limit  int    `json:"limit" jsonschema:"Limit on number of logs retrieved. min 100,max 10000"`
+	Start  string `json:"start" jsonschema:"Start date and time for log search. Empty is 1970/1/1. Example: 2025/10/26 11:00:00"`
+	End    string `json:"end" jsonschema:"End date and time for log search. Empty is now. Example: 2025/10/26 11:00:00"`
+}
+
+func searchLog(ctx context.Context, req *mcp.CallToolRequest, args searchLogParams) (*mcp.CallToolResult, any, error) {
+	var err error
+	regexpFilter = args.Filter
+	timeRange = args.Start + "," + args.End
+	limit := args.Limit
+	if limit < 100 {
+		limit = 100
+	}
+	if limit > 10000 {
+		limit = 10000
+	}
+	setupFilter([]string{})
+	if err := openDB(); err != nil {
+		return nil, nil, err
+	}
+	defer db.Close()
+	results = []string{}
+	sti, eti := getTimeRange()
+	sk := fmt.Sprintf("%016x:", sti)
+	db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket([]byte("logs"))
+		c := b.Cursor()
+		for k, v := c.Seek([]byte(sk)); k != nil; k, v = c.Next() {
+			a := strings.Split(string(k), ":")
+			if len(a) < 1 {
+				continue
+			}
+			t, err := strconv.ParseInt(a[0], 16, 64)
+			if err == nil && t > eti {
+				break
+			}
+			l := string(v)
+			if matchFilter(&l) {
+				results = append(results, l)
+				if len(results) >= limit {
 					break
 				}
-				l := string(v)
-				if matchFilter(&l) {
-					results = append(results, l)
-					if len(results) >= limit {
-						break
-					}
-				}
 			}
-			return nil
-		})
-		ret, err := json.Marshal(&results)
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
 		}
-		return mcp.NewToolResultText(string(ret)), nil
+		return nil
 	})
+
+	j, err := json.Marshal(&results)
+	if err != nil {
+		j = []byte(err.Error())
+	}
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			&mcp.TextContent{Text: string(j)},
+		},
+	}, nil, nil
+}
+
+func searchLogPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+	c := []string{}
+	if filter, ok := req.Params.Arguments["filter"]; ok {
+		c = append(c, fmt.Sprintf("- Filter: %s", filter))
+	}
+	if limit, ok := req.Params.Arguments["limit"]; ok {
+		c = append(c, fmt.Sprintf("- Limit: %s", limit))
+	}
+	if start, ok := req.Params.Arguments["start"]; ok {
+		c = append(c, fmt.Sprintf("- Start: %s", start))
+	}
+	if end, ok := req.Params.Arguments["end"]; ok {
+		c = append(c, fmt.Sprintf("- End: %s", end))
+	}
+	p := "Search log in TWSLA database by using search_log tool"
+	if len(c) > 0 {
+		p = " with following conditions.\n" + strings.Join(c, "\n")
+	} else {
+		p += "."
+	}
+	return &mcp.GetPromptResult{
+		Description: "search log prompt",
+		Messages: []*mcp.PromptMessage{
+			{
+				Role:    "user",
+				Content: &mcp.TextContent{Text: p},
+			},
+		},
+	}, nil
 }
 
 type mcpCountEnt struct {
 	Key   string
 	Count int
 }
+type countLogParams struct {
+	Filter   string `json:"filter" jsonschema:"Filter logs by regular expression. Empty is no filter"`
+	Unit     string `json:"unit" jsonschema:"Unit of counting(time, ip, email, mac, host,domain, country, loc, word, field,normalize).Default:time"`
+	UnitPos  int    `json:"unit_pos" jsonschema:"Position of unit.Default:1"`
+	TopN     int    `json:"top_n" jsonschema:"Limit top n.Default: 10"`
+	Interval int    `json:"interval" jsonschema:"If unit is time,specify the aggregation interval in seconds. 0 is auto select interval"`
+	Start    string `json:"start" jsonschema:"Start date and time for log search. Empty is 1970/1/1. Example: 2025/10/26 11:00:00"`
+	End      string `json:"end" jsonschema:"End date and time for log search. Empty is now. Example: 2025/10/26 11:00:00"`
+}
 
-func addCountTool(s *server.MCPServer) {
-	searchTool := mcp.NewTool("count_log",
-		mcp.WithDescription(
-			`This tool counts the number of logs on the TWSLA database.
-The number of logs can be counted by time, IP address, MAC address, e-mail address,host name,domain name,country or geo location.`),
-		mcp.WithString("filter_log_content",
-			mcp.Description("Filter logs by regular expression. Empty is no filter"),
-		),
-		mcp.WithString("count_unit",
-			mcp.Required(),
-			mcp.Description(
-				`Unit of counting(time, ip, email, mac, host,domain, country, loc, word, field)
- time:Count hourly or minutely
- ip: Count by IP address
- email:Count  by email
- mac: Count by MAC address
- host: Count by host name of IP address
- domain: Count by domain name of IP address
- country: Count by country of IP address
- loc: Count by geo location of IP address
- normalize: Count by normalized pattern
- word: Count by word
- field: Count by field
-`),
-			mcp.Enum("time", "ip", "email", "mac", "host", "domain", "country", "loc", "normalize", "word", "field"),
-		),
-		mcp.WithString("time_range",
-			mcp.Required(),
-			mcp.Description(
-				`Time range of logs to search 
-format is "start date/time, period" 
-or "start date/time, end date/time".
-Example: 
-2025/05/07 05:59:00,1h 
-2025/05/07 05:59:00,2025/05/07 06:59:00
-`),
-		),
-		mcp.WithNumber("unit_pos",
-			mcp.DefaultNumber(1),
-			mcp.Max(100),
-			mcp.Min(1),
-			mcp.Description("position of unit"),
-		),
-		mcp.WithNumber("top_n",
-			mcp.DefaultNumber(10),
-			mcp.Max(1000),
-			mcp.Min(1),
-			mcp.Description("limit top n"),
-		),
-		mcp.WithNumber("interval",
-			mcp.DefaultNumber(0),
-			mcp.Max(3600*24),
-			mcp.Min(0),
-			mcp.Description("If unit is time,specify the aggregation interval in seconds. 0 is auto select interval"),
-		),
-	)
-
-	s.AddTool(searchTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		var err error
-		regexpFilter = request.GetString("filter_log_content", "")
-		pos = request.GetInt("pos", 1)
-		interval = request.GetInt("interval", 0)
-		topN := request.GetInt("topN", 10)
-		mode := 1
-		ipm := 0
-		extract = ""
-		unit, err := request.RequireString("count_unit")
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
+func countLog(ctx context.Context, req *mcp.CallToolRequest, args countLogParams) (*mcp.CallToolResult, any, error) {
+	var err error
+	regexpFilter = args.Filter
+	pos = args.UnitPos
+	if pos < 1 || pos > 10 {
+		pos = 1
+	}
+	interval = args.Interval
+	if interval < 0 {
+		interval = 0
+	}
+	topN := args.TopN
+	if topN < 1 {
+		topN = 10
+	}
+	mode := 1
+	ipm := 0
+	extract = ""
+	unit := args.Unit
+	switch unit {
+	case "mac", "email":
+		extract = unit
+	case "ip":
+		extract = "ip"
+	case "host":
+		ipm = 1
+		extract = "ip"
+		dnsResolver = dnsr.NewWithTimeout(10000, time.Millisecond*1000)
+	case "domain":
+		ipm = 2
+		extract = "ip"
+		dnsResolver = dnsr.NewWithTimeout(10000, time.Millisecond*1000)
+	case "loc":
+		if err := openGeoIPDB(); err != nil {
+			return nil, nil, err
 		}
-		switch unit {
-		case "mac", "email":
-			extract = unit
-		case "ip":
-			extract = "ip"
-		case "host":
-			ipm = 1
-			extract = "ip"
-			dnsResolver = dnsr.NewWithTimeout(10000, time.Millisecond*1000)
-		case "domain":
-			ipm = 2
-			extract = "ip"
-			dnsResolver = dnsr.NewWithTimeout(10000, time.Millisecond*1000)
-		case "loc":
-			if err := openGeoIPDB(); err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+		ipm = 3
+		extract = "ip"
+	case "country":
+		if err := openGeoIPDB(); err != nil {
+			return nil, nil, err
+		}
+		ipm = 4
+		extract = "ip"
+	case "normalize":
+		mode = 2
+	case "word":
+		mode = 3
+	case "field":
+		mode = 4
+		pos -= 1
+		if pos < 0 {
+			pos = 0
+		}
+	default:
+		// Time mode
+		mode = 0
+	}
+	timeRange = args.Start + "," + args.End
+	setupFilter([]string{})
+	extPat = nil
+	setExtPat()
+	if mode == 1 && extPat == nil {
+		return nil, nil, fmt.Errorf("invalid unit")
+	}
+	if mode == 2 {
+		setupTimeGrinder()
+	}
+	if err := openDB(); err != nil {
+		return nil, nil, err
+	}
+	defer db.Close()
+	var countMap = make(map[string]int)
+	intv := int64(getInterval()) * 1000 * 1000 * 1000
+	sti, eti := getTimeRange()
+	sk := fmt.Sprintf("%016x:", sti)
+	db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket([]byte("logs"))
+		c := b.Cursor()
+		for k, v := c.Seek([]byte(sk)); k != nil; k, v = c.Next() {
+			a := strings.Split(string(k), ":")
+			if len(a) < 1 {
+				continue
 			}
-			ipm = 3
-			extract = "ip"
-		case "country":
-			if err := openGeoIPDB(); err != nil {
-				return nil, err
+			t, err := strconv.ParseInt(a[0], 16, 64)
+			if err == nil && t > eti {
+				break
 			}
-			ipm = 4
-			extract = "ip"
-		case "normalize":
-			mode = 2
-		case "word":
-			mode = 3
-		case "field":
-			mode = 4
-			pos -= 1
-			if pos < 0 {
-				pos = 0
-			}
-		default:
-			// Time mode
-			mode = 0
-		}
-		timeRange, err = request.RequireString("time_range")
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-		setupFilter([]string{})
-		extPat = nil
-		setExtPat()
-		if mode == 1 && extPat == nil {
-			return mcp.NewToolResultError("invalid unit"), nil
-		}
-		if mode == 2 {
-			setupTimeGrinder()
-		}
-		if err := openDB(); err != nil {
-			return nil, err
-		}
-		defer db.Close()
-		var countMap = make(map[string]int)
-		intv := int64(getInterval()) * 1000 * 1000 * 1000
-		sti, eti := getTimeRange()
-		sk := fmt.Sprintf("%016x:", sti)
-		db.View(func(tx *bbolt.Tx) error {
-			b := tx.Bucket([]byte("logs"))
-			c := b.Cursor()
-			for k, v := c.Seek([]byte(sk)); k != nil; k, v = c.Next() {
-				a := strings.Split(string(k), ":")
-				if len(a) < 1 {
-					continue
-				}
-				t, err := strconv.ParseInt(a[0], 16, 64)
-				if err == nil && t > eti {
-					break
-				}
-				l := string(v)
-				if matchFilter(&l) {
-					switch mode {
-					case 1:
-						a := extPat.ExtReg.FindAllStringSubmatch(l, -1)
-						if len(a) >= extPat.Index {
-							ck := a[extPat.Index-1][1]
-							if ipm > 0 {
-								ck = getIPInfo(ck, ipm)
-							}
-							countMap[ck]++
+			l := string(v)
+			if matchFilter(&l) {
+				switch mode {
+				case 1:
+					a := extPat.ExtReg.FindAllStringSubmatch(l, -1)
+					if len(a) >= extPat.Index {
+						ck := a[extPat.Index-1][1]
+						if ipm > 0 {
+							ck = getIPInfo(ck, ipm)
 						}
-					case 2:
-						ck := normalizeLog(l)
-						countMap[ck]++
-					case 3:
-						// Word
-						words := strings.Fields(strings.ToLower(l))
-						for _, word := range words {
-							if len(word) >= 2 && len(word) <= 50 {
-								word = strings.Trim(word, ".,!?;:()[]{}\"'")
-								if len(word) >= 2 {
-									countMap[word]++
-								}
-							}
-						}
-					case 4:
-						// Field
-						f := strings.Fields(l)
-						if len(f) > pos {
-							k := f[pos]
-							countMap[k]++
-						}
-					default:
-						d := t / intv
-						ck := time.Unix(0, d*intv).Format("2006/01/02 15:04")
 						countMap[ck]++
 					}
+				case 2:
+					ck := normalizeLog(l)
+					countMap[ck]++
+				case 3:
+					// Word
+					words := strings.Fields(strings.ToLower(l))
+					for _, word := range words {
+						if len(word) >= 2 && len(word) <= 50 {
+							word = strings.Trim(word, ".,!?;:()[]{}\"'")
+							if len(word) >= 2 {
+								countMap[word]++
+							}
+						}
+					}
+				case 4:
+					// Field
+					f := strings.Fields(l)
+					if len(f) > pos {
+						k := f[pos]
+						countMap[k]++
+					}
+				default:
+					d := t / intv
+					ck := time.Unix(0, d*intv).Format("2006/01/02 15:04")
+					countMap[ck]++
 				}
 			}
-			return nil
-		})
-		cl := []mcpCountEnt{}
-		for k, v := range countMap {
-			cl = append(cl, mcpCountEnt{
-				Key:   k,
-				Count: v,
-			})
 		}
-		if mode == 0 {
-			sort.Slice(cl, func(i, j int) bool {
-				return cl[i].Key < cl[j].Key
-			})
-		} else {
-			sort.Slice(cl, func(i, j int) bool {
-				return cl[i].Count > cl[j].Count
-			})
-			if len(cl) > topN {
-				cl = cl[:topN]
-			}
-		}
-		ret, err := json.Marshal(&cl)
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-		return mcp.NewToolResultText(string(ret)), nil
+		return nil
 	})
+	cl := []mcpCountEnt{}
+	for k, v := range countMap {
+		cl = append(cl, mcpCountEnt{
+			Key:   k,
+			Count: v,
+		})
+	}
+	if mode == 0 {
+		sort.Slice(cl, func(i, j int) bool {
+			return cl[i].Key < cl[j].Key
+		})
+	} else {
+		sort.Slice(cl, func(i, j int) bool {
+			return cl[i].Count > cl[j].Count
+		})
+		if len(cl) > topN {
+			cl = cl[:topN]
+		}
+	}
+	j, err := json.Marshal(&cl)
+	if err != nil {
+		j = []byte(err.Error())
+	}
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			&mcp.TextContent{Text: string(j)},
+		},
+	}, nil, nil
+}
+
+func countLogPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+	c := []string{}
+	if filter, ok := req.Params.Arguments["filter"]; ok {
+		c = append(c, fmt.Sprintf("- Filter: %s", filter))
+	}
+	if unit, ok := req.Params.Arguments["unit"]; ok {
+		c = append(c, fmt.Sprintf("- Unit: %s", unit))
+	}
+	if pos, ok := req.Params.Arguments["unit_pos"]; ok {
+		c = append(c, fmt.Sprintf("- Unit pos: %s", pos))
+	}
+	if topn, ok := req.Params.Arguments["top_n"]; ok {
+		c = append(c, fmt.Sprintf("- Top N: %s", topn))
+	}
+	if interval, ok := req.Params.Arguments["interval"]; ok {
+		c = append(c, fmt.Sprintf("- Interval: %s", interval))
+	}
+	if start, ok := req.Params.Arguments["start"]; ok {
+		c = append(c, fmt.Sprintf("- Start: %s", start))
+	}
+	if end, ok := req.Params.Arguments["end"]; ok {
+		c = append(c, fmt.Sprintf("- End: %s", end))
+	}
+	p := "Count logs in TWSLA database by using count_log tool"
+	if len(c) > 0 {
+		p = " with following conditions.\n" + strings.Join(c, "\n")
+	} else {
+		p += "."
+	}
+	return &mcp.GetPromptResult{
+		Description: "count log prompt",
+		Messages: []*mcp.PromptMessage{
+			{
+				Role:    "user",
+				Content: &mcp.TextContent{Text: p},
+			},
+		},
+	}, nil
 }
 
 type mcpExtractEnt struct {
@@ -420,157 +623,149 @@ type mcpExtractEnt struct {
 	Value string
 }
 
-func addExtractTool(s *server.MCPServer) {
-	searchTool := mcp.NewTool("extract_data_from_log",
-		mcp.WithDescription(
-			`This tool extracts data from the logs on the TWSLA database.`),
-		mcp.WithString("filter_log_content",
-			mcp.Description("Filter logs by regular expression"),
-		),
-		mcp.WithString("extract_pattern",
-			mcp.Required(),
-			mcp.Description(
-				`Specifies the pattern of data to be extracted.
-(ip,mac,email,number,regular expression)
- ip: IP address
- email: EMail address
- mac: MAC address
- number: Number
- regular expression example: 
- 	cpu=([-+0-9.]+)
-	ip=([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})
- `),
-		),
-		mcp.WithString("time_range",
-			mcp.Required(),
-			mcp.Description(
-				`Time range of logs to extract data.
-format is "start date/time, period" 
-or "start date/time, end date/time".
-Example: 
-2025/05/07 05:59:00,1h 
-2025/05/07 05:59:00,2025/05/07 06:59:00
-`),
-		),
-		mcp.WithNumber("pos",
-			mcp.DefaultNumber(1),
-			mcp.Max(100),
-			mcp.Min(1),
-			mcp.Description("position of extract data"),
-		),
-	)
-
-	s.AddTool(searchTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		var err error
-		regexpFilter = request.GetString("filter_log_content", "")
-		extract = request.GetString("extract_pattern", "")
-		pos = request.GetInt("pos", 1)
-		timeRange, err = request.RequireString("time_range")
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-		setupFilter([]string{})
-		extPat = nil
-		setExtPat()
-		if extPat == nil {
-			return mcp.NewToolResultError("invalid extract_pattern"), nil
-		}
-		if err := openDB(); err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-		defer db.Close()
-		mcpExtractList := []mcpExtractEnt{}
-		sti, eti := getTimeRange()
-		sk := fmt.Sprintf("%016x:", sti)
-		db.View(func(tx *bbolt.Tx) error {
-			b := tx.Bucket([]byte("logs"))
-			c := b.Cursor()
-			for k, v := c.Seek([]byte(sk)); k != nil; k, v = c.Next() {
-				a := strings.Split(string(k), ":")
-				if len(a) < 1 {
-					continue
-				}
-				t, err := strconv.ParseInt(a[0], 16, 64)
-				if err == nil && t > eti {
-					break
-				}
-				l := string(v)
-				if matchFilter(&l) {
-					a := extPat.ExtReg.FindAllStringSubmatch(l, -1)
-					if len(a) >= extPat.Index && len(a[extPat.Index-1]) > 1 {
-						mcpExtractList = append(mcpExtractList, mcpExtractEnt{Time: time.Unix(0, t).Format(time.RFC3339Nano), Value: a[extPat.Index-1][1]})
-					}
-				}
-			}
-			return nil
-		})
-		ret, err := json.Marshal(&mcpExtractList)
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-		return mcp.NewToolResultText(string(ret)), nil
-	})
+type extractDataFromLogParams struct {
+	Filter  string `json:"filter" jsonschema:"Filter logs by regular expression. Empty is no filter"`
+	Pattern string `json:"pattern" jsonschema:"Specifies the pattern of data to be extracted.(ip,mac,email,number,regular expression)"`
+	Pos     int    `json:"pos" jsonschema:"Position of extract data.Default: 1"`
+	Start   string `json:"start" jsonschema:"Start date and time for log search. Empty is 1970/1/1. Example: 2025/10/26 11:00:00"`
+	End     string `json:"end" jsonschema:"End date and time for log search. Empty is now. Example: 2025/10/26 11:00:00"`
 }
 
-func addImportTool(s *server.MCPServer) {
-	searchTool := mcp.NewTool("import_log",
-		mcp.WithDescription(
-			`This tool  import the logs to the TWSLA database.`),
-		mcp.WithString("log_path",
-			mcp.Required(),
-			mcp.Description(
-				`log file or directory path to import.
-Files inside archive files such as zip, tar.gz, gz, etc. can be targeted for import.
-If a directory is specified, all files in the directory are targeted.
-Filenames matching filename_pattern are targeted.`),
-		),
-		mcp.WithString("filename_pattern",
-			mcp.Description(
-				`log file name regular expression pattern filter to import.
-This applies to files in directories and files in archive files such as ZIP.`),
-		),
-	)
-
-	s.AddTool(searchTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		var err error
-		filePat = request.GetString("filename_pattern", "")
-		source, err = request.RequireString("log_path")
-
-		log.Printf("mcp import source='%s' filename_pattern='%s'", source, filePat)
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
+func extractDataFromLog(ctx context.Context, req *mcp.CallToolRequest, args extractDataFromLogParams) (*mcp.CallToolResult, any, error) {
+	var err error
+	regexpFilter = args.Filter
+	extract = args.Pattern
+	pos = args.Pos
+	if pos < 1 || pos > 100 {
+		pos = 1
+	}
+	timeRange = args.Start + "," + args.End
+	setupFilter([]string{})
+	extPat = nil
+	setExtPat()
+	if extPat == nil {
+		return nil, nil, fmt.Errorf("pattern is empty")
+	}
+	if err := openDB(); err != nil {
+		return nil, nil, err
+	}
+	defer db.Close()
+	mcpExtractList := []mcpExtractEnt{}
+	sti, eti := getTimeRange()
+	sk := fmt.Sprintf("%016x:", sti)
+	db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket([]byte("logs"))
+		c := b.Cursor()
+		for k, v := c.Seek([]byte(sk)); k != nil; k, v = c.Next() {
+			a := strings.Split(string(k), ":")
+			if len(a) < 1 {
+				continue
+			}
+			t, err := strconv.ParseInt(a[0], 16, 64)
+			if err == nil && t > eti {
+				break
+			}
+			l := string(v)
+			if matchFilter(&l) {
+				a := extPat.ExtReg.FindAllStringSubmatch(l, -1)
+				if len(a) >= extPat.Index && len(a[extPat.Index-1]) > 1 {
+					mcpExtractList = append(mcpExtractList, mcpExtractEnt{Time: time.Unix(0, t).Format(time.RFC3339Nano), Value: a[extPat.Index-1][1]})
+				}
+			}
 		}
-		if err := openDB(); err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-		defer db.Close()
-		totalFiles = 0
-		totalLines = 0
-		totalBytes = 0
-		setupTimeGrinder()
-		logCh = make(chan *LogEnt, 10000)
-		var wg sync.WaitGroup
-		wg.Add(1)
-		go logSaver(&wg)
-		if err := mcpImport(source); err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-		close(logCh)
-		wg.Wait()
-		var r struct {
-			Files string
-			Lines string
-			Bytes string
-		}
-		r.Files = humanize.Bytes(uint64(totalFiles))
-		r.Lines = humanize.Bytes(uint64(totalLines))
-		r.Bytes = humanize.Bytes(uint64(totalBytes))
-		ret, err := json.Marshal(&r)
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-		return mcp.NewToolResultText(string(ret)), nil
+		return nil
 	})
+	j, err := json.Marshal(&mcpExtractList)
+	if err != nil {
+		j = []byte(err.Error())
+	}
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			&mcp.TextContent{Text: string(j)},
+		},
+	}, nil, nil
+}
+
+func extractDataFromLogPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+	c := []string{}
+	if filter, ok := req.Params.Arguments["filter"]; ok {
+		c = append(c, fmt.Sprintf("- Filter: %s", filter))
+	}
+	if pattern, ok := req.Params.Arguments["pattern"]; ok {
+		c = append(c, fmt.Sprintf("- Pattern: %s", pattern))
+	}
+	if pos, ok := req.Params.Arguments["pos"]; ok {
+		c = append(c, fmt.Sprintf("- Pos: %s", pos))
+	}
+	if start, ok := req.Params.Arguments["start"]; ok {
+		c = append(c, fmt.Sprintf("- Start: %s", start))
+	}
+	if end, ok := req.Params.Arguments["end"]; ok {
+		c = append(c, fmt.Sprintf("- End: %s", end))
+	}
+	p := "Extracts data from the logs on the TWSLA database by using extract_data_from_log tool"
+	if len(c) > 0 {
+		p = " with following conditions.\n" + strings.Join(c, "\n")
+	} else {
+		p += "."
+	}
+	return &mcp.GetPromptResult{
+		Description: "extract data from log prompt",
+		Messages: []*mcp.PromptMessage{
+			{
+				Role:    "user",
+				Content: &mcp.TextContent{Text: p},
+			},
+		},
+	}, nil
+}
+
+type importLogParams struct {
+	Path    string `json:"path" jsonschema:"Log file or directory path to import.Files inside archive files such as zip, tar.gz, gz, etc. can be targeted for import."`
+	Pattern string `json:"pattern" jsonschema:"Log file name regular expression pattern filter to import.This applies to files in directories and files in archive files such as ZIP."`
+}
+
+func importLog(ctx context.Context, req *mcp.CallToolRequest, args importLogParams) (*mcp.CallToolResult, any, error) {
+	var err error
+	filePat = args.Pattern
+	source = args.Path
+	if source == "" {
+		return nil, nil, fmt.Errorf("path is empty")
+	}
+	if err := openDB(); err != nil {
+		return nil, nil, err
+	}
+	defer db.Close()
+	totalFiles = 0
+	totalLines = 0
+	totalBytes = 0
+	setupTimeGrinder()
+	logCh = make(chan *LogEnt, 10000)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go logSaver(&wg)
+	if err := mcpImport(source); err != nil {
+		return nil, nil, err
+	}
+	close(logCh)
+	wg.Wait()
+	var r struct {
+		Files string
+		Lines string
+		Bytes string
+	}
+	r.Files = humanize.Bytes(uint64(totalFiles))
+	r.Lines = humanize.Bytes(uint64(totalLines))
+	r.Bytes = humanize.Bytes(uint64(totalBytes))
+	j, err := json.Marshal(&r)
+	if err != nil {
+		j = []byte(err.Error())
+	}
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			&mcp.TextContent{Text: string(j)},
+		},
+	}, nil, nil
 }
 
 func mcpImport(path string) error {
@@ -588,14 +783,14 @@ func mcpImportFromFile(path string) error {
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
 	case ".zip":
-		return mcpImortFromZIPFile(path)
+		return mcpImportFromZIPFile(path)
 	case ".evtx":
 		return mcpImportFromWindowsEvtx(path)
 	case ".tgz":
-		return mcpImportFormTarGZFile(path)
+		return mcpImportFromTarGZFile(path)
 	case ".gz":
 		if strings.HasSuffix(path, ".tar.gz") {
-			return mcpImportFormTarGZFile(path)
+			return mcpImportFromTarGZFile(path)
 		}
 	}
 	r, err := os.Open(path)
@@ -613,7 +808,7 @@ func mcpImportFromFile(path string) error {
 	return mcpDoImport(r)
 }
 
-func mcpImortFromZIPFile(path string) error {
+func mcpImportFromZIPFile(path string) error {
 	r, err := zip.OpenReader(path)
 	if err != nil {
 		return err
@@ -633,7 +828,7 @@ func mcpImortFromZIPFile(path string) error {
 		switch ext {
 		case ".gz":
 			if gzr, err := gzip.NewReader(r); err == nil {
-				doImport(path+":"+f.Name, gzr)
+				mcpDoImport(gzr)
 			}
 		case ".evtx":
 			w, err := os.CreateTemp("", "winlog*.evtx")
@@ -653,7 +848,7 @@ func mcpImortFromZIPFile(path string) error {
 	return nil
 }
 
-func mcpImportFormTarGZFile(path string) error {
+func mcpImportFromTarGZFile(path string) error {
 	r, err := os.Open(path)
 	if err != nil {
 		return err
@@ -783,6 +978,33 @@ func mcpImportFromWindowsEvtx(path string) error {
 	return nil
 }
 
+func importLogPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+	c := []string{}
+	if path, ok := req.Params.Arguments["path"]; ok {
+		c = append(c, fmt.Sprintf("- Path: %s", path))
+	} else {
+		return nil, fmt.Errorf("path is required")
+	}
+	if pattern, ok := req.Params.Arguments["pattern"]; ok {
+		c = append(c, fmt.Sprintf("- Pattern: %s", pattern))
+	}
+	p := "Import the logs to the TWSLA database by using import_log tool"
+	if len(c) > 0 {
+		p = " with following conditions.\n" + strings.Join(c, "\n")
+	} else {
+		p += "."
+	}
+	return &mcp.GetPromptResult{
+		Description: "import log prompt",
+		Messages: []*mcp.PromptMessage{
+			{
+				Role:    "user",
+				Content: &mcp.TextContent{Text: p},
+			},
+		},
+	}, nil
+}
+
 type mcpLogSummaryEnt struct {
 	Total            int
 	Errors           int
@@ -790,134 +1012,140 @@ type mcpLogSummaryEnt struct {
 	TimeRange        string
 	TopNErrorPattern []*aiErrorPattern
 }
+type summaryLogParams struct {
+	Filter string `json:"filter" jsonschema:"Filter logs by regular expression. Empty is no filter"`
+	TopN   int    `json:"top_n" jsonschema:"Limit top n error pattern.Default: 10"`
+	Start  string `json:"start" jsonschema:"Start date and time for log search. Empty is 1970/1/1. Example: 2025/10/26 11:00:00"`
+	End    string `json:"end" jsonschema:"End date and time for log search. Empty is now. Example: 2025/10/26 11:00:00"`
+}
 
-func addLogSummaryTool(s *server.MCPServer) {
-	searchTool := mcp.NewTool("get_log_summary",
-		mcp.WithDescription("Get a summary of logs for a specified period from TWSLA DB"),
-		mcp.WithString("filter_log_content",
-			mcp.Description("Filter logs by regular expression. Empty is no filter"),
-		),
-		mcp.WithString("error_words",
-			mcp.DefaultString("error,fatal,fail,crit,alert"),
-			mcp.Description("Specify keywords, separated by commas, that determine the level of logging as an error."),
-		),
-		mcp.WithString("warning_words",
-			mcp.DefaultString("warn"),
-			mcp.Description("Specify keywords, separated by commas, that determine the level of logging as an warning."),
-		),
-		mcp.WithNumber("error_top_n",
-			mcp.DefaultNumber(10),
-			mcp.Max(1000),
-			mcp.Min(1),
-			mcp.Description("limit top n error pattern"),
-		),
-		mcp.WithString("time_range",
-			mcp.Required(),
-			mcp.Description(
-				`Time range of logs to search 
-format is "start date/time, period" 
-or "start date/time, end date/time".
-Example: 
-2025/05/07 05:59:00,1h 
-2025/05/07 05:59:00,2025/05/07 06:59:00
-`),
-		),
-	)
-
-	s.AddTool(searchTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		var err error
-		regexpFilter = request.GetString("filter_log_content", "")
-		timeRange, err = request.RequireString("time_range")
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-		aiErrorLevels = request.GetString("error_words", "error,fatal,fail,crit,alert")
-		aiWarnLevels = request.GetString("warning_words", "warn")
-		errCheckList = strings.Split(strings.ToLower(aiErrorLevels), ",")
-		warnCheckList = strings.Split(strings.ToLower(aiWarnLevels), ",")
-		topN := request.GetInt("error_top_n", 10)
-
-		setupFilter([]string{})
-		if err := openDB(); err != nil {
-			return nil, err
-		}
-		defer db.Close()
-		results = []string{}
-		sti, eti := getTimeRange()
-		sk := fmt.Sprintf("%016x:", sti)
-		errorLogMap := make(map[string]*aiErrorPattern)
-		setupTimeGrinder()
-		aiStartTime = time.Now().Add(time.Hour * 24 * 365 * 100).UnixNano()
-		aiEndTime = 0
-		aiErrorCount = 0
-		aiWarningCount = 0
-		aiTotalEntries = 0
-		db.View(func(tx *bbolt.Tx) error {
-			b := tx.Bucket([]byte("logs"))
-			c := b.Cursor()
-			for k, v := c.Seek([]byte(sk)); k != nil; k, v = c.Next() {
-				a := strings.Split(string(k), ":")
-				if len(a) < 1 {
-					continue
-				}
-				t, err := strconv.ParseInt(a[0], 16, 64)
-				if err == nil && t > eti {
-					break
-				}
-				l := string(v)
-				if matchFilter(&l) {
-					level := getAILogLevel(&l)
-					switch level {
-					case "ERROR":
-						aiErrorCount++
-						nl := normalizeLog(l)
-						if p, ok := errorLogMap[nl]; !ok {
-							errorLogMap[nl] = &aiErrorPattern{
-								Pattern: nl,
-								Count:   1,
-								Example: l,
-							}
-						} else {
-							p.Count++
-						}
-					case "WARN":
-						aiWarningCount++
-					default:
-					}
-					if aiStartTime > t {
-						aiStartTime = t
-					}
-					if aiEndTime < t {
-						aiEndTime = t
-					}
-					aiTotalEntries++
-				}
+func summaryLog(ctx context.Context, req *mcp.CallToolRequest, args summaryLogParams) (*mcp.CallToolResult, any, error) {
+	var err error
+	regexpFilter = args.Filter
+	timeRange = args.Start + "," + args.End
+	aiErrorLevels = "error,fatal,fail,crit,alert"
+	aiWarnLevels = "warn"
+	errCheckList = strings.Split(strings.ToLower(aiErrorLevels), ",")
+	warnCheckList = strings.Split(strings.ToLower(aiWarnLevels), ",")
+	topN := args.TopN
+	if topN < 10 || topN > 1000 {
+		topN = 10
+	}
+	setupFilter([]string{})
+	if err := openDB(); err != nil {
+		return nil, nil, err
+	}
+	defer db.Close()
+	results = []string{}
+	sti, eti := getTimeRange()
+	sk := fmt.Sprintf("%016x:", sti)
+	errorLogMap := make(map[string]*aiErrorPattern)
+	setupTimeGrinder()
+	aiStartTime = time.Now().Add(time.Hour * 24 * 365 * 100).UnixNano()
+	aiEndTime = 0
+	aiErrorCount = 0
+	aiWarningCount = 0
+	aiTotalEntries = 0
+	db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket([]byte("logs"))
+		c := b.Cursor()
+		for k, v := c.Seek([]byte(sk)); k != nil; k, v = c.Next() {
+			a := strings.Split(string(k), ":")
+			if len(a) < 1 {
+				continue
 			}
-			return nil
-		})
-		aiErrorPatternList = []*aiErrorPattern{}
-		for _, v := range errorLogMap {
-			aiErrorPatternList = append(aiErrorPatternList, v)
+			t, err := strconv.ParseInt(a[0], 16, 64)
+			if err == nil && t > eti {
+				break
+			}
+			l := string(v)
+			if matchFilter(&l) {
+				level := getAILogLevel(&l)
+				switch level {
+				case "ERROR":
+					aiErrorCount++
+					nl := normalizeLog(l)
+					if p, ok := errorLogMap[nl]; !ok {
+						errorLogMap[nl] = &aiErrorPattern{
+							Pattern: nl,
+							Count:   1,
+							Example: l,
+						}
+					} else {
+						p.Count++
+					}
+				case "WARN":
+					aiWarningCount++
+				default:
+				}
+				if aiStartTime > t {
+					aiStartTime = t
+				}
+				if aiEndTime < t {
+					aiEndTime = t
+				}
+				aiTotalEntries++
+			}
 		}
-		sort.Slice(aiErrorPatternList, func(i, j int) bool {
-			return aiErrorPatternList[i].Count > aiErrorPatternList[j].Count
-		})
-		if len(aiErrorPatternList) > topN {
-			aiErrorPatternList = aiErrorPatternList[:topN]
-		}
-		summary := mcpLogSummaryEnt{
-			Total:    aiTotalEntries,
-			Errors:   aiErrorCount,
-			Warnings: aiWarningCount,
-			TimeRange: fmt.Sprintf("%s to %s",
-				time.Unix(0, aiStartTime).Format("2006-01-02 15:04:05"),
-				time.Unix(0, aiEndTime).Format("2006-01-02 15:04:05")),
-			TopNErrorPattern: aiErrorPatternList,
-		}
-		ret, err := json.Marshal(&summary)
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-		return mcp.NewToolResultText(string(ret)), nil
+		return nil
 	})
+	aiErrorPatternList = []*aiErrorPattern{}
+	for _, v := range errorLogMap {
+		aiErrorPatternList = append(aiErrorPatternList, v)
+	}
+	sort.Slice(aiErrorPatternList, func(i, j int) bool {
+		return aiErrorPatternList[i].Count > aiErrorPatternList[j].Count
+	})
+	if len(aiErrorPatternList) > topN {
+		aiErrorPatternList = aiErrorPatternList[:topN]
+	}
+	summary := mcpLogSummaryEnt{
+		Total:    aiTotalEntries,
+		Errors:   aiErrorCount,
+		Warnings: aiWarningCount,
+		TimeRange: fmt.Sprintf("%s to %s",
+			time.Unix(0, aiStartTime).Format("2006-01-02 15:04:05"),
+			time.Unix(0, aiEndTime).Format("2006-01-02 15:04:05")),
+		TopNErrorPattern: aiErrorPatternList,
+	}
+	j, err := json.Marshal(&summary)
+	if err != nil {
+		j = []byte(err.Error())
+	}
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			&mcp.TextContent{Text: string(j)},
+		},
+	}, nil, nil
+}
+
+func getLogSummaryPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+	c := []string{}
+	if filter, ok := req.Params.Arguments["filter"]; ok {
+		c = append(c, fmt.Sprintf("- Filter: %s", filter))
+	}
+	if topn, ok := req.Params.Arguments["top_n"]; ok {
+		c = append(c, fmt.Sprintf("- Top N: %s", topn))
+	}
+	if start, ok := req.Params.Arguments["start"]; ok {
+		c = append(c, fmt.Sprintf("- Start: %s", start))
+	}
+	if end, ok := req.Params.Arguments["end"]; ok {
+		c = append(c, fmt.Sprintf("- End: %s", end))
+	}
+	p := "Get a summary of logs for a specified period from TWSLA database by using get_log_summary tool"
+	if len(c) > 0 {
+		p = " with following conditions.\n" + strings.Join(c, "\n")
+	} else {
+		p += "."
+	}
+	return &mcp.GetPromptResult{
+		Description: "Get a summary of logs prompt",
+		Messages: []*mcp.PromptMessage{
+			{
+				Role:    "user",
+				Content: &mcp.TextContent{Text: p},
+			},
+		},
+	}, nil
 }
