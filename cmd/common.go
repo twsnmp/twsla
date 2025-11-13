@@ -331,12 +331,18 @@ func openGeoIPDB() error {
 	return err
 }
 
+var ip2GeoMap = make(map[string]*geoip2.City)
+
 func getIPLoc(sip string) *geoip2.City {
+	if g, ok := ip2GeoMap[sip]; ok {
+		return g
+	}
 	ip := net.ParseIP(sip)
 	record, err := geoipDB.City(ip)
 	if err != nil {
 		return nil
 	}
+	ip2GeoMap[sip] = record
 	return record
 }
 
@@ -365,22 +371,24 @@ func getIPInfoMode() int {
 	}
 }
 
-var unknownIPs = make(map[string]bool)
+var ip2Host = make(map[string]string)
 
 func getHostByIP(ip string) string {
-	if _, ok := unknownIPs[ip]; ok {
-		return "unknown"
+	if h, ok := ip2Host[ip]; ok {
+		return h
 	}
 	a := strings.SplitN(ip, ".", 4)
 	if len(a) == 4 {
 		for _, rr := range dnsResolver.Resolve(fmt.Sprintf("%s.%s.%s.%s.in-addr.arpa", a[3], a[2], a[1], a[0]), "PTR") {
 			if rr.Type == "PTR" {
+				ip2Host[ip] = rr.Value
 				return rr.Value
 			}
 		}
 	}
-	unknownIPs[ip] = true
-	return "unknown"
+	h := fmt.Sprintf("%s(unknown)", ip)
+	ip2Host[ip] = h
+	return h
 }
 
 func getIPInfo(ip string, mode int) string {
@@ -391,6 +399,9 @@ func getIPInfo(ip string, mode int) string {
 	case 2:
 		// domain
 		h := getHostByIP(ip)
+		if !strings.HasSuffix(h, "wn)") {
+			return h
+		}
 		a := strings.Split(h, ".")
 		if len(a) < 4 {
 			return h
