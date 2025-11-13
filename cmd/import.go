@@ -50,6 +50,7 @@ var apiSkip bool
 var logType string
 var noDeltaCheck bool
 var noTimeStamp bool
+var batchSize int
 
 var tg *timegrinder.TimeGrinder
 var importFilter *regexp.Regexp
@@ -95,6 +96,7 @@ source is file | dir | scp | ssh | twsnmp
 func init() {
 	rootCmd.AddCommand(importCmd)
 	importCmd.Flags().BoolVar(&utc, "utc", false, "Force UTC")
+	importCmd.Flags().IntVarP(&batchSize, "size", "b", 10000, "Batch Size")
 	importCmd.Flags().BoolVar(&noDeltaCheck, "noDelta", false, "Disable delta check")
 	importCmd.Flags().BoolVar(&apiMode, "api", false, "TWSNMP FC API Mode")
 	importCmd.Flags().BoolVar(&apiTLS, "tls", false, "TWSNMP FC API TLS")
@@ -280,12 +282,11 @@ func doImport(path string, r io.Reader) {
 func logSaver(wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	const batchSize = 10000 // 適切なバッチサイズに調整
 	logsBuffer := make([]struct {
 		ID    []byte
 		Log   []byte
 		Delta []byte // Deltaが存在する場合のみ使用
-	}, 0, batchSize)
+	}, 0, batchSize+2)
 
 	for l := range logCh {
 		id := []byte(fmt.Sprintf("%016x:%s:%x", l.Time, l.Hash, l.Line))
