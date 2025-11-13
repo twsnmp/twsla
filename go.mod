@@ -30,7 +30,7 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.19.0
 	github.com/tmc/langchaingo v0.1.13
-	github.com/twsnmp/twlogeye/api v0.3.0
+	github.com/twsnmp/twlogeye/api v0.4.0
 	github.com/twsnmp/twsnmpfc/client v0.0.0-20240913214048-858814736e0b
 	github.com/viant/afs v1.25.1
 	github.com/wcharczuk/go-chart/v2 v2.1.1

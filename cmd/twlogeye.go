@@ -54,9 +54,9 @@ var twlogeyeCmd = &cobra.Command{
 	Long: `Import notify,logs and report from twlogeye
 twsla twlogeye <target> [<sub target>] [<anomaly report type>]
   taregt: notify | logs | report 
-	logs sub target: syslog | trap | netflow | winevent 
-	report sub target: syslog | trap | netflow | winevent | monitor | anomaly 
-	anomaly report type: syslog | trap | netflow | winevent | monitor | anomaly 
+	logs sub target: syslog | trap | netflow | winevent | otel | mqtt
+	report sub target: syslog | trap | netflow | winevent | otel | mqtt  | monitor | anomaly 
+	anomaly report type: syslog | trap | netflow | winevent |otel | mqtt | monitor | anomaly 
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) > 0 {
@@ -122,6 +122,10 @@ func twLogEyeSub(wg *sync.WaitGroup) {
 			getTwLogEyeNetflowReport()
 		case "winevent":
 			getTwLogEyeWindowsEventReport()
+		case "otel":
+			getTwLogEyeOTelReport()
+		case "mqtt":
+			getTwLogEyeMqttReport()
 		case "monitor":
 			getTwLogEyeMonitorReport()
 		case "anomaly":
@@ -427,6 +431,9 @@ type twLogEyeNetflowReport struct {
 	Flows     int32
 	Protocols int32
 	Fumbles   int32
+	Hosts     int32
+	Locs      int32
+	Country   int32
 }
 
 func getTwLogEyeNetflowReport() {
@@ -464,6 +471,9 @@ func getTwLogEyeNetflowReport() {
 			Flows:     r.GetFlows(),
 			Protocols: r.GetProtocols(),
 			Fumbles:   r.GetFumbles(),
+			Hosts:     r.GetHosts(),
+			Locs:      r.GetLocs(),
+			Country:   r.GetCountry(),
 		})
 		if err != nil {
 			continue
@@ -536,6 +546,152 @@ func getTwLogEyeWindowsEventReport() {
 			Error:      r.GetError(),
 			Types:      r.GetTypes(),
 			ErrorTypes: r.GetErrorTypes(),
+		})
+		if err != nil {
+			continue
+		}
+		logCh <- &LogEnt{
+			Time:  t,
+			Log:   string(j),
+			Delta: 0,
+			Hash:  hash,
+			Line:  i,
+		}
+		i++
+		readBytes += int64(len(j))
+		if i%100 == 0 {
+			teaProg.Send(ImportMsg{
+				Done:  false,
+				Path:  path,
+				Bytes: readBytes,
+				Lines: i,
+				Skip:  0,
+			})
+		}
+	}
+	totalBytes = readBytes
+	totalLines = i
+	totalFiles = 1
+	teaProg.Send(ImportMsg{Done: false, Path: path, Bytes: readBytes, Lines: i})
+	teaProg.Send(ImportMsg{Done: true})
+}
+
+type twLogEyeOTelReport struct {
+	Time        string
+	Normal      int32
+	Warn        int32
+	Error       int32
+	Types       int32
+	ErrorTypes  int32
+	Hosts       int32
+	TraceIds    int32
+	TraceCount  int32
+	MericsCount int32
+}
+
+func getTwLogEyeOTelReport() {
+	path := fmt.Sprintf("%s:%d/%s", twLogEyeApiServer, twLogEyeApiPort, twLogEyeTarget)
+	hash := getSHA1(path)
+	client := getTwLogEyeClient()
+	st, et := getTimeRange()
+	if st == 0 {
+		st = time.Now().Add(-24 * time.Hour).UnixNano()
+	}
+	i := 0
+	readBytes := int64(0)
+	s, err := client.GetOTelReport(context.Background(), &api.ReportRequest{
+		Start: st,
+		End:   et,
+	})
+	if err != nil {
+		log.Fatalf("get otel report err=%v", err)
+	}
+	for {
+		r, err := s.Recv()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			log.Fatalf("get otel report err=%v", err)
+		}
+		t := r.GetTime()
+		j, err := json.Marshal(&twLogEyeOTelReport{
+			Time:        getTimeStr(r.GetTime()),
+			Normal:      r.GetNormal(),
+			Warn:        r.GetWarn(),
+			Error:       r.GetError(),
+			Types:       r.GetTypes(),
+			ErrorTypes:  r.GetErrorTypes(),
+			Hosts:       r.GetHosts(),
+			TraceIds:    r.GetTraceIds(),
+			TraceCount:  r.GetTraceCount(),
+			MericsCount: r.GetMericsCount(),
+		})
+		if err != nil {
+			continue
+		}
+		logCh <- &LogEnt{
+			Time:  t,
+			Log:   string(j),
+			Delta: 0,
+			Hash:  hash,
+			Line:  i,
+		}
+		i++
+		readBytes += int64(len(j))
+		if i%100 == 0 {
+			teaProg.Send(ImportMsg{
+				Done:  false,
+				Path:  path,
+				Bytes: readBytes,
+				Lines: i,
+				Skip:  0,
+			})
+		}
+	}
+	totalBytes = readBytes
+	totalLines = i
+	totalFiles = 1
+	teaProg.Send(ImportMsg{Done: false, Path: path, Bytes: readBytes, Lines: i})
+	teaProg.Send(ImportMsg{Done: true})
+}
+
+type twLogEyeMqttReport struct {
+	Time  string
+	Count int32
+	Types int32
+}
+
+func getTwLogEyeMqttReport() {
+	path := fmt.Sprintf("%s:%d/%s", twLogEyeApiServer, twLogEyeApiPort, twLogEyeTarget)
+	hash := getSHA1(path)
+	client := getTwLogEyeClient()
+	st, et := getTimeRange()
+	if st == 0 {
+		st = time.Now().Add(-24 * time.Hour).UnixNano()
+	}
+	i := 0
+	readBytes := int64(0)
+	s, err := client.GetMqttReport(context.Background(), &api.ReportRequest{
+		Start: st,
+		End:   et,
+	})
+	if err != nil {
+		log.Fatalf("get mqtt report err=%v", err)
+	}
+	for {
+		r, err := s.Recv()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			log.Fatalf("get mqtt report err=%v", err)
+		}
+		t := r.GetTime()
+		j, err := json.Marshal(&twLogEyeMqttReport{
+			Time:  getTimeStr(r.GetTime()),
+			Count: r.GetCount(),
+			Types: r.GetTypes(),
 		})
 		if err != nil {
 			continue
