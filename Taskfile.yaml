@@ -1,7 +1,7 @@
 version: '3'
 
 vars:
-  VERSION: v1.18.0
+  VERSION: 1.19.0
   COMMIT:
     sh: git rev-parse --short HEAD
 
@@ -44,3 +44,13 @@ tasks:
   clean:
     cmds:
       - rm -rf dist/*
+  docker:
+    cmds:
+      - docker build -t twsnmp/twsla  --build-arg VERSION={{.VERSION}} --build-arg COMMIT={{.COMMIT}} .
+  docker_push:
+    cmds:
+      - docker buildx build --platform linux/amd64 --build-arg VERSION={{.VERSION}} --build-arg COMMIT={{.COMMIT}} -t twsnmp/twsla:v{{.VERSION}} --push  .
+      - docker tag twsnmp/twsla:v{{.VERSION}}  twsnmp/twsla:latest
+      - docker push twsnmp/twsla:latest
+      - docker buildx build --platform linux/arm64/v8 --build-arg VERSION={{.VERSION}} --build-arg COMMIT={{.COMMIT}} -t twsnmp/twsla:arm64_v{{.VERSION}} --push .
+      - docker buildx build --platform linux/arm/v7  --build-arg VERSION={{.VERSION}} --build-arg COMMIT={{.COMMIT}} -t twsnmp/twsla:arm7_v{{.VERSION}} --push .
