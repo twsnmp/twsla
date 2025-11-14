@@ -46,13 +46,14 @@ Install in.
 You can check the commands that support the Help command.
 
 ```
+$twsla help
 Simple Log Analyzer by TWSNMP
 
 Usage:
   twsla [command]
 
 Available Commands:
-  ai          ai command
+  ai          AI-powered log analysis
   anomaly     Anomaly log detection
   completion  Generate the autocompletion script for the specified shell
   count       Count log
@@ -67,6 +68,7 @@ Available Commands:
   sigma       Detect threats using SIGMA rules
   tfidf       Log analysis using TF-IDF
   time        Time analysis
+  twlogeye    Inmport notify,logs and report from twlogeye
   twsnmp      Get information and logs from TWSNMP FC
   version     Show twsla version
 
@@ -77,6 +79,7 @@ Flags:
   -h, --help               help for twsla
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
+      --sixel              show chart by sixel
   -t, --timeRange string   Time range
 
 Use "twsla [command] --help" for more information about a command.
@@ -103,10 +106,11 @@ Flags:
   -c, --command string   SSH Command
   -p, --filePat string   File name pattern
   -h, --help             help for import
-      --json             Parse JSON windows evtx
   -k, --key string       SSH Key
   -l, --logType string   TWSNNP FC log type (default "syslog")
-      --noDelta          Check delta
+      --noDelta          Disable delta check
+      --noTS             Import no time stamp file
+  -b, --size int         Batch Size (default 10000)
       --skip             TWSNMP FC API skip verify certificate (default true)
   -s, --source string    Log source
       --tls              TWSNMP FC API TLS
@@ -118,8 +122,8 @@ Global Flags:
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
+      --sixel              show chart by sixel
   -t, --timeRange string   Time range
-
 ```
 
 Specify the location of the log to read in -s or --source.
@@ -129,10 +133,12 @@ If you specify the file, read only the specified file.This is easy to understand
 If it runs
 
 ```terminal
-$twsla import -s ~/Downloads/Linux_2k.log
-
-/ Loading path=/Users/ymimacmini/Downloads/Linux_2k.log line=2,000 byte=212 kB
-  Total file=1 line=2,000 byte=212 kB time=138.986218ms
+＄twsla import ~/Downloads/SSH.tag.gz
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│/ Loading path=/Users/ymi/Downloads/SSH.tar.gz:SSH.log line=655,147 byte=72 MB           │
+│  Total file=1 line=655,147 byte=72 MB time=1.709061625s                                 │
+│▆▆▆▆▆▆▆▆▆▆▆▆▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇█████████████████████████ 72 MB/Sec│
+└─────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 It displays the number of logs, size, and time it takes.
@@ -798,9 +804,9 @@ https://github.com/twsnmp/twlogeye
 Import notify,logs and report from twlogeye
 twsla twlogeye <target> [<sub target>] [<anomaly report type>]
   taregt: notify | logs | report
-        logs sub target: syslog | trap | netflow | winevent
-        report sub target: syslog | trap | netflow | winevent | monitor | anomaly
-        anomaly report type: syslog | trap | netflow | winevent | monitor | anomaly
+	logs sub target: syslog | trap | netflow | winevent | otel | mqtt
+	report sub target: syslog | trap | netflow | winevent | otel | mqtt  | monitor | anomaly
+	anomaly report type: syslog | trap | netflow | winevent |otel | mqtt | monitor | anomaly
 
 Usage:
   twsla twlogeye [flags]
