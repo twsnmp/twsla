@@ -141,8 +141,8 @@ func anomalySub(wg *sync.WaitGroup) {
 		anomalyOS()
 	case "dir":
 		anomalyDir()
-	case "walue":
-		anomalyWalue()
+	case "walu":
+		anomalyWalu()
 	case "number":
 		anomalyNumber()
 	default:
@@ -518,7 +518,7 @@ func anomalyNumber() {
 	}
 }
 
-func anomalyWalue() {
+func anomalyWalu() {
 	for i, l := range results {
 		v := getWaluVector(&l)
 		if len(v) > 20 {

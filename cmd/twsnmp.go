@@ -35,8 +35,8 @@ var twsnmp string
 var twsnmpCmd = &cobra.Command{
 	Use:   "twsnmp [target]",
 	Short: "Get information and logs from TWSNMP FC",
-	Long: `Get information adn logs from TWSNMP FC
-[taget] is node | polling | eventlog | syslog | trap |
+	Long: `Get information and logs from TWSNMP FC
+[target] is node | polling | eventlog | syslog | trap |
   netflow | ipfix | sflow |sflowCounter | arplog | pollingLog`,
 	Args: func(cmd *cobra.Command, args []string) error {
 		// Optionally run one of the validators provided by cobra

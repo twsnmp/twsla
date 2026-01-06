@@ -6,24 +6,23 @@ Works on Linux/Mac OS/Windows.
 
 ## Install
 
-It is recommended to install the Linux/Mac OS with a shell script.
+It is recommended to install on Linux/macOS using the shell script.
 
 ```terminal
-$curl -sS https://lhx98.linkclub.jp/twise.co.jp/download/install.sh | sh
+$ curl -sS https://lhx98.linkclub.jp/twise.co.jp/download/install.sh | sh
 ```
 
-Linux/Mac OS can be installed on Homebrew.
+On Linux/macOS, it can also be installed via Homebrew.
 
 ```terminal
-$brew install twsnmp/tap/twsla
+$ brew install twsnmp/tap/twsla
 ```
 
-Winddows downloads zip files from the release or scoop
-Install in.
+On Windows, download the zip file from the releases page or install via scoop.
 
 ```terminal
->scoop bucket add twsnmp https://github.com/twsnmp/scoop-bucket
->scoop install twsla
+> scoop bucket add twsnmp https://github.com/twsnmp/scoop-bucket
+> scoop install twsla
 ```
 
 ## Basic usage
@@ -74,7 +73,7 @@ Available Commands:
 
 Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -d, --datastore string   bblot log db (default "./twsla.db")
   -f, --filter string      Simple filter
   -h, --help               help for twsla
   -v, --not string         Invert regexp filter
@@ -91,7 +90,7 @@ When the command is illustrated
 
 ### import command
 
-It is a command to import the log.Save in a time series that can be searched in a database.The argument of the command is
+This command imports logs and saves them in a searchable time-series database. The command arguments are:
 
 ```
 ＄twsla help import
@@ -107,7 +106,7 @@ Flags:
   -p, --filePat string   File name pattern
   -h, --help             help for import
   -k, --key string       SSH Key
-  -l, --logType string   TWSNNP FC log type (default "syslog")
+  -l, --logType string   TWSNMP FC log type (default "syslog")
       --noDelta          Disable delta check
       --noTS             Import no time stamp file
   -b, --size int         Batch Size (default 10000)
@@ -118,7 +117,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -d, --datastore string   bblot log db (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -126,11 +125,11 @@ Global Flags:
   -t, --timeRange string   Time range
 ```
 
-Specify the location of the log to read in -s or --source.
-In the latest version, you can specify files and directory names with arguments without -s options.
-If you specify the file, read only the specified file.This is easy to understand.
+Specify the location of the log to read with `-s` or `--source`.
+In the latest version, you can specify files and directory names as arguments without the `-s` option.
+If you specify a file, only that file will be read.
 
-If it runs
+If it runs:
 
 ```terminal
 ＄twsla import ~/Downloads/SSH.tag.gz
@@ -141,8 +140,8 @@ If it runs
 └─────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-It displays the number of logs, size, and time it takes.
-When you specify the directory, read the file in the directory.If you specify the file pattern in -p or --filePat, you can limit the files in the directory.The design is a simple filter.
+It displays the number of logs, size, and the time taken.
+When you specify a directory, it reads the files in that directory. If you specify a file pattern with `-p` or `--filePat`, you can limit the files read from the directory. This uses a simple filter.
 
 ```
 ＄twsla import -s ~/Downloads -p "Linux*"
@@ -157,34 +156,34 @@ When you specify the directory, read the file in the directory.If you specify th
 
 Displays sparklines.
 
-You can also specify the file name pattern when reading from a zip file or Tar.gz format file.
+You can also specify the filename pattern when reading from a ZIP or Tar.gz file.
 
-When reading, you can specify a simple filter, regular expression filter and time range.You can reduce the amount you read.
+When reading, you can specify a simple filter, regular expression filter, and time range to reduce the amount of data imported.
 
-To read SCP, SSH or TWSNMP log, specify the URL.
+To read SCP, SSH, or TWSNMP logs, specify the URL:
 
 `scp://root@192.168.1.210/var/log/messages`
 
-It is a form like.SSH key is required.
+SSH key is required.
 Compatible with TWSNMP FC's web API from v1.4.0.
-Specify `twsnmp: //192.168.1.250: 8080` in the URL of the -S option
-If you specify-API, you can import logs via Web API.
--rogtype can also obtain logs other than syslog.
+Specify `twsnmp://192.168.1.250:8080` in the URL of the `-s` option.
+If you specify `--api`, you can import logs via the Web API.
+`--logType` can also obtain logs other than syslog.
 
-If you specify --json when reading the EVTX file from v1.1.0, read the Windows event log in JSON format.Detailed information can be displayed.
+If you specify `--json` when reading an EVTX file from v1.1.0, the Windows event log is read in JSON format, allowing detailed information to be displayed.
 
 ![](https://assets.st-note.com/img/1717709455800-myzsaGfpvI.png?width=1200)
 
-The log destination of the log is specified in the -d option.BBolt database.If you omit it, it will be TWSLA.db of the current directory.
-By specifying --nodelta from v1.8.0, it is possible not to perform the time difference and save the process.This will increase the speed a little.
-The speed of IMPORT is faster when the log is lined up in chronological order.A random log is slow.
+The log destination is specified with the `-d` option (bbolt database). If you omit it, it defaults to `twsla.db` in the current directory.
+By specifying `--noDelta` from v1.8.0, it is possible to skip the time difference calculation to speed up the process.
+Importing is faster when logs are in chronological order. Random logs are slower.
 
 ### search command
 
-You can search when the log is read.
+You can search once the logs are imported.
 
 ```
-twsla  help search
+twsla help search
 Search logs.
 Simple filters, regular expression filters, and exclusion filters can be specified.
 
@@ -197,29 +196,29 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -d, --datastore string   bblot log db (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
   -t, --timeRange string   Time range
 ```
 
-You can narrow down the log by specifying the simple filter, regular expression filter and time range.In the current version, it is an inverted filter when you start with a simple filter with an argument.
+You can narrow down the logs by specifying a simple filter, regular expression filter, and time range. In the current version, it acts as an inverted filter when starting with a simple filter argument.
 
 
 ```
-＄twsla  search -f fail
+＄twsla search -f fail
 ```
 
-If you search with a feeling like
+Example search:
 
 ![](https://assets.st-note.com/img/1716672574781-gcWleWK4jC.png?width=1200)
 
 
 A key input help is displayed at the top right of the search result screen.
-You can save the result with the S key.The display is reversed with the R key.Q key is over.
-The search results of the log can be displayed from v1.5.0.
-Search the log to specify -c, --color as the option of the sEACH command.For the key
+You can save the result with the `S` key. The display is reversed with the `R` key. `Q` key exits.
+Log search results can be color-coded since v1.5.0.
+Specify `-c` or `--color` as an option for the `search` command. For the key:
 
 |Key|Descr|
 |---|---|
@@ -227,47 +226,41 @@ Search the log to specify -c, --color as the option of the sEACH command.For the
 | Mac | Color display of MAC address |
 | Email | Color display of email address |
 | URL | Color display of URL |
-| Filter | Color display the character string specified in the filter |
-| REGEXP/Pattern/Color | Display the character string that matches the regular expression in a specified color |
+| Filter | Color display of the string specified in the filter |
+| REGEXP/Pattern/Color | Display the string that matches the regular expression in the specified color |
 
-Can be specified.
-
-Same log
+Example:
 
 ```
 twsla search -f Failed -c "regex/user\s+\S+/9,ip,filter"
 ```
 
-When displayed as specified like
-
 ![](https://assets.st-note.com/img/1726436365-hzP1IyTxiYNnQGakBf2pb6uL.png?width=1200)
 
-You can display the color like this.
-
-From v1.6.0, you can specify the color display from the search results screen.
-Press the C key to display the input screen.When you press the M key
+From v1.6.0, you can specify color displays from the search results screen.
+Press the `C` key to display the input screen. When you press the `M` key:
 
 
 ![](https://assets.st-note.com/img/1729478132-JVbuz3MD1LrvKYPxFHmAnpSg.png?width=1200)
 
-Displays the input screen of the marker.Following a simple filter or regex:, you can specify the regular expression filler and mark the corresponding character string of the log.This is an example of an IP color and a Fail with a marker.
+Displays the marker input screen. Following `simple filter` or `regex:`, you can specify a regular expression filter and mark the corresponding strings in the log. This is an example of an IP color and a marker for "Fail".
 
 ![](https://assets.st-note.com/img/1729484628-MxPyZJRoNU0bqCkeXmh7cAEG.png?width=1200)
 
 ### count command
 
-It is a command that ties the number of logs into an hourly basis, or the data in the log is used as a key.
+This command aggregates the number of logs on an hourly basis, or uses data extracted from the log as a key.
 
 ```terminal
-＄twsla  help  count
+＄twsla help count
 Count the number of logs.
-Count logs for each specified period
+Count logs for each specified period.
 Number of occurrences of items extracted from the log.
-Count normalized logs by pattern
+Count normalized logs by pattern:
  $twsla count -e normalize
-Count word in logs.
+Count words in logs:
  $twsla count -e word
-Count json key.
+Count JSON keys:
  $twsla count -e json -n Score
 
 Usage:
@@ -289,7 +282,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -d, --datastore string   bblot log db (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -298,60 +291,56 @@ Global Flags:
 ```
 
 You can filter in the same way as search.
-If the data to be extracted with -e options is specified, the data is aggregated in this data units.If you do not specify, the number of time logs is aggregated.
-Time -by -time tabulation is
+If an extraction pattern is specified with the `-e` option, the data is aggregated by those units. If omitted, logs are aggregated by time.
+Hourly aggregation:
 
 
 ```terminal
-$twsla  count -f fail
+$twsla count -f fail
 ```
 
 ![](https://assets.st-note.com/img/1717709793390-R450RHfeJN.png?width=1200)
 
 
-The result is.The time interval is specified in the -I option.If you omit it, it should be set.
-The difference time (Delta) from the previous log from v1.1.0 is also displayed.The average interval is also displayed at the top.
-You can sort depending on the number of counts with the C key.It is a sort with time with K key.
-You can save the result with the S key.If the extension is made to PNG, it will be a graph.
+The time interval is specified with the `-i` option. If omitted, it is set automatically.
+From v1.1.0, the time difference (Delta) from the previous log is also displayed. The average interval is shown at the top.
+You can sort by count with the `C` key, or by time with the `K` key.
+You can save the result with the `S` key. Saving with a `.png` extension will generate a graph.
 
 ![](https://assets.st-note.com/img/1716674447895-OPrP8zMSUQ.png?width=1200)
 
-You can save the graph of the HTML file by saving the extension from V1.5.0 with HTML.A graph that can be operated interactively.
+From v1.5.0, you can save interactive graphs by using the `.html` extension.
 
 ![](https://assets.st-note.com/img/1716674531194-O7j5QXhIHo.png?width=1200)
 
 
-The result is.You can also sort this.If you save it on the graph
+The TOP10 ratio graph looks like this:
 
 ![](https://assets.st-note.com/img/1716674623362-MkHGX4qUZ2.png?width=1200)
 
-The ratio of TOP10 is the graph like this.
-
-A delay time filter has been added in v1.16.0.
+A delay time filter was added in v1.16.0.
 
 ```
 --delay <number>
 ```
-Specifying this will cause the delay command to display the delay time specified by the number or higher from the logs.
+Specifying this will cause the command to display logs with a delay higher than the specified number.
 
 
 ```
   -q, --timePos int      Specify second time stamp position
       --utc              Force UTC
 ```
-is a mode that detects the time difference between two timestamps in the log,
-similar to the delay command.
+This mode detects the time difference between two timestamps in the log, similar to the `delay` command.
 
-Translated with DeepL.com (free version)
 
 ### extract command
 
-It is a command that removes specific data from the log.
+This command extracts specific data from the logs.
 
 ```terminal
-$twsla  help extract
+$twsla help extract
 Extract data from the log.
-Numeric data, IP addresses, MAC addresses, email addresses
+Numeric data, IP addresses, MAC addresses, email addresses,
 words, etc. can be extracted.
 
 Usage:
@@ -366,45 +355,43 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -d, --datastore string   bblot log db (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
   -t, --timeRange string   Time range
 ```
 
-You can specify the same filter as the search.The specification of the data to be extracted is the same as the count command.
+You can specify the same filters as the `search` command. Data extraction patterns are specified the same way as the `count` command.
 
 ```terminal
-$twsla  extract -f fail -e ip
+$twsla extract -f fail -e ip
 ```
-
-If you run with a command like
 
 ![](https://assets.st-note.com/img/1716674893720-WqYN0wwrvt.png?width=1200)
 
-It will be time series data like this.You can also sort with the key.You can save the results on a graph.
+This displays time-series data. You can sort by key and save results as a graph.
 
 ![](https://assets.st-note.com/img/1716675034354-UvMuVYryxl.png?width=1200)
 
 
-The numerical data is used as a graph, but for items such as IP addresses, the number of the item is graphed.
+Numerical data is graphed directly, while items like IP addresses are graphed by occurrence count.
 
 ![](https://assets.st-note.com/img/1736891736-Mg2ahHbtJqSws7KPcUznTvkQ.png?width=1200)
 
-Press the i key while the numerical data is extracted to display the statistical information of the numerical data.
+Press the `i` key while numerical data is extracted to display statistical information.
 
 ![](https://assets.st-note.com/img/1736891837-3wLoHPGn5ANfEsgDmyqxTKVh.png?width=1200)
 
-Press the s key and save it with CSV.
+Press the `s` key to save as CSV.
 
 
 ### tfidf command
 
-Find an unusual log using TF-IDF.
+Find rare logs using TF-IDF.
 
 ```terminal
-＄twsla  help tfidf
+＄twsla help tfidf
 Use TF-IDF to find rare logs.
 You can specify a similarity threshold and the number of times the threshold is allowed to be exceeded.
 
@@ -419,25 +406,21 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -d, --datastore string   bblot log db (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
   -t, --timeRange string   Time range
 ```
 
-When executed
-
 ![](https://assets.st-note.com/img/1716675268711-yeoAjdEYAx.png?width=1200)
 
-The result is like.I have found three rare logs in 2000 cases.
--l can be specified in the values ​​and -c.Because it is for experts
-I'm going to write a detail in another article.
-From v1.10, you can get a rare top N case with -n.
+The example shows three rare logs found in 2,000 entries. Thresholds can be adjusted with `-l` and `-c`. Detailed information for experts will be provided in another article.
+Since v1.10, you can use `-n` to get the top N rare cases.
 
 ### anomaly command
 
-It is a command added in v1.1.0.A command that analyzes the log and finds something unusual.
+Added in v1.1.0, this command analyzes logs to find anomalies.
 
 ```terminal
 
@@ -455,38 +438,38 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -d, --datastore string   bblot log db (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
   -t, --timeRange string   Time range
 ```
 
-Specify the mode in -m.TFIDF creates a vector of logs in TF-IDF.SQL, OS, DIR creates log characteristics vectors from the number of keywords that appear in SQL injection, OS injection, etc.Number creates a characteristic vector from the numbers appearing in the log.
-You can specify the position of the numerical value with the -e option.
+Specify the mode with `-m`. `tfidf` creates log vectors using TF-IDF. `sql`, `os`, and `dir` create vectors based on keywords related to those attacks. `number` creates vectors from numerical values in the log.
+Numerical positions can be specified with `-e`.
 
 ```
 start*end
 ```
 
-If you specify like
+Example:
 
 ```
 11:00 start 0.1  0.2 1.4 end
 ```
 
-Adopted only three of the logs of 0.1 0.2 1.4.
+Only the values between `start` and `end` will be analyzed.
 
-The analysis result
+Analysis results:
 
 ![](https://assets.st-note.com/img/1717710550350-NG6evcVbRm.png?width=1200)
 
-It will be displayed likeThe larger the score, the more abnormal.SQL injection and Walu are effective in analyzing Web server access logs.
+Higher scores indicate greater anomalies. `sql` and `walu` modes are effective for web server access logs.
 
 ### delay command
 
-It is a command added in v1.3.0.This is a command to detect the delay of processing from the Access log.Apache's Access log records the time stamp the time stamp when the HTTP request is accepted.It actually outputs to the log after the process is over and the response is returned.For this, the time stamp of the log may be recorded back and forth.It means that the log of the time before the recorded earlier will be recorded later.Using this reversal phenomenon can detect the delay in processing.It is a delay, such as processing requests and downloading large files.
-Transfer your Apache Access log to syslog and record two time stamps.These two or more time stamps may have a time difference between the logs of logs.I also made a mode to detect this.
+Added in v1.3.0, this command detects processing delays from access logs. Apache's access log records the timestamp when a request is accepted, but outputs the entry after the response is sent. This can cause timestamps to appear out of order. This reversal can be used to detect delays in processing requests or downloading large files.
+It can also detect delays between timestamps when access logs are transferred to syslog with multiple timestamps.
 
 ```terminal
 Search for delays in the access log
@@ -501,32 +484,31 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -d, --datastore string   bblot log db (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
   -t, --timeRange string   Time range
 ```
 
-If you add 1 or more values ​​to the -q option, it will be a mode that processes two or more timestamps.If -q is omitted or specifying 0, it will be a mode to detect delays using the reversal phenomenon of Access log.
+If `-q` is 1 or more, it processes multiple timestamps. If omitted or 0, it detects delays using the Apache access log reversal phenomenon.
 
 
 ![](https://assets.st-note.com/img/1723064539386-Xo4AG4qm3Y.png?width=1200)
 
 
-If the delay cannot be detected, nothing will be displayed.
-The right end is the delay time.Select a log and press the Enter key to display the log in detail.Sort in order of time with T key.Sort in order of delay in the D key.You can save it to the file with the S key.When the extension is png, the graph image is saved.
+If no delays are detected, nothing is displayed. The rightmost column shows the delay time. Select a log and press `Enter` for details. Sort by time with `T` or by delay with `D`. Save with `S`; using `.png` saves a graph image.
 
 ![](https://assets.st-note.com/img/1723064799604-VwdzrZ3bSg.png?width=1200)
 
 
 ### twsnmp command
 
-This is a command to link with TWSNMP FC added in v1.4.0.
+This command links with TWSNMP FC (added in v1.4.0).
 
 ```terminal
-Get information adn logs from TWSNMP FC
-[taget] is node | polling | eventlog | syslog | trap |
+Get information and logs from TWSNMP FC
+[target] is node | polling | eventlog | syslog | trap |
   netflow | ipfix | sflow |sflowCounter | arplog | pollingLog
 
 Usage:
@@ -540,36 +522,30 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -d, --datastore string   bblot log db (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
   -t, --timeRange string   Time range
 ```
 
-Specify the URL of TWSNMP FC linked with --twsnmp.If you have changed your user ID and password, specify it in this URL.
-http: // user ID: password@192.168.1.250: 8080, etc.
+Specify the TWSNMP FC URL with `--twsnmp`. Include credentials if necessary:
+`http://user:password@192.168.1.250:8080`
 
-Acquisition of node list
+Example: Fetching the node list:
 
 ```terminal
 twsla twsnmp node --twsnmp http://192.168.1.253:8081
 17ea9e198e6dce8e        eve-ng-ymi.     normal  192.168.13.1
 17ea9e1c9574f616        192.168.13.2    low     192.168.13.2    00:50:79:66:68:05(Private)
-17ea9f2747b86b64        Switch1 repair  192.168.13.3    50:00:00:01:80:01(Unknown)
-17eaa033358f42c5        Switch2 low     192.168.13.4    50:00:00:02:80:01(Unknown)
-17eaa11396dcdfa5        Switch3 low     192.168.13.5    50:00:00:03:80:01(Unknown)
-17eaa113ae173e88        Switch4 low     192.168.13.6    50:00:00:04:80:01(Unknown)
-17eb3bd030fd9f81        Router  low     192.168.1.242   24:FE:9A:07:D2:A9(CyberTAN Technology Inc.)
+...
 ```
 
-You can do it with a command like.
-Basically, it outputs with TAB separation text.You can save it in the file by redirection.
-If --jsonout is specified, it will be in JSON format output.I think this is convenient when using it from the program.
+Outputs are tab-separated text by default. Use `--jsonOut` for JSON format, which is useful for programmatic access.
 
 ### relation command
 
-List the relationship between two or more items in the log line.It can also be output to the intrajected graph.
+Analyzes relationships between multiple items in log lines. Results can be output as an interactive graph.
 
 ```terminal
 $twsla help relation
@@ -585,14 +561,14 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -d, --datastore string   bblot log db (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
   -t, --timeRange string   Time range
 ```
 
-The items that can be specified are
+Supported items:
 
 |key|descr|
 | ---- | ---- |
@@ -600,28 +576,24 @@ The items that can be specified are
 | Mac | MAC address |
 | Email | Email address |
 | URL | URL |
-| REGEXP/Pattern/| Character string that matches regular expression |
+| REGEXP/Pattern/| String matching regular expression |
 
 
 ```terminal
-$twsla relation  -f Failed -r user "regex/user\s+\S+/" ip
+$twsla relation -f Failed -r user "regex/user\s+\S+/" ip
 ```
-
-With a command like
 
 ![](https://assets.st-note.com/img/1726436651-dajM1gPELX8vny6GBW5Yz9b7.png?width=1200)
 
 
-You can aggregate like this.If you devise a filter and narrow down the number
+Aggregations can be viewed as an interactive graph by saving with the `.html` extension.
 
 ![](https://assets.st-note.com/img/1726436651-c86jxm75eoIZaDSHNuBr9Cd1.png?width=1200)
 
 
-You can also output a graph like.S: Specify the extension of the output file of the save command in HTML.
-
 ### heatmap command
 
-This is a command for displaying the time when there is a lot of logs on a day or date unit on a heat map.
+Displays log frequency over time or date using a heat map.
 
 ```terminal
 twsla help heatmap
@@ -637,33 +609,32 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -d, --datastore string   bblot log db (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
   -t, --timeRange string   Time range
 ```
 
-If the -w option is specified, it will be calculated on a daily basis.If you do not specify, it is a date unit.
+Use `-w` for weekly aggregation; otherwise, it aggregates by date.
 
-The date unit is
+Date-based heat map:
 
 ![](https://assets.st-note.com/img/1726436714-pUIb1AKFhWPGuxLV2gelzRJM.png?width=1200)
 
 
-When the file of the extension HTML is saved
+Saved as HTML:
 
 ![](https://assets.st-note.com/img/1726436714-pb7ZIGOX6tPBoHY4aChR9Jzk.png?width=1200)
 
-You can save a graph like.
-The day of the week is
+Weekly heat map:
 
 ![](https://assets.st-note.com/img/1726436714-UjtvDC3bVpgRHYa9hK47yfkd.png?width=1200)
 
 
 ### time command
 
-This is a command that analyzes the time difference between logs.It is a command added in v1.6.0.
+Analyzes time differences between logs (added in v1.6.0).
 
 ```terminal
 Time analysis
@@ -676,7 +647,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -d, --datastore string   bblot log db (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -684,32 +655,19 @@ Global Flags:
 
 ```
 
-When executed
-
 ![](https://assets.st-note.com/img/1729485261-4NeIF2sytM0lxYwTrnHfikQg.png?width=1200)
 
-The time difference from the marked log is Diff.
-The time difference from the previous log is Delta.
-Once you select, you will display Diff and Delta in an easy -to -understand manner in the second line.
-The second line displays the average value (Mean) of Delta, the median (Median), the maximum (mode), and the standard deviation (stddiv).
-In this example, you can see that it is log or recorded every 24 hours.
-Press the M key to mark the selected log.
-When you save it with HTML or PNG, it outputs Delta to the graph.
+`Diff` shows the difference from the marked log. `Delta` shows the difference from the previous log. Selecting a log displays detailed statistics (Mean, Median, Mode, StdDev). Use `M` to mark a log. Graphs of Delta can be saved as HTML or PNG.
 
 ![](https://assets.st-note.com/img/1729485332-0ES73fO8nqMzcLBZQtsomj19.png?width=1200)
 
 ### sigma command
 
-Standard format SIGMA that detects threats from logs
-
-https://sigmahq.io/
-
-Corresponded to.
-
+Detects threats using the standard SIGMA format (https://sigmahq.io/).
 
 ```terminal
 Detect threats using SIGMA rules.
-	About SIGAMA
+	About SIGMA
 	https://sigmahq.io/
 
 Usage:
@@ -724,89 +682,34 @@ Flags:
       --strict           Strict rule check
 
 Global Flags:
-  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -d, --datastore string   bblot log db (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
   -t, --timeRange string   Time range
 ```
 
-Specify a saved directory with the SIGMA rule in the S option.The log is assumed in the format saved by JSON.If you want to handle non -JSON logs, you need to extract data with GROK.
-Specify the definition of GROCK in -G option.If you do not specify, specify the default definition, if you specify FULL, you will use the all -built definition.If you specify the path to the definition file, read the definition.
-The executed GROCK definition is
-
-https://github.com/elastic/go-grok
-
-See, please.
-If you define it yourself
-
-```regexp
-TEST  from\s+%{IP}
-```
-
-Like
-Definition <sp> Definition
-And
--X Specify the definition name in the option.
-Specify the SIGMA configuration file in the -c option.For Windows event rigs
-
-```yaml
-
-title: Sigma config for windows event log
-backends:
-  - github.com/bradleyjkemp/sigma-go
-
-fieldmappings:
-  Image: $.Event.EventData.Image
-  CommandLine: $.Event.EventData.CommandLine
-  ParentProcessName: $.Event.EventData.ParentProcessName
-  NewProcessName:  $.Event.EventData.NewProcessName
-  User:  $.Event.EventData.User
-  ParentUser:  $.Event.EventData.ParentUser
-  Channel:  $.Event.System.Channel
-  Computer:  $.Event.System.Computer
-  EventID:  $.Event.System.EventID
-  Level:  $.Event.System.Level
-  Provider.Guid:  $.Event.System.Provider.Guid
-  Provider.Name:  $.Event.System.Provider.Name
-
-```
-
-The file of the format is incorporated.If you specify -c Windows, use this definition.The variable name is being converted in the FieldMappings part.
-What is written in the Sigma rule is the value of $ .EvenTdata.image in the event log.Specify in josnpath.
-
-When the SIGMA command is executed
+Specify the SIGMA rules directory with `-s`. Logs are expected in JSON format; non-JSON logs require GROK extraction via `-g` and `-x`. Use `-c Windows` for built-in Windows event log mappings.
 
 ![](https://assets.st-note.com/img/1731635833-qlgh6Id4OZj27BNMse8aYSQP.png?width=1200)
 
-The result is displayed.Displays information on the detected SIGMA rule.Press the return key to display a detailed log, including the target log.
-
-![](https://assets.st-note.com/img/1731635833-SWxOoXL9CMaAVirgnBf0RD81.png?width=1200)
-
-If you press the C key, it will be the displayed display for each detected rule.
-
-![](https://assets.st-note.com/img/1731635833-dxpwm309QjiPok5Ss1eMz6NR.png?width=1200)
-
-
-Displays the graph with the G key or H key.
-You can save data and graphs in the file with the S key.
+Detected rules are displayed. Press `Enter` for details, `C` for rule-based display, or `G`/`H` for graphs. Save data/graphs with `S`.
 
 ### twlogeye command
 
-Import notify , logs and report from TwLogEye
+Imports notifications, logs, and reports from TwLogEye.
 
 https://twsnmp.github.io/twlogeye/
-
 https://github.com/twsnmp/twlogeye
 
 
 ```terminal
-Import notify,logs and report from twlogeye
+Import notify, logs and reports from TwLogEye
 twsla twlogeye <target> [<sub target>] [<anomaly report type>]
-  taregt: notify | logs | report
+  target: notify | logs | report
 	logs sub target: syslog | trap | netflow | winevent | otel | mqtt
-	report sub target: syslog | trap | netflow | winevent | otel | mqtt  | monitor | anomaly
-	anomaly report type: syslog | trap | netflow | winevent |otel | mqtt | monitor | anomaly
+	report sub target: syslog | trap | netflow | winevent | otel | mqtt | monitor | anomaly
+	anomaly report type: syslog | trap | netflow | winevent | otel | mqtt | monitor | anomaly
 
 Usage:
   twsla twlogeye [flags]
@@ -820,33 +723,29 @@ Flags:
       --filter string      Log search text
   -h, --help               help for twlogeye
       --key string         Client key file path
-      --level string       Notfiy level
+      --level string       Notify level
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -d, --datastore string   bblot log db (default "./twsla.db")
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
       --sixel              show chart by sixel
   -t, --timeRange string   Time range
 ```
 
-### ai Command
+### ai command
 
-This command analyzes logs in conjunction with LLM.
-Significant changes were made in v1.17.0.
-
+Analyzes logs using LLM (significant updates in v1.17.0).
 
 ![](https://assets.st-note.com/img/1758318692-ujPGHdgEcA40JOQLNhCVz7bU.png?width=1200)
 
-
-
 ```terminal
 AI-powered log analysis
-Using environment variable for API key.
+Using environment variables for API keys:
  GOOGLE_API_KEY : gemini
  ANTHROPIC_API_KEY : claude
- OPENAI_API_KEY: openai
+ OPENAI_API_KEY : openai
 
 Usage:
   twsla ai <filter>... [flags]
@@ -857,14 +756,14 @@ Flags:
       --aiLang string          Language of the response
       --aiModel string         LLM Model name
       --aiProvider string      AI provider(ollama|gemini|openai|claude)
-      --aiSampleSize int       Number of sample log to be analyzed by AI (default 50)
+      --aiSampleSize int       Number of sample logs to be analyzed by AI (default 50)
       --aiTopNError int        Number of error log patterns to be analyzed by AI (default 10)
       --aiWarnLevels string    Words included in the warning level log (default "warn")
   -h, --help                   help for ai
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -d, --datastore string   bblot log db (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -872,42 +771,23 @@ Global Flags:
   -t, --timeRange string   Time range
 ```
 
-To analyze logs with the ai command, specify the AI (LLM) provider, model, API key, and the filter to search the logs before launching.
-The API key is specified via environment variables.
-GOOGLE_API_KEY : gemini
-ANTHROPIC_API_KEY : claude
-OPENAI_API_KEY: openai
+Specify provider, model, and filters. Environment variables are used for API keys. Ollama requires no key.
 
-No API key is required for Ollama.
-
-
+Example:
 ```terminal
-$twsla ai -aiProvider -aiModel ollama qwen3:latest <Filter>
+$twsla ai --aiProvider ollama --aiModel qwen2.5:latest <Filter>
 ```
-Searching the logs displays a screen like this:
 
 ![](https://assets.st-note.com/img/1758318933-VnEzfqCPXT3a9hY0k6KLpy1o.png?width=1200)
 
-A screen like this will appear.
-
-Select a log and press the e key
+Select a log and press `e` for an AI explanation, or `a` for a summary of all searched logs.
 
 ![](https://assets.st-note.com/img/1758352154-IHNFWpQdTta6fS97AD8e2nGV.png?width=1200)
-
-An AI-generated explanation about the log will be displayed.
-
-Press the a key to see the AI's analysis of the entire searched log.
-
-
 ![](https://assets.st-note.com/img/1758352084-BnFKucxeG4mqSoYCT6tNprH3.png?width=1200)
-
-The AI's response remains in memory until the screen is closed. Pressing the a key or selecting a log and pressing the e key
-will immediately display the screen.
-
 
 ### mcp command
 
-MCP server
+MCP (Model Context Protocol) server for AI agents.
 
 ```terminal
 $twsla help mcp
@@ -917,15 +797,15 @@ Usage:
   twsla mcp [flags]
 
 Flags:
-      --clients string     IP address of MCP client to be allowed to connect Specify by comma delimiter
-      --endpoint string    MCP server endpoint(bind address:port) (default "127.0.0.1:8085")
+      --clients string     IP address of MCP client to be allowed to connect (comma-separated)
+      --endpoint string    MCP server endpoint (default "127.0.0.1:8085")
       --geoip string       geo IP database file
   -h, --help               help for mcp
       --transport string   MCP server transport(stdio/sse/stream) (default "stdio")
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -d, --datastore string   bblot log db (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -933,483 +813,120 @@ Global Flags:
   -t, --timeRange string   Time range
 ```
 
-### System prompt for MCP Server
+Detailed tools like `search_log`, `count_log`, `extract_data_from_log`, `import_log`, and `get_log_summary` are available via MCP.
 
-```
-# TWSLA Log Analysis AI - System Prompt
+### completion command
 
-You are an AI assistant for TWSLA (TWSNMP Log Analyzer). Your primary role is to help users analyze logs stored in the TWSLA database. You can search, count, extract data from, and summarize logs.
+Generates shell autocompletion scripts for `bash`, `fish`, `powershell`, and `zsh`.
 
-## Available Tools
-
-You have access to the following tools to interact with the TWSLA log database.
-
-### 1. `search_log`
-
-Use this tool to search for log entries that match specific criteria.
-
-**Parameters:**
-
-*   `filter` (string, optional): A regular expression to filter logs. If empty, no filter is applied.
-*   `limit` (integer, optional): The maximum number of log entries to return. (Min: 100, Max: 10000, Default: 100)
-*   `start` (string, optional): The start date and time for the search (e.g., "2025/10/26 11:00:00"). Defaults to the beginning of time if empty.
-*   `end` (string, optional): The end date and time for the search (e.g., "2025/10/26 12:00:00"). Defaults to the current time if empty.
-
-**Example:**
-To search for logs containing the word "error" in the last hour:
-`search_log(filter="error", start="-1h")`
-
-### 2. `count_log`
-
-Use this tool to count log entries, grouped by a specific unit. This is useful for statistical analysis.
-
-**Parameters:**
-
-*   `filter` (string, optional): A regular expression to filter logs before counting.
-*   `unit` (string, optional): The unit for counting. (Default: "time")
-    *   `time`: Group by time interval.
-    *   `ip`: Group by source IP address.
-    *   `email`: Group by email address.
-    *   `mac`: Group by MAC address.
-    *   `host`: Group by hostname (requires DNS resolution).
-    *   `domain`: Group by domain name.
-    *   `country`: Group by country (requires GeoIP database).
-    *   `loc`: Group by geographic location (requires GeoIP database).
-    *   `word`: Group by individual words in the log message.
-    *   `field`: Group by a specific field (space-separated).
-    *   `normalize`: Group by normalized log pattern.
-*   `unit_pos` (integer, optional): The position of the unit if `unit` is "field". (Default: 1)
-*   `top_n` (integer, optional): The number of top results to return. (Default: 10)
-*   `interval` (integer, optional): The aggregation interval in seconds when `unit` is "time". (Default: auto)
-*   `start` (string, optional): The start time for the search.
-*   `end` (string, optional): The end time for the search.
-
-**Example:**
-To count the top 10 source IP addresses from the last 24 hours:
-`count_log(unit="ip", top_n=10, start="-24h")`
-
-### 3. `extract_data_from_log`
-
-Use this tool to extract specific pieces of information (like IP addresses, email addresses, or custom patterns) from log entries.
-
-**Parameters:**
-
-*   `filter` (string, optional): A regular expression to filter logs before extraction.
-*   `pattern` (string, required): The pattern of data to extract.
-    *   `ip`, `mac`, `email`, `number`
-    *   Or a custom regular expression.
-*   `pos` (integer, optional): The position of the data to extract if the pattern finds multiple matches. (Default: 1)
-*   `start` (string, optional): The start time for the search.
-*   `end` (string, optional): The end time for the search.
-
-**Example:**
-To extract all IP addresses from logs containing "failed login" in the last day:
-`extract_data_from_log(filter="failed login", pattern="ip", start="-1d")`
-
-### 4. `import_log`
-
-Use this tool to import new logs into the TWSLA database from a file or directory.
-
-**Parameters:**
-
-*   `path` (string, required): The path to the log file or directory. It can handle compressed files like `.zip`, `.tar.gz`, and `.gz`.
-*   `pattern` (string, optional): A regular expression to filter filenames within a directory or archive.
-
-**Example:**
-To import all `.log` files from the `/var/log/` directory:
-`import_log(path="/var/log/", pattern=".*\.log")`
-
-### 5. `get_log_summary`
-
-Use this tool to get a high-level summary of the logs for a given period. The summary includes total entries, error and warning counts, and the top error patterns.
-
-**Parameters:**
-
-*   `filter` (string, optional): A regular expression to filter logs.
-*   `top_n` (integer, optional): The number of top error patterns to return. (Default: 10)
-*   `start` (string, optional): The start time for the summary.
-*   `end` (string, optional): The end time for the summary.
-
-**Example:**
-To get a summary of all logs from yesterday:
-`get_log_summary(start="-1d", end="today")`
-
-## General Instructions
-
-*   Always analyze the user's request carefully to choose the most appropriate tool.
-*   When dealing with time, you can use relative durations (e.g., "-1h", "-24h") or absolute timestamps.
-*   Combine tools to answer complex questions. For example, you might first `search_log` to get a sense of the data, then use `count_log` or `extract_data_from_log` for detailed analysis.
-*   If a user's request is ambiguous, ask for clarification before executing a tool.
-
-```
-
-### **Server Configuration**
-- **Transport**: `stdio` (console), `sse` (server-sent events), or `stream` (HTTP with client filtering).
-- **Endpoints**: Default `127.0.0.1:8085`.
-- **Clients**: Comma-separated IP whitelist for stream transport.
-
-These tools enable log analysis, data extraction, and database management via the MCP protocol. 
-
-### compression command
-
-It is a command that generates a script to complement commands.
-The corresponding shell is
-
+Bash (Linux):
 ```terminal
-  bash        Generate the autocompletion script for bash
-  fish        Generate the autocompletion script for fish
-  powershell  Generate the autocompletion script for powershell
-  zsh         Generate the autocompletion script for zsh
+$ twsla completion bash | sudo tee /etc/bash_completion.d/twsla
 ```
 
-In the Bash environment of Linux
-/etc/bash_Completion.d/
-You can save the script.
-
+Zsh (macOS):
 ```terminal
-$twsall completion bash > /etc/bash_completion.d/twsla
+$ mkdir -p ~/.zsh/completion/
+$ twsla completion zsh > ~/.zsh/completion/_twsla
 ```
-
-
-In Zsh of Mac OS
-~/.zsh/compression/
-Save the script in.
-
-```terminal
-$mkdir -p ~/.zsh/completion/
-$twsla completion zsh > ~/.zsh/completion/_twsla
-```
-
-after that,
-~/.zshrc
-
-```sh:~/.zshrc
+Add to `~/.zshrc`:
+```sh
 fpath=(~/.zsh/completion $fpath)
 autoload -Uz compinit && compinit -i
 ```
-I will add.Restart the shell.
 
+PowerShell (Windows):
 ```terminal
-$exec $SHELL -l
+> twsla completion powershell | Out-String | Invoke-Expression
 ```
 
-The easiest thing is to close the terminal and open it again.
-
-In the case of Windows PowerShell
-
-```terminal
->twsla completion powershell | Out-String | Invoke-Expression
-```
-
-It looks good.It seems that you can save TWSLA.PS1 and script file and register with PowerShell profile.
-
-### Version command
-Displays the Tesla version.
+### version command
+Displays the `twsla` version.
 
 ```terminal
-$twsla version
-twsla v1.8.0(94cb1ad24408c2dc38f7d178b2d78eaf5f6ad600) 2024-12-15T21:07:47Z
+$ twsla version
+twsla v1.17.0(94cb1ad24408c2dc38f7d178b2d78eaf5f6ad600) 2024-12-15T21:07:47Z
 ```
 
 ## Basic explanation
 
-### Compatible logs
+### Supported logs
 
-As of 2024/9
-
-- The text file has a time stamp for each line
+- Text files with timestamps per line
 - Windows EVTX format
-- Twsnmp's internal log
+- TWSNMP's internal logs
 
-
-is.Text -type files can be read directly in ZIP and Tar.gz.It also supports files that are compressed by GZ.
-
-```
-Jun 14 15:16:01 combo sshd(pam_unix)[19939]: authentication failure; logname= uid=0 euid=0 tty=NODEVssh ruser= rhost=218.188.2.4
-```
-
-It is a file like.
-Time stamps support various formats using magic.In the old syslog, it may be a new format defined by RFC or UNIX time.If you have a number of time stamps, use the leftmost time stamp.
-You can read the log file directly from the server in SCP or SSH.
-You can also read from TWSNMP FC/FK.
+Supports ZIP, Tar.gz, and GZ compression. Timestamps are automatically detected. SCP/SSH and TWSNMP FC/FK imports are also supported.
 
 ### Simple filter
 
-If you are familiar with regular expression, you can use a regular expression filter, but we have prepared a simple filter for those who do not.It is for me.Specify with LS or DIR command*or? Indicates that there are some strings and characters.
-If you write like Message*, it will be a regular expression Message.*.
+A beginner-friendly alternative to regular expressions. Supports `*` and `?` wildcards. For example, `Message*` becomes `Message.*` internally. From v1.15.0, keywords like `#IP`, `#MAC`, `#LOCAL_IP`, `#EMAIL`, and `#URL` are supported.
 
-If you write $, you can also specify it.
-When specifying an IP address filter with regular expression,
+### Exclusion filter
 
-```
-192.168.2.1
-```
+Exclude lines using the same logic as `grep -v`.
 
-is not work.
+### Time range
 
-```
-192\.168\.\2\.1
-```
+Flexible input formats:
+- `2024/01/01T00:00:00+0900-2024/01/02T00:00:00+0900`
+- `2024/1/1,1d` (Start, duration)
 
-is OK.
+### Data extraction patterns
 
-It is troublesome, but the simple filter is used as it is.
-Specify with -f for the command option.This is the method of the file name.The regular expression is specified in -R.
-Until v1.1.0, the only one for the -f and -r filters was effective, but after v1.2.0, both and later were changed to both and conditions.Because this is more convenient.
-In v1.6.0 or later, the filter can be specified by argument.
+Supported keys for `-e`: `IP`, `MAC`, `Number`, `Email`, `LOC`, `Country`, `HOST`, `Domain`. Use `-p` to specify which occurrence to extract. Custom patterns like `count=%{number}` are also supported.
 
-Starting with **v1.15.0**, keyword support has been added.
+### GROK and JSON modes
 
-| Keyword | Content |
-|---|---|
-| `#IP` | Includes IP addresses |
-| `#MAC` | Includes MAC addresses |
-| `#LOCAL_IP` | Includes local IP addresses |
-| `#EMAIL` | Includes email addresses |
-| `#URL` | Includes URLs |
+Advanced extraction since v1.7.0.
+- **GROK:** Use `-e grok -x <pattern>`.
+- **JSON:** Use `-e json -n <jsonpath>`.
 
+### Graphs
 
-### exclusion filter
+Save graphs as PNG or view interactive HTML versions. Graphs can also be displayed in the terminal using Sixel (`--sixel`).
 
-When there is an unnecessary line in the log, you may want to exclude more and more.I attached the same thing as the Grep-V option.This is specified in regular expression.
-If the first of the filter specified by the argument is set, it will be an exclusion filter.
+### IP Information (DNS/GeoIP)
 
-### Designation of time range
-
-The specification of the time range is particular about about input.
-```
-2024/01/01T00:00:00+900-2024/01/02T00:00:00+900
-```
-It is troublesome to input like every time.
-This
-```
-2024/1/1,1d
-```
-You can input like that.
-
-Start, period
-
-Start, end
-
-End, period
-
-It supports 3 patterns.
--T option.
-
-Simple specification of data extraction pattern
-GROK is famous as a way to extract data from logs, but since it is troublesome to learn, we have made a simple method that can be specified.
-Specify with -e options and -p options.
--E is a pattern
-
-|Key|Descr|
-|---|---|
-| IP | IP address |
-| Mac | MAC address |
-| Number | Numbers |
-| Email | Email address |
-| LOC | Location information |
-| Country | Country code |
-| HOST | Host name |
-| Domain | Domain name |
-
-You can specify it as simple.Loc and Country require an IP position information database.-geoip specifies the file.
--P is the position.
-Take out what you discovered the second in -p 2.If there are two or more IP addresses, specify the second one.
-You can also specify a little more complicated.
-
-```
-count=%{number}
-```
-
-It is a form like.If you write`%{something}`in a simple filter
-Remove only the part of %{something}.Something has Word in addition to the IP and Email.
-
-Data extraction by 
-
-### GROK and JSON
-
-Added data extraction mode by GROK and JSON to the EXTRACT command from v1.70 and the count command.
+Enrich logs with GeoIP and DNS information. Requires a GeoLite2 database for `loc` and `country` modes.
 
 ```terminal
-Count the number of logs.
-Number of logs per specified time
-Number of occurrences of items extracted from the log
-
-Usage:
-  twsla count [flags]
-
-Flags:
-      --delay int        Delay filter
-  -e, --extract string   Extract pattern
-      --geoip string     geo IP database file
-  -g, --grok string      grok pattern definitions
-  -x, --grokPat string   grok pattern
-  -h, --help             help for count
-  -i, --interval int     Specify the aggregation interval in seconds.
-      --ip string        IP info mode(host|domain|loc|country)
-  -n, --name string      Name of key (default "Key")
-  -p, --pos int          Specify variable location (default 1)
-  -q, --timePos int      Specify second time stamp position
-      --utc              Force UTC
-
-Global Flags:
-      --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bblot log db (default "./twsla.db")
-  -f, --filter string      Simple filter
-  -v, --not string         Invert regexp filter
-  -r, --regex string       Regexp filter
-      --sixel              show chart by sixel
-  -t, --timeRange string   Time range
+$ twsla count -e ip --ip country --geoip ./GeoLite2-City.mmdb "Failed password"
 ```
 
-#### GROK mode
+### Configuration and environment variables
 
-If you specify GROK in the -e option, it will be in GROK mode.In this case, you need to specify the GROK pattern in the -x option.Specify the definition of GROK in the -G option.The same method as the SIGMA command.Specify the data name extracted to -n.
-
-```terminal
-$twsla count -x IP -n IP -e grok
-```
-
-It feels likePreviously
-
-```terminal
-$twsla count -e ip
-```
-
-Is almost the same result.But GROK is slower.GROK seems to be used for complicated extraction.
-
-#### JSON mode
-
-Logs saved in JSON format, such as Windows event logs and ZEEK JSON logs, can be extracted with JSONPATH.
-Specify JSON in the -e option and specify jsonPath for -n option.
-
-
-### Save graph
-When the result screen of the count or EXTRACT command is executed, the extension is png to save the graph image instead of a text file.
-
-### Display of graphs
-
-The graph can be displayed by typing the G key or H key in the display of the command that can save the graph.If you specify --sixel in the boot parameter from v1.9.0 or specify Twsal_sixel = true as an environment variable, you can display the graph in the terminal.
-
-![](https://assets.st-note.com/production/uploads/images/169827737/picture_pc_df187d1aaa63d79b7546e8eb48156d53.gif?width=1200)
-
-
-### IP Information (DNS/Geoip) analysis
-
-This is a function that obtains information such as position information such as country, city, latitude and longitude, host name, domain name, etc. from the IP address in the log.
-We supported from v1.8.0.
-
---Geoip specifies the path of the IP position information database.
-The database file of IP position information is
-
-Please get it from.
-
-https://dev.maxmind.com/geoip/geolite2-free-geolocation-data/
-
-
--IP Specify the type of IP information to be obtained.
-
-|Key|Descr|
-|---|---|
-| host | Host name |
-| domain | Domain name |
-| loc | Location information |
-| country | Country code |
-
-It corresponds to.Only LOC and Country have an IP position information database.
-
-for example,
-
-```terminal
-$twsla count -e ip --ip country --geoip ~/Desktop/GeoLite2-City_20241119/GeoLite2-City.mmdb  Failed password
-```
-
-If you aggregate like
-
-![](https://assets.st-note.com/img/1734471673-IFsHxby4QXcP7VWe5Mw9Jg1p.png?width=1200)
-
-You can aggregate like this.It can be tabulated by country, not individual IP addresses.
-If you tabulate it with LOC
-
-![](https://assets.st-note.com/img/1734471770-kohDelUswg1B3GfH8YLxTyX0.png?width=1200)
-
-It feels likeIf the latitude and longitude are added and the city name is known, this is also added.
-When tied in Domain
-
-![](https://assets.st-note.com/img/1734471721-RzXjkHbfCnN5OegZKVUGPmIs.png?width=1200)
-
-is.It's pretty late because you contact the DNS server.
-The target log is the SSH server log downloaded from the log sample site.You can clearly see information about the IP address of the access source that has failed.
-The parameter for the EXTRACT command is the same.When the same log is displayed in LOC
-
-![](https://assets.st-note.com/img/1734471801-biraOlZA2QtuzSkchsNLRdU3.png?width=1200)
-
-
-### Configuration file and environmental variable
-
-V1.9.0 supports configuration files and environment variables.
-
-#### Setting file
-
-Use the file specified in --config or the home directory /.twsla.yaml as the configuration file.
-YAML format.It corresponds to the following keys.
+Supports `~/.twsla.yaml` and environment variables like `TWSLA_DATASTORE`, `TWSLA_GEOIP`, `TWSLA_GROK`, and `TWSLA_SIXEL`.
 
 | Key | Descr |
 | --- | --- |
 | timeRange | Time range |
-| filter | Simple Filter |
+| filter | Simple filter |
 | regex | Regular expression filter |
 | not | Inverted filter |
-| extract | extraction pattern |
+| extract | Extraction pattern |
 | name | Variable name |
-| grokPat ||
+| grokPat | GROK pattern |
 | ip | IP Information Mode |
 | color | Color Mode |
-| Rules | Sigma Rules Pass |
-| sigmaconfig | Sigma Settings |
+| Rules | Sigma rules path |
+| sigmaconfig | Sigma settings |
 | twsnmp | TWSNMP FC URL |
-| interval | Agricultural intervals |
+| interval | Aggregation intervals |
 | jsonOut | JSON format output |
-| checkCert | Verification of server certificate |
-| datastore | Datstore Pass |
-| geoip | Geoipdb's path |
+| checkCert | Verify server certificate |
+| datastore | Datastore path |
+| geoip | GeoIP DB path |
 | grok | GROK definition |
-| sixel | Display in the graph terminal |
-
-#### environmental variables
-
-The following environment variables are available.
-
-| Key | Descr |
-| --- | ---- |
-| TWSLA_DATASTOTE | Datstore path |
-| TWSLA_GEOIP | GEOIP database path |
-| TWSLA_GROK | Definition of GROK |
-| TWSLA_SIXEL | Use Sixel for graph display |
-
-## Example logs
-
-For those who want to get the sample log used for this explanation
-
-https://github.com/logpai/loghub
-
-This is a log in the Linux folder.
-
+| sixel | Terminal graph display |
 
 ## Build
 
-Use go-task for builds.
-https://taskfile.dev/
-
+Built with `go-task`.
 ```terminal
-$task
+$ task
 ```
-
 
 ## Copyright
-
-see ./LICENSE
-
-```
-Copyright 2024 Masayuki Yamai
-```
+See `./LICENSE`
+Copyright 2024-2026 Masayuki Yamai

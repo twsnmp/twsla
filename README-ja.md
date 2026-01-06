@@ -5,7 +5,7 @@ Linux/Mac OS/Windowsで動作します。
 
 ## インストール
 
-Linxu/Mac OSはシェルスクリプトでインストールするのがオススメです。
+Linux/Mac OSはシェルスクリプトでインストールするのがオススメです。
 
 ```terminal
 $curl -sS https://lhx98.linkclub.jp/twise.co.jp/download/install.sh | sh
@@ -17,7 +17,7 @@ Linux/Mac OSはhomebrewでもインストールできます。
 $brew install twsnmp/tap/twsla
 ```
 
-Winddowsは、リリースからZIPファイルをダウンロードするかscoop
+Windowsは、リリースからZIPファイルをダウンロードするかscoop
 でインストールします。
 
 ```terminal
@@ -31,7 +31,7 @@ Winddowsは、リリースからZIPファイルをダウンロードするかsco
 - そのディレクトリに移動します。
 - ログをimportコマンドでインポートします。
 - searchコマンドで検索します。
-- 結果をCSVなどの出力できます。
+- 結果をCSVなどに出力できます。
 
 ```
 ~$mkdir test
@@ -66,13 +66,13 @@ Available Commands:
   sigma       Detect threats using SIGMA rules
   tfidf       Log analysis using TF-IDF
   time        Time analysis
-  twlogeye    Inmport notify,logs and report from twlogeye
+  twlogeye    Import notify,logs and report from twlogeye
   twsnmp      Get information and logs from TWSNMP FC
   version     Show twsla version
 
 Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -d, --datastore string   bbolt log db (default "./twsla.db")
   -f, --filter string      Simple filter
   -h, --help               help for twsla
   -v, --not string         Invert regexp filter
@@ -92,7 +92,7 @@ Use "twsla [command] --help" for more information about a command.
 ログをインポートするためのコマンドです。時系列に検索可能なデータベースに保存します。コマンドの引数は、
 
 ```
-＄twsla help import
+$ twsla help import
 Import log from source
 source is file | dir | scp | ssh | twsnmp
 
@@ -105,7 +105,7 @@ Flags:
   -p, --filePat string   File name pattern
   -h, --help             help for import
   -k, --key string       SSH Key
-  -l, --logType string   TWSNNP FC log type (default "syslog")
+  -l, --logType string   TWSNMP FC log type (default "syslog")
       --noDelta          Disable delta check
       --noTS             Import no time stamp file
   -b, --size int         Batch Size (default 10000)
@@ -116,7 +116,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -d, --datastore string   bbolt log db (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -130,7 +130,7 @@ Global Flags:
 実行すれば
 
 ```terminal
-＄twsla import ~/Downloads/SSH.tag.gz
+$ twsla import ~/Downloads/SSH.tar.gz
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
 │/ Loading path=/Users/ymi/Downloads/SSH.tar.gz:SSH.log line=655,147 byte=72 MB           │
 │  Total file=1 line=655,147 byte=72 MB time=1.709061625s                                 │
@@ -143,10 +143,9 @@ Global Flags:
 
 
 ```
-＄twsla import -s ~/Downloads -p "Linux*"
+$ twsla import -s ~/Downloads -p "Linux*"
 
 / Loading path=/Users/ymimacmini/Downloads/Linux_2k.log line=2,000 byte=212 kB
-  Total file=1 line=2,000 byte=212 kB time=75.410115ms
 ```
 
 v1.17.0からインポートのステータス表示が変わりました。
@@ -163,9 +162,9 @@ ZIPファイルやtar.gz形式のファイルから読み込む場合もファ�
 SCP、SSHやTWSNMPのログを読み込むためには、URLを指定します。
 `scp://root@192.168.1.210/var/log/messages`
 のような形式です。SSHの鍵の登録が必要です。
-v1.4.0からTWSNMP FCのWeb　API に対応しました。
+v1.4.0からTWSNMP FCのWeb APIに対応しました。
 -sオプションのURLに`twsnmp://192.168.1.250:8080` と指定して
---apiを指定すれば、Web　API経由でログをインポートできます。
+--apiを指定すれば、Web API経由でログをインポートできます。
 --logTypeでsyslog以外のログも取得可能です。
 
 v1.1.0からevtxファイルを読み込む時に--jsonを指定すれば、WindowsのイベントログをJSON形式で読み込みます。詳しい情報が表示できます。
@@ -194,7 +193,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -d, --datastore string   bbolt log db (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -205,7 +204,7 @@ Global Flags:
 
 
 ```
-＄twsla  search -f fail
+$ twsla search -f fail
 ```
 
 のような感じで検索すると
@@ -216,7 +215,7 @@ Global Flags:
 検索結果の画面の右上にキー入力のヘルプが表示されます。
 ｓキーで結果を保存できます。rキーで表示を逆順にします。qキー終了です。
 v1.5.0からログの検索結果をカラー表示できるようになっています。
-ログを検索するseachコマンドのオプションに-c,--colorを指定します。キーには
+ログを検索するsearchコマンドのオプションに-c,--colorを指定します。キーには
 
 |Key|Descr|
 |---|---|
@@ -241,11 +240,11 @@ twsla search -f Failed -c "regex/user\s+\S+/9,ip,filter"
 のようにカラー表示できます。
 
 v1.6.0からカラー表示の指定を検索結果画面からできるようになっています。
-cキーを押すと入力画面が表示さえます。mキーを押すと
+cキーを押すと入力画面が表示されます。mキーを押すと
 
 ![](https://assets.st-note.com/img/1729478132-JVbuz3MD1LrvKYPxFHmAnpSg.png?width=1200)
 
-マーカーの入力画面を表示します。シンプルフィルターかregex:に続けて正規表現フィッルターを指定してログの該当文字列にマークをつけることができます。ipのカラーとfailにマーカーをつけた例です。
+マーカーの入力画面を表示します。シンプルフィルターかregex:に続けて正規表現フィルターを指定してログの該当文字列にマークをつけることができます。ipのカラーとfailにマーカーをつけた例です。
 
 ![](https://assets.st-note.com/img/1729484628-MxPyZJRoNU0bqCkeXmh7cAEG.png?width=1200)
 
@@ -254,7 +253,7 @@ cキーを押すと入力画面が表示さえます。mキーを押すと
 ログの件数を時間単位に集計したり、ログの中のデータをキーにして集計したりするコマンドです
 
 ```terminal
-＄twsla  help  count
+$ twsla  help  count
 Count the number of logs.
 Count logs for each specified period
 Number of occurrences of items extracted from the log.
@@ -284,7 +283,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -d, --datastore string   bbolt log db (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -310,7 +309,7 @@ sキーで結果を保存できます。拡張子をpngにすれば、グラフ�
 
 ![](https://assets.st-note.com/img/1716674447895-OPrP8zMSUQ.png?width=1200)
 
-v1.5.0から拡張子をhtmlで保存するとHTMLファイルのグラフを保存できます。インターラクティブに操作できるグラフです。
+v1.5.0から拡張子をhtmlで保存するとHTMLファイルのグラフを保存できます。インタラクティブに操作できるグラフです。
 
 ![](https://assets.st-note.com/img/1716674531194-O7j5QXhIHo.png?width=1200)
 
@@ -359,7 +358,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -d, --datastore string   bbolt log db (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -396,7 +395,7 @@ sキーを押してCSVで保存することもできます。
 TF-IDFを使って、珍しいログを探します。
 
 ```terminal
-＄twsla  help tfidf
+$ twsla help tfidf
 Use TF-IDF to find rare logs.
 You can specify a similarity threshold and the number of times the threshold is allowed to be exceeded.
 
@@ -411,7 +410,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -d, --datastore string   bbolt log db (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -422,7 +421,7 @@ Global Flags:
 
 ![](https://assets.st-note.com/img/1716675268711-yeoAjdEYAx.png?width=1200)
 
-のような結果になるます。２０００件の中の珍しログ３件を見つけています。
+のような結果になります。２０００件の中の珍しいログ３件を見つけています。
 -lでしきい値、-cで許容回数を指定できます。玄人向けなので
 詳しいことは別の記事に書くつもりです。
 v1.10から-nで珍しい上位N件を取得できるようになりました。
@@ -447,7 +446,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -d, --datastore string   bbolt log db (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -469,7 +468,7 @@ start*end
 
 ### delayコマンド
 
-v1.3.0で追加したコマンドです。Accessログから処理の遅延を検知するためのコマンドです。ApacheのAccessログはHTTPのリクエストを受け付けた時点の時刻をタイムスタンプに記録します。実際にログに出力するのは、処理が終わって応答を返してからです。このためにログのタイムスタンプが前後して記録さる場合があります。先に記録されたものより前の時刻のログが後から記録されるという意味です。この逆転現象を利用すると処理の遅延を検知できます。リクエストの処理や大きなファイルのダウンロードに時間がかかるなどの遅延です。
+v1.3.0で追加したコマンドです。Accessログから処理の遅延を検知するためのコマンドです。ApacheのAccessログはHTTPのリクエストを受け付けた時点の時刻をタイムスタンプに記録します。実際にログに出力するのは、処理が終わって応答を返してからです。このためにログのタイムスタンプが前後して記録される場合があります。先に記録されたものより前の時刻のログが後から記録されるという意味です。この逆転現象を利用すると処理の遅延を検知できます。リクエストの処理や大きなファイルのダウンロードに時間がかかるなどの遅延です。
 ApacheのAccessログをSyslogに転送して記録するとタイムスタンプが２つあるログになります。この２つ以上タイムスタンプのあるログの時間差が処理の遅延を表している場合があります。これを検知するモードも作りました。
 
 ```terminal
@@ -485,7 +484,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -d, --datastore string   bbolt log db (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -509,8 +508,8 @@ Global Flags:
 v1.4.0で追加したTWSNMP FCと連携するためのコマンドです。
 
 ```terminal
-Get information adn logs from TWSNMP FC
-[taget] is node | polling | eventlog | syslog | trap |
+Get information and logs from TWSNMP FC
+[target] is node | polling | eventlog | syslog | trap |
   netflow | ipfix | sflow |sflowCounter | arplog | pollingLog
 
 Usage:
@@ -524,7 +523,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -d, --datastore string   bbolt log db (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -568,7 +567,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -d, --datastore string   bbolt log db (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -603,7 +602,7 @@ $twsla relation  -f Failed -r user "regex/user\s+\S+/" ip
 
 のようなグラフも出力できます。s:Saveコマンドの出力ファイルの拡張子をhtmlに指定します。
 
-### heatmapマップコマンド
+### heatmapコマンド
 
 曜日または日付単位でログの多い時間帯をヒートマップで表示するためのコマンドです。
 
@@ -621,7 +620,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -d, --datastore string   bbolt log db (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -661,7 +660,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -d, --datastore string   bbolt log db (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -677,7 +676,7 @@ Global Flags:
 前のログとの時間差がDeltaです。
 選択すると２行目にDiffとDeltaを人間がわかりやすい形式で表示します。
 また、２行目にはDeltaの平均値(Mean)、中央値(Median)、最頻値(Mode)、標準偏差(StdDiv)を表示します。
-この例だと、約24時間毎にログか記録されていることろがわかります。
+この例だと、約24時間毎にログが記録されているところがわかります。
 mキーを押すと選択したログにマークをつけます。
 htmlまたは、pngで保存すると Deltaをグラフに出力します。
 
@@ -709,7 +708,7 @@ Flags:
       --strict           Strict rule check
 
 Global Flags:
-  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -d, --datastore string   bbolt log db (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -717,8 +716,8 @@ Global Flags:
 ```
 
 sオプションでsigmaルールの保存されたディレクトリを指定してください。ログはjsonで保存された形式を前提としています。jsonではないログを扱う場合は、grokでデータを抽出する必要があります。
--gオプションでgrockの定義を指定します。指定しなければデフォルト定義、fullを指定すれば、全組み込み定義を利用します。定義ファイルへのパスを指定すれば、定義を読み込みます。
-組み込みのgrock定義は
+-gオプションでgrokの定義を指定します。指定しなければデフォルト定義、fullを指定すれば、全組み込み定義を利用します。定義ファイルへのパスを指定すれば、定義を読み込みます。
+組み込みのGROK定義は
 
 https://github.com/elastic/go-grok
 
@@ -733,7 +732,7 @@ TEST  from\s+%{IP}
 定義名<SP>定義
 とします。
 -xオプションで定義名を指定します。
--c オプションでsigmaの設定ファイルを指定します。windowsのイベントリグ用に
+-c オプションでsigmaの設定ファイルを指定します。windowsのイベントログ用に
 
 ```yaml
 
@@ -758,7 +757,7 @@ fieldmappings:
 ```
 
 という形式のファイルを組み込んであります。-c windowsと指定すれば、この定義を利用します。fieldmappingsの部分で変数名を変換しています。
-sigmaルールの中でImageと書いたものは、イベントログの$.Event.EventData.Imageの値になるという設定です。josnpathで指定します。
+sigmaルールの中でImageと書いたものは、イベントログの$.Event.EventData.Imageの値になるという設定です。jsonpathで指定します。
 
 sigmaコマンドを実行すると
 
@@ -789,7 +788,7 @@ https://twsnmp.github.io/twlogeye/
 ```terminal
 Import notify,logs and report from twlogeye
 twsla twlogeye <target> [<sub target>] [<anomaly report type>]
-  taregt: notify | logs | report
+  target: notify | logs | report
 	logs sub target: syslog | trap | netflow | winevent | otel | mqtt
 	report sub target: syslog | trap | netflow | winevent | otel | mqtt  | monitor | anomaly
 	anomaly report type: syslog | trap | netflow | winevent |otel | mqtt | monitor | anomaly
@@ -806,11 +805,11 @@ Flags:
       --filter string      Log search text
   -h, --help               help for twlogeye
       --key string         Client key file path
-      --level string       Notfiy level
+      --level string       Notify level
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -d, --datastore string   bbolt log db (default "./twsla.db")
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
       --sixel              show chart by sixel
@@ -848,7 +847,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -d, --datastore string   bbolt log db (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -909,7 +908,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -d, --datastore string   bbolt log db (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -1051,7 +1050,7 @@ Linuxのbash環境では
 にスクリプトを保存すればよいです。
 
 ```terminal
-$twsall completion bash > /etc/bash_completion.d/twsla
+$twsla completion bash > /etc/bash_completion.d/twsla
 ```
 
 です。
@@ -1086,9 +1085,9 @@ WindowsのPowerShellの場合は、
 >twsla completion powershell | Out-String | Invoke-Expression
 ```
 
-でよいみたいです。twsla.ps1とスクリプトファイルの保存して、PowerShellのプロファイルに登録すればよいらしいです。
+でよいみたいです。twsla.ps1とスクリプトファイルを保存して、PowerShellのプロファイルに登録すればよいらしいです。
 
-### verisonコマンド
+### versionコマンド
 
 TWSLAのバージョンを表示します。
 
@@ -1107,7 +1106,7 @@ twsla v1.8.0(94cb1ad24408c2dc38f7d178b2d78eaf5f6ad600) 2024-12-15T21:07:47Z
 - TWSNMP FCの内部ログ
 
 
-です。テキスト形式のファイルはZIPやtar.gzの中にあっても直接読み込めます。gzで圧縮されていてるファイルにも対応しています。
+です。テキスト形式のファイルはZIPやtar.gzの中にあっても直接読み込めます。gzで圧縮されているファイルにも対応しています。
 
 ```
 Jun 14 15:16:01 combo sshd(pam_unix)[19939]: authentication failure; logname= uid=0 euid=0 tty=NODEVssh ruser= rhost=218.188.2.4
@@ -1137,7 +1136,7 @@ Message*のように書けば、正規表現のMessage.*になるようなもの
 ```
 
 のような面倒なことになりますが、シンプルフィルターは、そのままかけます。
-コマンドのオプションで-fで指定します。ファイル名のパータンも、この方法です。正規表現は-rで指定します。
+コマンドのオプションで-fで指定します。ファイル名のパターンも、この方法です。正規表現は-rで指定します。
 v1.1.0までは、-fと-rのフィルターはどちらか片方だけが有効な仕様でしたがv1.2.0以降は、両方のAND条件に変更しました。このほうが便利なので。
 v1.6.0以降では、フィルターを引数で複数指定可能にしました。
 
@@ -1206,9 +1205,9 @@ count=%{number}
 のような形式です。シンプルフィルターの中に`%{何か}`のように書けば
 %{何か}の部分だけ取り出します。何かは、先程のipやemailの他にwordがあります。
 
-### grokとjsonによるデータ抽出
+### GROKとJSONによるデータ抽出
 
-v1.70からextractコマンド、countコマンドにgrokとjsonによるデータ抽出モードを追加しました。
+v1.70からextractコマンド、countコマンドにGROKとJSONによるデータ抽出モードを追加しました。
 
 ```terminal
 Count the number of logs.
@@ -1229,7 +1228,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bblot log db (default "./twsla.db")
+  -d, --datastore string   bbolt log db (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -1238,7 +1237,7 @@ Global Flags:
 
 #### GROKモード
 
--e オプションにgrokを指定するとgrokモードになります。この場合、-xオプションにgrokのパターンを指定する必要があります。-gオプションでgrokの定義を指定します。sigmaコマンドと同じ方法です。-nに抽出するデータ名を指定します。
+-e オプションにgrokを指定するとgrokモードになります。この場合、-xオプションにGROKのパターンを指定する必要があります。-gオプションでGROKの定義を指定します。sigmaコマンドと同じ方法です。-nに抽出するデータ名を指定します。
 
 ```terminal
 $twsla count -x IP -n IP -e grok
@@ -1251,7 +1250,7 @@ $twsla count -x IP -n IP -e grok
 $twsla count -e ip
 ```
 
-をほぼ同じ結果になります。でもgrokのほうが遅いです。grokは複雑な抽出に使ったほうがようです。
+とほぼ同じ結果になります。でもGROKのほうが遅いです。GROKは複雑な抽出に使ったほうがよいです。
 
 #### JSONモード
 
@@ -1260,11 +1259,11 @@ WindowsのイベントログやzeekのjsonログなどJSON形式で保存され�
 
 
 ### グラフの保存
-countやextractコマンドの結果画面が保存を実行する時に拡張子をpngにすれば、結果をテキストファイルではなくグラフ画像を保存します。
+countやextractコマンドの結果画面が保存を実行する時に拡張子をpngにすれば、結果をテキストファイルではなくグラフ画像として保存します。
 
 ### グラフの表示
 
-グラフを保存できるコマンドの表示中のgキーまたは、hキーをタイプするとグラフを表示できます。v1.9.0から起動パラメータに--sixelを指定するか環境変数にTWSAL_SIXEL=trueを指定すると、Sixelを使ってターミナル内にグラフを表示できまます。
+グラフを保存できるコマンドの表示中のgキーまたは、hキーをタイプするとグラフを表示できます。v1.9.0から起動パラメータに--sixelを指定するか環境変数にTWSLA_SIXEL=trueを指定すると、Sixelを使ってターミナル内にグラフを表示できます。
 
 ![](https://assets.st-note.com/production/uploads/images/169827737/picture_pc_df187d1aaa63d79b7546e8eb48156d53.gif?width=1200)
 
@@ -1355,7 +1354,7 @@ yaml形式です。以下のキーに対応しています。
 
 |Key|Descr|
 |---|----|
-|TWSLA_DATASTOTE|データストアのパス|
+|TWSLA_DATASTORE|データストアのパス|
 |TWSLA_GEOIP|GeoIPデータベースのパス|
 |TWSLA_GROK|GROKの定義|
 |TWSLA_SIXEL|グラフ表示にSixelを利用|
