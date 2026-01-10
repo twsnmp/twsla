@@ -52,6 +52,11 @@ var noDeltaCheck bool
 var noTimeStamp bool
 var batchSize int
 
+var listIMAPFolder bool
+var emailUser string
+var emailPassword string
+var emailTLS bool
+
 var tg *timegrinder.TimeGrinder
 var importFilter *regexp.Regexp
 
@@ -82,9 +87,16 @@ var importCmd = &cobra.Command{
 	Use:   "import",
 	Short: "Import log from source",
 	Long: `Import log from source
-source is file | dir | scp | ssh | twsnmp
+source is file | dir | scp | ssh | twsnmp | imap | pop3
 `,
 	Run: func(cmd *cobra.Command, args []string) {
+		if listIMAPFolder {
+			if source == "" && len(args) > 0 {
+				source = args[0]
+			}
+			doListIMAPFolder()
+			return
+		}
 		if source != "" {
 			sources = append(sources, source)
 		}
@@ -107,6 +119,10 @@ func init() {
 	importCmd.Flags().StringVarP(&sshKey, "key", "k", "", "SSH Key")
 	importCmd.Flags().StringVarP(&filePat, "filePat", "p", "", "File name pattern")
 	importCmd.Flags().StringVarP(&logType, "logType", "l", "syslog", "TWSNNP FC log type")
+	importCmd.Flags().BoolVar(&listIMAPFolder, "imapFolder", false, "List IMAP folder names")
+	importCmd.Flags().BoolVar(&emailTLS, "emailTLS", false, "IMAP use start TLS")
+	importCmd.Flags().StringVar(&emailUser, "emailUser", "", "IMAP or POP3 user name")
+	importCmd.Flags().StringVar(&emailPassword, "emailPassword", "", "IMAP or POP3 password")
 }
 
 func importMain() {
@@ -152,6 +168,10 @@ func importOne() {
 		importFromSSH()
 	case "twsnmp":
 		importFromTWSNMP()
+	case "imap":
+		importEMailIMAP()
+	case "pop3":
+		importEMailPOP3()
 	default:
 		teaProg.Send(fmt.Errorf("invalid source"))
 		return
@@ -167,6 +187,12 @@ func getSourceType() string {
 	}
 	if strings.HasPrefix(source, "twsnmp:") {
 		return "twsnmp"
+	}
+	if strings.HasPrefix(source, "pop:") || strings.HasPrefix(source, "pop3:") {
+		return "pop3"
+	}
+	if strings.HasPrefix(source, "imap:") || strings.HasPrefix(source, "imap4:") || strings.HasPrefix(source, "imaps:") {
+		return "imap"
 	}
 	s, err := os.Stat(source)
 	if err != nil {
@@ -209,6 +235,10 @@ func setupTimeGrinder() error {
 }
 
 func doImport(path string, r io.Reader) {
+	if strings.HasSuffix(path, ".eml") || strings.HasSuffix(path, ".eml.gz") {
+		importEMailFile(path, r)
+		return
+	}
 	totalFiles++
 	hash := getSHA1(path)
 	lastTime := int64(0)
