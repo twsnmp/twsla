@@ -175,7 +175,7 @@ Specify `twsnmp://192.168.1.250:8080` in the URL of the `-s` option.
 If you specify `--api`, you can import logs via the Web API.
 `--logType` can also obtain logs other than syslog.
 
-From v1.18.0, support for importing from IMAP, POP3, and email files (.eml) has been added.
+From v1.20.0, support for importing from IMAP, POP3, and email files (.eml) has been added.
 
 To import from an IMAP server:
 `imap://user:password@imap.example.com:993/INBOX`
