@@ -57,6 +57,7 @@ Available Commands:
   completion  Generate the autocompletion script for the specified shell
   count       Count log
   delay       Search for delays in the access log
+  email       Search or count email logs
   extract     Extract data from log
   heatmap     Command to tally log counts by day of the week and time of day
   help        Help about any command
@@ -353,6 +354,21 @@ Specifying this will cause the command to display logs with a delay higher than 
 ```
 This mode detects the time difference between two timestamps in the log, similar to the `delay` command.
 
+
+### email command
+
+This command allows searching and counting email logs stored in the database.
+It provides subcommands to search for specific emails or count emails by various fields such as From, To, Subject, Sender IP, and SPF status.
+
+```terminal
+twsla email [search|count]
+```
+
+Examples:
+```
+  twsla email search -t "last 1h"
+  twsla email count --emailCountBy from -t "last 24h"
+```
 
 ### extract command
 
