@@ -95,25 +95,29 @@ This command imports logs and saves them in a searchable time-series database. T
 ```
 ＄twsla help import
 Import log from source
-source is file | dir | scp | ssh | twsnmp
+source is file | dir | scp | ssh | twsnmp | imap | pop3
 
 Usage:
   twsla import [flags]
 
 Flags:
-      --api              TWSNMP FC API Mode
-  -c, --command string   SSH Command
-  -p, --filePat string   File name pattern
-  -h, --help             help for import
-  -k, --key string       SSH Key
-  -l, --logType string   TWSNMP FC log type (default "syslog")
-      --noDelta          Disable delta check
-      --noTS             Import no time stamp file
-  -b, --size int         Batch Size (default 10000)
-      --skip             TWSNMP FC API skip verify certificate (default true)
-  -s, --source string    Log source
-      --tls              TWSNMP FC API TLS
-      --utc              Force UTC
+      --api                    TWSNMP FC API Mode
+  -c, --command string         SSH Command
+      --emailPassword string   IMAP or POP3 password
+      --emailTLS               IMAP use start TLS
+      --emailUser string       IMAP or POP3 user name
+  -p, --filePat string         File name pattern
+  -h, --help                   help for import
+      --imapFolder             List IMAP folder names
+  -k, --key string             SSH Key
+  -l, --logType string         TWSNNP FC log type (default "syslog")
+      --noDelta                Disable delta check
+      --noTS                   Import no time stamp file
+  -b, --size int               Batch Size (default 10000)
+      --skip                   TWSNMP FC API skip verify certificate (default true)
+  -s, --source string          Log source
+      --tls                    TWSNMP FC API TLS
+      --utc                    Force UTC
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
@@ -169,6 +173,23 @@ Compatible with TWSNMP FC's web API from v1.4.0.
 Specify `twsnmp://192.168.1.250:8080` in the URL of the `-s` option.
 If you specify `--api`, you can import logs via the Web API.
 `--logType` can also obtain logs other than syslog.
+
+From v1.18.0, support for importing from IMAP, POP3, and email files (.eml) has been added.
+
+To import from an IMAP server:
+`imap://user:password@imap.example.com:993/INBOX`
+
+To list IMAP folders:
+`twsla import --imapFolder -s imap://user:password@imap.example.com:993`
+
+To import from a POP3 server:
+`pop3://user:password@pop3.example.com:995`
+
+You can also specify user and password via flags:
+`twsla import -s imap://imap.example.com --emailUser user --emailPassword password --emailTLS`
+
+To import from an email file (.eml):
+`twsla import sample.eml`
 
 If you specify `--json` when reading an EVTX file from v1.1.0, the Windows event log is read in JSON format, allowing detailed information to be displayed.
 
