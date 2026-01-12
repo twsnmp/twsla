@@ -94,7 +94,7 @@ Use "twsla [command] --help" for more information about a command.
 ```
 $ twsla help import
 Import log from source
-source is file | dir | scp | ssh | twsnmp
+source is file | dir | scp | ssh | twsnmp | imap | pop3
 
 Usage:
   twsla import [flags]
@@ -102,8 +102,12 @@ Usage:
 Flags:
       --api              TWSNMP FC API Mode
   -c, --command string   SSH Command
+      --emailPassword string   IMAP or POP3 password
+      --emailTLS               IMAP use start TLS
+      --emailUser string       IMAP or POP3 user name
   -p, --filePat string   File name pattern
   -h, --help             help for import
+      --imapFolder             List IMAP folder names
   -k, --key string       SSH Key
   -l, --logType string   TWSNMP FC log type (default "syslog")
       --noDelta          Disable delta check
@@ -166,6 +170,31 @@ v1.4.0からTWSNMP FCのWeb APIに対応しました。
 -sオプションのURLに`twsnmp://192.168.1.250:8080` と指定して
 --apiを指定すれば、Web API経由でログをインポートできます。
 --logTypeでsyslog以外のログも取得可能です。
+
+v1.18.0からIMAP/POP3サーバーからのメール取り込み、emlファイルの読み込みに対応しました。
+-sまたは--sourceに
+`imap://192.168.1.1`
+`imaps://192.168.1.1`
+`pop3://192.168.1.1`
+`pop3s://192.168.1.1`
+のようなURLを指定することでメールサーバーからメールを取り込んでログとして保存します。
+メールのヘッダーがログになります。
+ユーザーID、パスワードはURLに含めることもできますが、
+--emailUser
+--emailPassword
+で指定することもできます。
+IMAPでTLS通信を行いたい場合は
+--emailTLS
+を指定します。
+IMAPのフォルダを確認したい場合は
+--imapFolder
+を指定します。
+
+emlファイルを読み込む場合は、
+```terminal
+$ twsla import sample.eml
+```
+のように指定します。
 
 v1.1.0からevtxファイルを読み込む時に--jsonを指定すれば、WindowsのイベントログをJSON形式で読み込みます。詳しい情報が表示できます。
 
@@ -1104,6 +1133,8 @@ twsla v1.8.0(94cb1ad24408c2dc38f7d178b2d78eaf5f6ad600) 2024-12-15T21:07:47Z
 - テキストファイルで１行毎にタイムスタンプがあるもの
 - Windowsのevtx形式
 - TWSNMP FCの内部ログ
+- 電子メール(.eml)
+- IMAP/POP3サーバー上のメール
 
 
 です。テキスト形式のファイルはZIPやtar.gzの中にあっても直接読み込めます。gzで圧縮されているファイルにも対応しています。
