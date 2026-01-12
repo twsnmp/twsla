@@ -5,6 +5,7 @@ go 1.25
 toolchain go1.25.5
 
 require (
+	blitiri.com.ar/go/spf v1.5.1
 	github.com/0xrawsec/golang-evtx v1.2.9
 	github.com/NimbleMarkets/ntcharts v0.3.1
 	github.com/PaesslerAG/jsonpath v0.1.1
