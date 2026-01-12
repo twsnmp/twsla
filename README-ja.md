@@ -56,6 +56,7 @@ Available Commands:
   completion  Generate the autocompletion script for the specified shell
   count       Count log
   delay       Search for delays in the access log
+  email       Search or count email logs
   extract     Extract data from log
   heatmap     Command to tally log counts by day of the week and time of day
   help        Help about any command
@@ -577,6 +578,48 @@ twsla twsnmp node --twsnmp http://192.168.1.253:8081
 のようなコマンドでできます。
 基本的にTAB区切りのテキストで出力します。ファイルにリダイレクトで保存できます。
 --jsonOutを指定すれば、JSON形式の出力になります。プログラムから利用する時は、こちらが便利だと思います。
+
+### emailコマンド
+
+インポートしたメールのログを検索したり集計したりするためのコマンドです。
+
+```terminal
+Search or count email logs from the database.
+It provides subcommands to search for specific emails or count emails by various fields such as From, To, Subject, Sender IP, and SPF status.
+
+Usage:
+  twsla email [search|count] [flags]
+
+Flags:
+      --checkSPF            Check SPF
+      --emailCountBy string Count by field (default "time")
+  -h, --help                help for email
+
+Global Flags:
+      --config string      config file (default is $HOME/.twsla.yaml)
+  -d, --datastore string   bbolt log db (default "./twsla.db")
+  -f, --filter string      Simple filter
+  -v, --not string         Invert regexp filter
+  -r, --regex string       Regexp filter
+      --sixel              show chart by sixel
+  -t, --timeRange string   Time range
+```
+
+searchサブコマンドでメールを検索します。検索結果からEnterキーでメールの詳細を表示できます。
+countサブコマンドで、送信元、宛先、件名、送信元IPアドレス、ドメイン、SPFの状態などで集計できます。
+
+集計可能なフィールド（--emailCountByに指定）:
+- time: 時間単位（デフォルト）
+- from: 送信元
+- to: 宛先
+- matrix: 送信元=>宛先
+- subject: 件名
+- ip: 送信元IPアドレス
+- domain: 送信元ドメイン
+- spf: SPFの状態
+- spf.list: SPFの詳細リスト
+
+--checkSPFを指定すると、集計時にSPFのチェックを行います。
 
 ### relationコマンド
 
