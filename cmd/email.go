@@ -605,9 +605,6 @@ func getMailInfo(l *string) *emailSearchDataEnt {
 	*l += "SPF-List: " + r.SPFList + "\r\n"
 	*l += "SPF: " + r.SPF + "\r\n"
 	r.Log = l
-	if r.SPF == "" {
-		log.Fatalf("l=%s", *l)
-	}
 	return r
 }
 
