@@ -582,6 +582,8 @@ twsla twsnmp node --twsnmp http://192.168.1.253:8081
 ### emailコマンド
 
 インポートしたメールのログを検索したり集計したりするためのコマンドです。
+検索結果では、メールヘッダーから計算した遅延時間とリレー回数を確認できます。
+dキーで遅延時間、rキーでリレー回数でソートできます。
 
 ```terminal
 Search or count email logs from the database.

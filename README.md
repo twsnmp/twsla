@@ -359,6 +359,8 @@ This mode detects the time difference between two timestamps in the log, similar
 
 This command allows searching and counting email logs stored in the database.
 It provides subcommands to search for specific emails or count emails by various fields such as From, To, Subject, Sender IP, and SPF status.
+In the search results, you can check the delay time and relay count calculated from the email headers.
+You can sort by delay with the `d` key and by relay count with the `r` key.
 
 ```terminal
 twsla email [search|count]
