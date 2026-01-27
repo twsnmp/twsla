@@ -17,6 +17,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"mime"
 	"net"
@@ -39,6 +40,8 @@ import (
 	"github.com/muesli/reflow/wordwrap"
 	"github.com/spf13/cobra"
 	"go.etcd.io/bbolt"
+	"golang.org/x/text/encoding/japanese"
+	"golang.org/x/text/transform"
 )
 
 // Count by
@@ -532,7 +535,19 @@ func emailCountSub(wg *sync.WaitGroup) {
 	teaProg.Send(SearchMsg{Done: true, Lines: i, Hit: hit, Dur: time.Since(st)})
 }
 
-var mimeWordDec = new(mime.WordDecoder)
+var mimeWordDec = &mime.WordDecoder{
+	CharsetReader: func(charset string, input io.Reader) (io.Reader, error) {
+		switch strings.ToLower(charset) {
+		case "iso-2022-jp":
+			return transform.NewReader(input, japanese.ISO2022JP.NewDecoder()), nil
+		case "shift_jis":
+			return transform.NewReader(input, japanese.ShiftJIS.NewDecoder()), nil
+		case "euc-jp":
+			return transform.NewReader(input, japanese.EUCJP.NewDecoder()), nil
+		}
+		return nil, fmt.Errorf("unhandled charset %q", charset)
+	},
+}
 
 func getMimeDecodedWord(s string) string {
 	r, err := mimeWordDec.DecodeHeader(s)

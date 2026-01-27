@@ -48,3 +48,20 @@ func TestExtractIP(t *testing.T) {
 		}
 	}
 }
+
+	func TestGetMimeDecodedWord(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"Hello World", "Hello World"},
+		{`=?ISO-2022-JP?Q?=1B$B$4BP1~$N$*4j$$!'=1B(BMac_Installer_Dis?= =?ISO-2022-JP?Q?tribution=1B$B>ZL@=3Dq$N=1B(B?= =?ISO-2022-JP?Q?=1B$BM-8z4|8B$^$G$"$H=1B(B30=1B$BF|$G$9=1B(B?=`, "ご対応のお願い：Mac Installer Distribution証明書の有効期限まであと30日です"},
+	}
+
+	for _, tt := range tests {
+		result := getMimeDecodedWord(tt.input)
+		if result != tt.expected {
+			t.Errorf("getMimeDecodedWord(%q) = %q, want %q", tt.input, result, tt.expected)
+		}
+	}
+}
