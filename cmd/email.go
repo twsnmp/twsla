@@ -36,6 +36,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/dustin/go-humanize"
+	"github.com/muesli/reflow/wordwrap"
 	"github.com/spf13/cobra"
 	"go.etcd.io/bbolt"
 )
@@ -96,6 +97,8 @@ type emailSearchDataEnt struct {
 	Domain     string
 	SPF        string
 	SPFList    string
+	Relay      int
+	Delay      int
 	Msg        *mail.Message
 	Log        *string
 }
@@ -218,13 +221,7 @@ func (m emailSearchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.table.SetWidth(msg.Width - 6)
 		m.table.SetHeight(msg.Height - 6)
 		w := m.table.Width() - 4
-		columns := []table.Column{
-			{Title: "Time", Width: 1 * w / 10},
-			{Title: "From", Width: 3 * w / 10},
-			{Title: "Subject", Width: 4 * w / 10},
-			{Title: "SPF", Width: 2 * w / 10},
-			{Title: "Log", Width: 0 * w / 10},
-		}
+		columns := getColumns(w)
 		m.table.SetColumns(columns)
 		m.viewport.Width = msg.Width
 		m.viewport.Height = msg.Height
@@ -252,7 +249,7 @@ func (m emailSearchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 			stopSearch = true
 			return m, nil
-		case "s", "t":
+		case "s", "t", "d", "r":
 			if m.done {
 				k := msg.String()
 				if k == m.lastSort {
@@ -271,6 +268,14 @@ func (m emailSearchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						sort.Slice(emailSearchList, func(i, j int) bool {
 							return emailSearchList[i].Time < emailSearchList[j].Time
 						})
+					case "d":
+						sort.Slice(emailSearchList, func(i, j int) bool {
+							return emailSearchList[i].Delay < emailSearchList[j].Delay
+						})
+					case "r":
+						sort.Slice(emailSearchList, func(i, j int) bool {
+							return emailSearchList[i].Relay < emailSearchList[j].Relay
+						})
 					}
 					emailSearchRows = []table.Row{}
 					for _, r := range emailSearchList {
@@ -278,6 +283,8 @@ func (m emailSearchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							r.Time,
 							r.From,
 							r.Subject,
+							time.Duration(time.Second * time.Duration(r.Delay)).String(),
+							fmt.Sprintf("%10s", humanize.Comma(int64(r.Relay))),
 							r.SPF,
 							*r.Log,
 						})
@@ -289,7 +296,7 @@ func (m emailSearchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			if m.done {
 				if sel := m.table.SelectedRow(); sel != nil {
-					m.log = sel[4]
+					m.log = wordwrap.String(sel[6], m.viewport.Width)
 					m.viewport.SetContent(m.log)
 					m.viewport.GotoTop()
 				}
@@ -302,13 +309,7 @@ func (m emailSearchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case emailSearchMsg:
 		if msg.Done {
 			w := m.table.Width() - 4
-			columns := []table.Column{
-				{Title: "Time", Width: 1 * w / 10},
-				{Title: "From", Width: 3 * w / 10},
-				{Title: "Subject", Width: 4 * w / 10},
-				{Title: "SPF", Width: 2 * w / 10},
-				{Title: "Log", Width: 0 * w / 10},
-			}
+			columns := getColumns(w)
 			m.table.SetColumns(columns)
 			emailSearchRows = []table.Row{}
 			for _, r := range emailSearchList {
@@ -316,6 +317,8 @@ func (m emailSearchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					r.Time,
 					r.From,
 					r.Subject,
+					time.Duration(time.Second * time.Duration(r.Delay)).String(),
+					fmt.Sprintf("%10s", humanize.Comma(int64(r.Relay))),
 					r.SPF,
 					*r.Log,
 				})
@@ -335,6 +338,18 @@ func (m emailSearchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.table, cmd = m.table.Update(msg)
 	return m, cmd
+}
+
+func getColumns(w int) []table.Column {
+	return []table.Column{
+		{Title: "Time", Width: 15 * w / 100},
+		{Title: "From", Width: 20 * w / 100},
+		{Title: "Subject", Width: 30 * w / 100},
+		{Title: "Delay", Width: 10 * w / 100},
+		{Title: "Relay", Width: 10 * w / 100},
+		{Title: "SPF", Width: 15 * w / 100},
+		{Title: "Log", Width: 0},
+	}
 }
 
 func (m emailSearchModel) View() string {
@@ -358,7 +373,7 @@ func (m emailSearchModel) View() string {
 
 func (m emailSearchModel) headerView() string {
 	title := titleStyle.Render(fmt.Sprintf("Results %d/%d s:%s", m.msg.Hit, m.msg.Lines, m.msg.Dur.Truncate(time.Millisecond)))
-	help := helpStyle("enter: trace / t|s: Sort / q : Quit") + "  "
+	help := helpStyle("enter: trace / t|s|d|r: Sort / q : Quit") + "  "
 	gap := strings.Repeat(" ", max(0, m.table.Width()-lipgloss.Width(title)-lipgloss.Width(help)))
 	return lipgloss.JoinHorizontal(lipgloss.Center, title, gap, help)
 }
@@ -533,6 +548,7 @@ func getMailInfo(l *string) *emailSearchDataEnt {
 	if err != nil {
 		return nil
 	}
+	*l += "-------\r\n\r\n"
 	r.Msg = msg
 	subject := getMimeDecodedWord(msg.Header.Get("Subject"))
 	r.Subject = subject
@@ -573,7 +589,23 @@ func getMailInfo(l *string) *emailSearchDataEnt {
 	r.Domain = domain
 	*l += "Domain: " + domain + "\r\n"
 	spfs := []string{}
-	for _, v := range msg.Header["Received"] {
+	mt, errdate := msg.Header.Date()
+	r.Delay = 0
+	r.Relay = 0
+	for i, v := range msg.Header["Received"] {
+		if errdate == nil {
+			if rt, err := extractTimestamp(v); err == nil {
+				dt := int(rt.Unix() - mt.Unix())
+				if dt > r.Delay {
+					r.Delay = dt
+				}
+				*l += fmt.Sprintf("Received[%d]: %v; %s\n\r", i, rt.Sub(mt), v)
+			}
+		}
+		if !strings.Contains(v, "qmail") && !strings.Contains(v, "invoked") && !strings.Contains(v, "with l") {
+			//Count non-local transfers
+			r.Relay++
+		}
 		senderIP := extractIP(v)
 		if senderIP == nil {
 			continue
@@ -683,4 +715,25 @@ func saveEmailSPFMap() {
 		}
 		return nil
 	})
+}
+
+func extractTimestamp(header string) (time.Time, error) {
+	parts := strings.Split(header, ";")
+	if len(parts) < 2 {
+		return time.Time{}, fmt.Errorf("; not found")
+	}
+	dateStr := strings.TrimSpace(parts[len(parts)-1])
+
+	// (JST) may contain comments, so remove unnecessary parts using regular expressions
+	// *mail.ParseDate may fail if comments are included
+	re := regexp.MustCompile(`\s*\(.*\)$`)
+	dateStr = re.ReplaceAllString(dateStr, "")
+
+	// Parsed as RFC 822 format (RFC 1123, 2822, etc.)
+
+	t, err := mail.ParseDate(dateStr)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("failed to parse date: %v", err)
+	}
+	return t, nil
 }
