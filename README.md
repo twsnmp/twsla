@@ -42,6 +42,10 @@ On Windows, download the zip file from the releases page or install via scoop.
 
 ## Command explanation
 
+[Command system](cli-map.md)
+
+[Illustration of command system](cli-map-v.html)
+
 You can check the commands that support the Help command.
 
 ```
