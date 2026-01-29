@@ -54,3 +54,6 @@ tasks:
       - docker push twsnmp/twsla:latest
       - docker buildx build --platform linux/arm64/v8 --build-arg VERSION={{.VERSION}} --build-arg COMMIT={{.COMMIT}} -t twsnmp/twsla:arm64_v{{.VERSION}} --push .
       - docker buildx build --platform linux/arm/v7  --build-arg VERSION={{.VERSION}} --build-arg COMMIT={{.COMMIT}} -t twsnmp/twsla:arm7_v{{.VERSION}} --push .
+  cmd_map:
+    cmds:
+      - npx markmap-cli cli-map.md -o cli-map-v.html
