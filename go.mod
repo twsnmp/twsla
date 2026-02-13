@@ -40,6 +40,7 @@ require (
 	github.com/xhit/go-str2duration/v2 v2.1.0
 	go.etcd.io/bbolt v1.3.11
 	golang.org/x/crypto v0.46.0
+	golang.org/x/text v0.32.0
 	google.golang.org/grpc v1.72.1
 )
 
@@ -142,7 +143,6 @@ require (
 	golang.org/x/oauth2 v0.27.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.39.0 // indirect
-	golang.org/x/text v0.32.0 // indirect
 	golang.org/x/time v0.6.0 // indirect
 	golang.org/x/tools v0.39.0 // indirect
 	google.golang.org/api v0.198.0 // indirect

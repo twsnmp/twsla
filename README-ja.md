@@ -1172,7 +1172,7 @@ TWSLAのバージョンを表示します。
 
 ```terminal
 $twsla version
-twsla v1.8.0(94cb1ad24408c2dc38f7d178b2d78eaf5f6ad600) 2024-12-15T21:07:47Z
+twsla v1.17.0(94cb1ad24408c2dc38f7d178b2d78eaf5f6ad600) 2024-12-15T21:07:47Z
 ```
 
 ## 補足説明
@@ -1226,10 +1226,18 @@ v1.15.0以降では、キーワードに対応しました。
 |キーワード|内容|
 |---|---|
 |#IP|IPアドレスを含む|
+|#IPV6|IPv6アドレスを含む|
 |#MAC|MACアドレスを含む|
 |#LOCAL_IP|ローカルIPアドレスを含む|
 |#EMAIL|メールアドレスを含む|
 |#URL|URLを含む|
+|#CREDITCARD|クレジットカード番号を含む|
+|#MYNUMBER|マイナンバーを含む|
+|#PHONE_JP|日本の電話番号を含む|
+|#PHONE_US|米国の電話番号を含む|
+|#PHONE_INTL|国際電話番号を含む|
+|#ZIP_JP|日本の郵便番号を含む|
+|#UUID|UUIDを含む|
 
 ### 除外フィルター
 
@@ -1266,9 +1274,17 @@ v1.15.0以降では、キーワードに対応しました。
 |Key|Descr|
 |---|---|
 |ip|IPアドレス|
+|ipv6|IPv6アドレス|
 |mac|MACアドレス|
 |number|数値|
 |email|メールアドレス|
+|creditcard|クレジットカード番号|
+|mynumber|マイナンバー|
+|phone_jp|日本の電話番号|
+|phone_us|米国の電話番号|
+|phone_intl|国際電話番号|
+|zip_jp|日本の郵便番号|
+|uuid|UUID|
 |loc|位置情報|
 |country|国コード|
 |host|ホスト名|
@@ -1468,5 +1484,5 @@ $task
 see ./LICENSE
 
 ```
-Copyright 2024 Masayuki Yamai
+Copyright 2024-2026 Masayuki Yamai
 ```

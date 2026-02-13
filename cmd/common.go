@@ -108,12 +108,28 @@ func getSimpleFilter(f string) *regexp.Regexp {
 		return regexpLocalIP
 	case "#IP":
 		return regexpIP
+	case "#IPV6":
+		return regexpIPv6
 	case "#EMAIL":
 		return regexpEMail
 	case "#URL":
 		return regexpURL
 	case "#MAC":
 		return regexpMAC
+	case "#CREDITCARD":
+		return regexpCreditCard
+	case "#MYNUMBER":
+		return regexpMyNumber
+	case "#PHONE_JP":
+		return regexpPhoneJP
+	case "#PHONE_US":
+		return regexpPhoneUS
+	case "#PHONE_INTL":
+		return regexpPhoneIntl
+	case "#ZIP_JP":
+		return regexpZipJP
+	case "#UUID":
+		return regexpUUID
 	}
 	f = regexp.QuoteMeta(f)
 	f = strings.ReplaceAll(f, "\\*", ".*")
@@ -193,15 +209,39 @@ func setExtPat() error {
 		e = `([-+0-9.]+)`
 	case "ip":
 		e = `([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})`
+	case "ipv6":
+		e = `((?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|(?::{1,2}[0-9a-fA-F]{1,4}){1,7}|[0-9a-fA-F]{1,4}:(?::{1,2}[0-9a-fA-F]{1,4}){1,7})`
 	case "mac":
 		e = `([0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2})`
 	case "email":
 		e = `([a-zA-Z0-9_.+-]+@[a-zA-Z0-9_.+-]+)`
+	case "creditcard":
+		e = `(\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13}|3(?:0[0-5]|[68][0-9])[0-9]{11}|6(?:011|5[0-9]{2})[0-9]{12}|(?:2131|1800|35\d{3})\d{11})\b|\b(?:\d{4}[- ]){3}\d{4}\b)`
+	case "mynumber":
+		e = `(\b\d{12}\b)`
+	case "phone_jp":
+		e = `(\b(?:0\d{1,4}-\d{1,4}-\d{4}|0\d{9,10})\b)`
+	case "phone_us":
+		e = `(\b(?:\+?1[-. ]?)?\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})\b)`
+	case "phone_intl":
+		e = `(\b\+(?:[0-9] ?){6,14}[0-9]\b)`
+	case "zip_jp":
+		e = `(\b\d{3}-\d{4}\b)`
+	case "uuid":
+		e = `([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})`
 	default:
 		e = strings.ReplaceAll(e, "%{number}", `([-+0-9.]+)`)
 		e = strings.ReplaceAll(e, "%{ip}", `([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})`)
+		e = strings.ReplaceAll(e, "%{ipv6}", `((?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|(?::{1,2}[0-9a-fA-F]{1,4}){1,7}|[0-9a-fA-F]{1,4}:(?::{1,2}[0-9a-fA-F]{1,4}){1,7})`)
 		e = strings.ReplaceAll(e, "%{mac}", `([0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2})`)
 		e = strings.ReplaceAll(e, "%{email}", `([a-zA-Z0-9_.+-]+@[a-zA-Z0-9_.+-]+)`)
+		e = strings.ReplaceAll(e, "%{creditcard}", `(\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13}|3(?:0[0-5]|[68][0-9])[0-9]{11}|6(?:011|5[0-9]{2})[0-9]{12}|(?:2131|1800|35\d{3})\d{11})\b|\b(?:\d{4}[- ]){3}\d{4}\b)`)
+		e = strings.ReplaceAll(e, "%{mynumber}", `(\b\d{12}\b)`)
+		e = strings.ReplaceAll(e, "%{phone_jp}", `(\b(?:0\d{1,4}-\d{1,4}-\d{4}|0\d{9,10})\b)`)
+		e = strings.ReplaceAll(e, "%{phone_us}", `(\b(?:\+?1[-. ]?)?\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})\b)`)
+		e = strings.ReplaceAll(e, "%{phone_intl}", `(\b\+(?:[0-9] ?){6,14}[0-9]\b)`)
+		e = strings.ReplaceAll(e, "%{zip_jp}", `(\b\d{3}-\d{4}\b)`)
+		e = strings.ReplaceAll(e, "%{uuid}", `([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})`)
 		e = strings.ReplaceAll(e, "%{word}", `(\S+)`)
 	}
 
@@ -240,6 +280,14 @@ var regexpURL = regexp.MustCompile(`https?://[\w!?/+\-_~;.,*&@#$%()'[\]]+`)
 var regexpKV = regexp.MustCompile(`\w+=\w+[ ,]?`)
 var regexpGrok = regexp.MustCompile(`%\{.+\}`)
 var regexpLocalIP = regexp.MustCompile(`\b(10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|127\.0\.0\.1)\b`)
+var regexpIPv6 = regexp.MustCompile(`([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|(:{1,2}[0-9a-fA-F]{1,4}){1,7}|[0-9a-fA-F]{1,4}:(:{1,2}[0-9a-fA-F]{1,4}){1,7}`)
+var regexpCreditCard = regexp.MustCompile(`\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13}|3(?:0[0-5]|[68][0-9])[0-9]{11}|6(?:011|5[0-9]{2})[0-9]{12}|(?:2131|1800|35\d{3})\d{11})\b|\b(?:\d{4}[- ]){3}\d{4}\b`)
+var regexpMyNumber = regexp.MustCompile(`\b\d{12}\b`)
+var regexpPhoneJP = regexp.MustCompile(`\b(0\d{1,4}-\d{1,4}-\d{4}|0\d{9,10})\b`)
+var regexpPhoneUS = regexp.MustCompile(`\b(?:\+?1[-. ]?)?\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})\b`)
+var regexpPhoneIntl = regexp.MustCompile(`\b\+(?:[0-9] ?){6,14}[0-9]\b`)
+var regexpZipJP = regexp.MustCompile(`\b\d{3}-\d{4}\b`)
+var regexpUUID = regexp.MustCompile(`[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}`)
 
 // Filters
 
