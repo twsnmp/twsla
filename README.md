@@ -802,6 +802,7 @@ Flags:
       --aiSampleSize int       Number of sample logs to be analyzed by AI (default 50)
       --aiTopNError int        Number of error log patterns to be analyzed by AI (default 10)
       --aiWarnLevels string    Words included in the warning level log (default "warn")
+      --aiNoMask               Do not mask PII in logs
   -h, --help                   help for ai
 
 Global Flags:
@@ -815,6 +816,8 @@ Global Flags:
 ```
 
 Specify provider, model, and filters. Environment variables are used for API keys. Ollama requires no key.
+
+Starting with v1.21.0, PII (Personally Identifiable Information) such as IP addresses, email addresses, and phone numbers are automatically masked before being sent to the AI for analysis. Use the `--aiNoMask` flag if you want to send the original logs without masking.
 
 Example:
 ```terminal

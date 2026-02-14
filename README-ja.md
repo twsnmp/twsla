@@ -922,6 +922,7 @@ Flags:
       --aiSampleSize int       Number of sample log to be analyzed by AI (default 50)
       --aiTopNError int        Number of error log patterns to be analyzed by AI (default 10)
       --aiWarnLevels string    Words included in the warning level log (default "warn")
+      --aiNoMask               Do not mask PII in logs
   -h, --help                   help for ai
 
 Global Flags:
@@ -943,6 +944,7 @@ APIキーは、環境変数で指定します。
 
 Ollamaの場合はAPIキーは必要ありません。
 
+v1.21.0から、AIに分析を依頼する前にログ内のPII（個人情報：IPアドレス、メールアドレス、電話番号など）を自動的にマスクするようになりました。マスクせずに元のログを送信したい場合は、`--aiNoMask`フラグを使用してください。
 
 ```terminal
 $twsla ai -aiProvider -aiModel ollama qwen3:latest <Filter>
