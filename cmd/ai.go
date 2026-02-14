@@ -50,6 +50,7 @@ var aiWarnLevels = "warn"
 var aiLang = ""
 var aiTopNError = 10
 var aiSampleSize = 50
+var aiNoMask = false
 
 var aiTotalEntries int
 var aiErrorCount int
@@ -116,6 +117,14 @@ func init() {
 	aiCmd.Flags().IntVar(&aiTopNError, "aiTopNError", 10, "Number of error log patterns to be analyzed by AI")
 	aiCmd.Flags().IntVar(&aiSampleSize, "aiSampleSize", 50, "Number of sample log to be analyzed by AI")
 	aiCmd.Flags().StringVar(&aiLang, "aiLang", "", "Language of the response")
+	aiCmd.Flags().BoolVar(&aiNoMask, "aiNoMask", false, "Do not mask PII in logs")
+}
+
+func getAILog(l string) string {
+	if aiNoMask {
+		return l
+	}
+	return maskPII(l)
 }
 
 type aiImportMsg struct {
@@ -377,13 +386,13 @@ func (m aiModel) View() string {
 		if m.analize {
 			return fmt.Sprintf("%s AI is thinking... Press esc to quit.\n\n%s%s\n%s", m.spinner.View(), div, per, m.viewport.View())
 		}
-		return fmt.Sprintf("%s AI is thinking... Press esc to quit.\n%s\n%s%s\n%s", m.spinner.View(), aiLogs[lastAICursor].Log, div, per, m.viewport.View())
+		return fmt.Sprintf("%s AI is thinking... Press esc to quit.\n%s\n%s%s\n%s", m.spinner.View(), getAILog(aiLogs[lastAICursor].Log), div, per, m.viewport.View())
 	}
 	if m.answer != "" {
 		if m.analize {
 			return fmt.Sprintf("AI response Press enter | q | esc to back.\n\n%s%s\n%s", div, per, m.viewport.View())
 		}
-		return fmt.Sprintf("AI response Press enter | q | esc to back.\n%s\n%s%s\n%s", aiLogs[lastAICursor].Log, div, per, m.viewport.View())
+		return fmt.Sprintf("AI response Press enter | q | esc to back.\n%s\n%s%s\n%s", getAILog(aiLogs[lastAICursor].Log), div, per, m.viewport.View())
 	}
 	if m.done {
 		if m.log != "" {
@@ -444,7 +453,7 @@ Keep your response concise but informative. Focus on practical insights that wou
 	}
 
 	prompt, err := template.Format(map[string]any{
-		"message":    le.Log,
+		"message":    getAILog(le.Log),
 		"severity":   le.Level,
 		"timestamp":  time.Unix(0, le.Time).Format(time.RFC3339),
 		"add_prompt": addPrompt,
@@ -532,14 +541,14 @@ Please include the following information in your response. format in markdown.
 		sampleData[i] = map[string]string{
 			"timestamp": time.Unix(0, entry.Time).Format(time.RFC3339),
 			"level":     entry.Level,
-			"message":   entry.Log,
+			"message":   getAILog(entry.Log),
 		}
 	}
 
 	topErrors := make([]map[string]string, len(aiErrorPatternList))
 	for i, entry := range aiErrorPatternList {
 		topErrors[i] = map[string]string{
-			"pattern": entry.Pattern,
+			"pattern": getAILog(entry.Pattern),
 			"count":   fmt.Sprintf("%d", entry.Count),
 		}
 	}

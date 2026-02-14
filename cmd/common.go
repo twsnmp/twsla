@@ -470,3 +470,17 @@ func getIPInfo(ip string, mode int) string {
 	}
 	return ip
 }
+
+func maskPII(s string) string {
+	s = regexpIPv6.ReplaceAllString(s, "<IP>")
+	s = regexpIP.ReplaceAllString(s, "<IP>")
+	s = regexpEMail.ReplaceAllString(s, "<EMAIL>")
+	s = regexpMAC.ReplaceAllString(s, "<MAC>")
+	s = regexpCreditCard.ReplaceAllString(s, "<CARD>")
+	s = regexpPhoneJP.ReplaceAllString(s, "<PHONE>")
+	s = regexpPhoneUS.ReplaceAllString(s, "<PHONE>")
+	s = regexpPhoneIntl.ReplaceAllString(s, "<PHONE>")
+	s = regexpZipJP.ReplaceAllString(s, "<ZIP>")
+	s = regexpUUID.ReplaceAllString(s, "<UUID>")
+	return s
+}
