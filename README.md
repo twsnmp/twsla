@@ -8,6 +8,8 @@
 
 TWSLA is a lightning-fast, zero-config CLI log analyzer. Designed for sysadmins who need to grep, count, and visualize patterns from massive logs instantly without setting up complex ELK stacks.
 
+![TWSLA Demo](images/2026-02-15_09-59-54.png)
+
 ---
 
 TWSLA is a simple log analysis tool of the TWSNMP series.
