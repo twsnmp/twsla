@@ -1,4 +1,16 @@
-# twsla
+# TWSLA (TWSNMP's Simple Log Analyzer)
+
+[![Go Report Card](https://img.shields.io/badge/go%20report-A+-brightgreen)](https://goreportcard.com/report/github.com/twsnmp/twsla)
+![GitHub Go version](https://img.shields.io/github/go-mod/go-version/twsnmp/twsla)
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/twsnmp/twsla)
+![GitHub License](https://img.shields.io/github/license/twsnmp/twsla)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
+
+
+TWSLA は、超高速の設定不要の CLI ログ アナライザーです。複雑な ELK スタックを設定せずに、大量のログからパターンを即座に grep、カウント、視覚化する必要があるシステム管理者向けに設計されています。
+
+---
+
 twslaはTWSNMPシリーズのシンプルログ分析ツールです。
 Linux/Mac OS/Windowsで動作します。
 
