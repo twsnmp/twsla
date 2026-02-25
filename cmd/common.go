@@ -155,19 +155,29 @@ func getFilter(f string) *regexp.Regexp {
 }
 
 func getTimeRange() (int64, int64) {
+	now := time.Now()
 	st := time.Unix(0, 0)
-	et := time.Now().AddDate(1, 0, 0)
+	et := now.AddDate(1, 0, 0)
 	a := strings.SplitN(timeRange, ",", 2)
+	for i := range a {
+		a[i] = strings.TrimSpace(a[i])
+	}
 	if len(a) == 1 && a[0] != "" {
 		if d, err := str2duration.ParseDuration(a[0]); err == nil {
+			et = now
 			st = et.Add(d * -1)
-		} else if t, err := dateparse.ParseLocal(a[0]); err == nil {
-			st = t
+		} else {
+			p := strings.ReplaceAll(a[0], "/", "-")
+			if t, err := dateparse.ParseLocal(p); err == nil {
+				st = t
+			}
 		}
-	} else {
-		if t, err := dateparse.ParseLocal(a[0]); err == nil {
+	} else if len(a) == 2 {
+		p0 := strings.ReplaceAll(a[0], "/", "-")
+		if t, err := dateparse.ParseLocal(p0); err == nil {
 			st = t
-			if t, err := dateparse.ParseLocal(a[1]); err == nil {
+			p1 := strings.ReplaceAll(a[1], "/", "-")
+			if t, err := dateparse.ParseLocal(p1); err == nil {
 				et = t
 			} else if d, err := str2duration.ParseDuration(a[1]); err == nil {
 				et = st.Add(d)
