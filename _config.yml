@@ -1,12 +1,5 @@
 title: TWSLA
 description: a simple log analysis tool of the TWSNMP series.
-image: "https://twsnmp.github.io/twsla/images/twsla.png"
-logo: "https://twsnmp.github.io/twsla/images/twsla.png"
-url: "https://twsnmp.github.io"
-baseurl: "/twsla"
-twitter:
-  card: summary_large_image
 remote_theme: pages-themes/hacker@v0.2.0
 plugins:
 - jekyll-remote-theme
-- jekyll-seo-tag
