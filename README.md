@@ -8,7 +8,7 @@
 
 TWSLA is a lightning-fast, zero-config CLI log analyzer. Designed for sysadmins who need to grep, count, and visualize patterns from massive logs instantly without setting up complex ELK stacks.
 
-![TWSLA Demo](images/2026-02-15_09-59-54.png)
+![TWSLA Demo](images/twsla.png)
 
 ---
 
@@ -107,6 +107,8 @@ When the command is illustrated
 ![](https://assets.st-note.com/img/1731635423-vj6JTY1yz0eEg9l4pdIskRKh.png?width=1200)
 
 ### import command
+
+![import command](images/import.png)
 
 This command imports logs and saves them in a searchable time-series database. The command arguments are:
 
@@ -219,6 +221,8 @@ Importing is faster when logs are in chronological order. Random logs are slower
 
 ### search command
 
+![search command](images/search.png)
+
 You can search once the logs are imported.
 
 ```
@@ -287,6 +291,8 @@ Displays the marker input screen. Following `simple filter` or `regex:`, you can
 ![](https://assets.st-note.com/img/1729484628-MxPyZJRoNU0bqCkeXmh7cAEG.png?width=1200)
 
 ### count command
+
+![count command](images/count.png)
 
 This command aggregates the number of logs on an hourly basis, or uses data extracted from the log as a key.
 
@@ -374,6 +380,8 @@ This mode detects the time difference between two timestamps in the log, similar
 
 ### email command
 
+![email command](images/email.png)
+
 This command allows searching and counting email logs stored in the database.
 It provides subcommands to search for specific emails or count emails by various fields such as From, To, Subject, Sender IP, and SPF status.
 In the search results, you can check the delay time and relay count calculated from the email headers.
@@ -390,6 +398,8 @@ Examples:
 ```
 
 ### extract command
+
+![extract command](images/extract.png)
 
 This command extracts specific data from the logs.
 
@@ -444,6 +454,8 @@ Press the `s` key to save as CSV.
 
 ### tfidf command
 
+![tfidf command](images/tfidf.png)
+
 Find rare logs using TF-IDF.
 
 ```terminal
@@ -475,6 +487,8 @@ The example shows three rare logs found in 2,000 entries. Thresholds can be adju
 Since v1.10, you can use `-n` to get the top N rare cases.
 
 ### anomaly command
+
+![anomaly command](images/anomaly.png)
 
 Added in v1.1.0, this command analyzes logs to find anomalies.
 
@@ -524,6 +538,8 @@ Higher scores indicate greater anomalies. `sql` and `walu` modes are effective f
 
 ### delay command
 
+![delay command](images/delay.png)
+
 Added in v1.3.0, this command detects processing delays from access logs. Apache's access log records the timestamp when a request is accepted, but outputs the entry after the response is sent. This can cause timestamps to appear out of order. This reversal can be used to detect delays in processing requests or downloading large files.
 It can also detect delays between timestamps when access logs are transferred to syslog with multiple timestamps.
 
@@ -559,6 +575,8 @@ If no delays are detected, nothing is displayed. The rightmost column shows the 
 
 
 ### twsnmp command
+
+![twsnmp command](images/twsnmp.png)
 
 This command links with TWSNMP FC (added in v1.4.0).
 
@@ -600,6 +618,8 @@ twsla twsnmp node --twsnmp http://192.168.1.253:8081
 Outputs are tab-separated text by default. Use `--jsonOut` for JSON format, which is useful for programmatic access.
 
 ### relation command
+
+![relation command](images/relation.png)
 
 Analyzes relationships between multiple items in log lines. Results can be output as an interactive graph.
 
@@ -648,6 +668,8 @@ Aggregations can be viewed as an interactive graph by saving with the `.html` ex
 
 
 ### heatmap command
+
+![heatmap command](images/heatmap.png)
 
 Displays log frequency over time or date using a heat map.
 
@@ -719,6 +741,8 @@ Global Flags:
 
 ### sigma command
 
+![sigma command](images/sigma.png)
+
 Detects threats using the standard SIGMA format (https://sigmahq.io/).
 
 ```terminal
@@ -752,6 +776,8 @@ Specify the SIGMA rules directory with `-s`. Logs are expected in JSON format; n
 Detected rules are displayed. Press `Enter` for details, `C` for rule-based display, or `G`/`H` for graphs. Save data/graphs with `S`.
 
 ### twlogeye command
+
+![twlogeye command](images/twlogeye.png)
 
 Imports notifications, logs, and reports from TwLogEye.
 
@@ -791,6 +817,8 @@ Global Flags:
 ```
 
 ### ai command
+
+![ai command](images/ai.png)
 
 Analyzes logs using LLM (significant updates in v1.17.0).
 
@@ -845,6 +873,8 @@ Select a log and press `e` for an AI explanation, or `a` for a summary of all se
 ![](https://assets.st-note.com/img/1758352084-BnFKucxeG4mqSoYCT6tNprH3.png?width=1200)
 
 ### mcp command
+
+![mcp command](images/mcp.png)
 
 MCP (Model Context Protocol) server for AI agents.
 
