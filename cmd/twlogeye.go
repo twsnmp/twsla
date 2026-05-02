@@ -50,14 +50,15 @@ var twLogEyeAnomalyReportType string
 // twlogeyeCmd represents the twlogeye command
 var twlogeyeCmd = &cobra.Command{
 	Use:   "twlogeye",
-	Short: "Inmport notify,logs and report from twlogeye",
+	Short: "Import notify,logs and report from twlogeye",
 	Long: `Import notify,logs and report from twlogeye
 twsla twlogeye <target> [<sub target>] [<anomaly report type>]
-  taregt: notify | logs | report 
+  target: notify | logs | report 
 	logs sub target: syslog | trap | netflow | winevent | otel | mqtt
 	report sub target: syslog | trap | netflow | winevent | otel | mqtt  | monitor | anomaly 
 	anomaly report type: syslog | trap | netflow | winevent |otel | mqtt | monitor | anomaly 
 `,
+
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) > 0 {
 			twLogEyeTarget = args[0]
@@ -74,13 +75,13 @@ twsla twlogeye <target> [<sub target>] [<anomaly report type>]
 
 func init() {
 	rootCmd.AddCommand(twlogeyeCmd)
-	twlogeyeCmd.Flags().StringVar(&twLogEyeApiServer, "apiServer", "", "twlogeye api server ip address")
+	twlogeyeCmd.Flags().StringVar(&twLogEyeApiServer, "apiServer", "", "twlogeye api server IP address")
 	twlogeyeCmd.Flags().IntVar(&twLogEyeApiPort, "apiPort", 8081, "twlogeye api port number")
 	twlogeyeCmd.Flags().StringVar(&twLogEyeCaCert, "ca", "", "CA Cert file path")
 	twlogeyeCmd.Flags().StringVar(&twLogEyeClientCert, "cert", "", "Client cert file path")
 	twlogeyeCmd.Flags().StringVar(&twLogEyeClientKey, "key", "", "Client key file path")
 	twlogeyeCmd.Flags().StringVar(&twLogEyeFilter, "filter", "", "Log search text")
-	twlogeyeCmd.Flags().StringVar(&twLogEyeLevel, "level", "", "Notfiy level")
+	twlogeyeCmd.Flags().StringVar(&twLogEyeLevel, "level", "", "Notify level")
 	twlogeyeCmd.Flags().StringVar(&twLogEyeAnomalyReportType, "anomaly", "monitor", "Anomaly report type")
 }
 

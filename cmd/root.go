@@ -52,7 +52,7 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.twsla.yaml)")
-	rootCmd.PersistentFlags().StringVarP(&dataStore, "datastore", "d", "./twsla.db", "Bblot log db")
+	rootCmd.PersistentFlags().StringVarP(&dataStore, "datastore", "d", "./twsla.db", "Bbolt Log DB")
 	rootCmd.PersistentFlags().StringVarP(&timeRange, "timeRange", "t", "", "Time range")
 	rootCmd.PersistentFlags().StringVarP(&simpleFilter, "filter", "f", "", "Simple filter")
 	rootCmd.PersistentFlags().StringVarP(&regexpFilter, "regex", "r", "", "Regexp filter")

@@ -88,11 +88,12 @@ Available Commands:
   time        Time analysis
   twlogeye    Import notify,logs and report from twlogeye
   twsnmp      Get information and logs from TWSNMP FC
+  update      Update twsla to the latest or specified version
   version     Show twsla version
 
 Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   bbolt log db (default "./twsla.db")
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
   -f, --filter string      Simple filter
   -h, --help               help for twsla
   -v, --not string         Invert regexp filter
@@ -142,7 +143,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   bbolt log db (default "./twsla.db")
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -246,7 +247,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   bbolt log db (default "./twsla.db")
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -270,7 +271,7 @@ $ twsla search -f fail
 v1.5.0からログの検索結果をカラー表示できるようになっています。
 ログを検索するsearchコマンドのオプションに-c,--colorを指定します。キーには
 
-|Key|Descr|
+| Key | Description |
 |---|---|
 |ip|IPアドレスをカラー表示|
 |mac|MACアドレスをカラー表示|
@@ -338,7 +339,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   bbolt log db (default "./twsla.db")
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -415,7 +416,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   bbolt log db (default "./twsla.db")
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -469,7 +470,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   bbolt log db (default "./twsla.db")
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -507,7 +508,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   bbolt log db (default "./twsla.db")
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -547,7 +548,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   bbolt log db (default "./twsla.db")
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -588,7 +589,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   bbolt log db (default "./twsla.db")
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -636,7 +637,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   bbolt log db (default "./twsla.db")
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -680,7 +681,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   bbolt log db (default "./twsla.db")
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -689,13 +690,13 @@ Global Flags:
 
 指定可能な項目は
 
-|key|descr|
-| ---- | ---- |
-|ip|IPアドレス|
-|mac|MACアドレス|
-|email|メールアドレス|
-|url|URL|
-|regexp/パターン/|正規表現にマッチした文字列|
+| Key | Description |
+| --- | --- |
+| IP | IPアドレス |
+| Mac | MACアドレス |
+| Email | メールアドレス |
+| URL | URL |
+| REGEXP/Pattern/| 正規表現にマッチした文字列 |
 
 です。
 
@@ -735,7 +736,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   bbolt log db (default "./twsla.db")
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -775,7 +776,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   bbolt log db (default "./twsla.db")
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -825,7 +826,7 @@ Flags:
       --strict           Strict rule check
 
 Global Flags:
-  -d, --datastore string   bbolt log db (default "./twsla.db")
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -918,7 +919,7 @@ Usage:
 Flags:
       --anomaly string     Anomaly report type (default "monitor")
       --apiPort int        twlogeye api port number (default 8081)
-      --apiServer string   twlogeye api server ip address
+      --apiServer string   twlogeye api server IP address
       --ca string          CA Cert file path
       --cert string        Client cert file path
       --filter string      Log search text
@@ -928,7 +929,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   bbolt log db (default "./twsla.db")
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
       --sixel              show chart by sixel
@@ -969,7 +970,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   bbolt log db (default "./twsla.db")
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -1033,7 +1034,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   bbolt log db (default "./twsla.db")
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -1156,6 +1157,34 @@ TWSLAログデータベースと対話するために、以下のツールにア
 - **トランスポート**: `stdio` (console), `sse` (server-sent events), or `stream` (HTTP with client filtering).
 - **エンドポイント**: Default `127.0.0.1:8085`.
 - **クライアント**:  IPのホワイトリストをカンマ区切りで指定.
+
+
+### updateコマンド
+
+GitHubのリリースページからtwslaを最新または指定したバージョンに更新します。
+
+```terminal
+$ twsla help update
+Update twsla to the latest or specified version from GitHub releases.
+
+Usage:
+  twsla update [flags]
+
+Flags:
+  -c, --check            Check for updates only
+  -h, --help             help for update
+      --version string   Update to specified version
+  -y, --yes              Update without confirmation
+
+Global Flags:
+      --config string      config file (default is $HOME/.twsla.yaml)
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
+  -f, --filter string      Simple filter
+  -v, --not string         Invert regexp filter
+  -r, --regex string       Regexp filter
+      --sixel              show chart by sixel
+  -t, --timeRange string   Time range
+```
 
 
 ### completionコマンド
@@ -1317,7 +1346,7 @@ v1.15.0以降では、キーワードに対応しました。
 -e オプションと-pオプションで指定します。
 -eは、パターンで
 
-|Key|Descr|
+| Key | Description |
 |---|---|
 |ip|IPアドレス|
 |ipv6|IPv6アドレス|
@@ -1371,7 +1400,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   bbolt log db (default "./twsla.db")
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -1425,7 +1454,7 @@ https://dev.maxmind.com/geoip/geolite2-free-geolocation-data/
 
 --ip 取得するIP情報の種類を指定します。
 
-|Key|Descr|
+| Key | Description |
 |---|---|
 |host|ホスト名|
 |domain|ドメイン名|
@@ -1469,7 +1498,7 @@ v1.9.0から設定ファイルと環境変数に対応しました。
 --configで指定したファイルか、ホームディレクトリ/.twsla.yamlを設定ファイルとして使用します。
 yaml形式です。以下のキーに対応しています。
 
-|Key|Descr|
+| Key | Description |
 |---|---|
 |timeRange|時間範囲|
 |filter|シンプルフィルター|
@@ -1495,7 +1524,7 @@ yaml形式です。以下のキーに対応しています。
 
 以下の環境変数が利用できます。
 
-|Key|Descr|
+| Key | Description |
 |---|----|
 |TWSLA_DATASTORE|データストアのパス|
 |TWSLA_GEOIP|GeoIPデータベースのパス|

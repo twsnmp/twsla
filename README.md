@@ -85,13 +85,14 @@ Available Commands:
   sigma       Detect threats using SIGMA rules
   tfidf       Log analysis using TF-IDF
   time        Time analysis
-  twlogeye    Inmport notify,logs and report from twlogeye
+  twlogeye    Import notify,logs and report from twlogeye
   twsnmp      Get information and logs from TWSNMP FC
+  update      Update twsla to the latest or specified version
   version     Show twsla version
 
 Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   bblot log db (default "./twsla.db")
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
   -f, --filter string      Simple filter
   -h, --help               help for twsla
   -v, --not string         Invert regexp filter
@@ -141,7 +142,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   bblot log db (default "./twsla.db")
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -239,7 +240,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   bblot log db (default "./twsla.db")
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -263,7 +264,7 @@ You can save the result with the `S` key. The display is reversed with the `R` k
 Log search results can be color-coded since v1.5.0.
 Specify `-c` or `--color` as an option for the `search` command. For the key:
 
-|Key|Descr|
+| Key | Description |
 |---|---|
 | IP | Color display of IP address |
 | Mac | Color display of MAC address |
@@ -327,7 +328,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   bblot log db (default "./twsla.db")
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -421,7 +422,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   bblot log db (default "./twsla.db")
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -474,7 +475,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   bblot log db (default "./twsla.db")
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -508,7 +509,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   bblot log db (default "./twsla.db")
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -556,7 +557,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   bblot log db (default "./twsla.db")
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -596,7 +597,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   bblot log db (default "./twsla.db")
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -637,7 +638,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   bblot log db (default "./twsla.db")
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -646,8 +647,8 @@ Global Flags:
 
 Supported items:
 
-|key|descr|
-| ---- | ---- |
+| Key | Description |
+| --- | --- |
 | IP | IP address |
 | Mac | MAC address |
 | Email | Email address |
@@ -687,7 +688,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   bblot log db (default "./twsla.db")
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -725,7 +726,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   bblot log db (default "./twsla.db")
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -762,7 +763,7 @@ Flags:
       --strict           Strict rule check
 
 Global Flags:
-  -d, --datastore string   bblot log db (default "./twsla.db")
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -799,7 +800,7 @@ Usage:
 Flags:
       --anomaly string     Anomaly report type (default "monitor")
       --apiPort int        twlogeye api port number (default 8081)
-      --apiServer string   twlogeye api server ip address
+      --apiServer string   twlogeye api server IP address
       --ca string          CA Cert file path
       --cert string        Client cert file path
       --filter string      Log search text
@@ -809,7 +810,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   bblot log db (default "./twsla.db")
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
       --sixel              show chart by sixel
@@ -848,7 +849,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   bblot log db (default "./twsla.db")
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -894,7 +895,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   bblot log db (default "./twsla.db")
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -1018,6 +1019,33 @@ To get a summary of all logs from yesterday:
 - **Clients**: Whitelist of IP addresses specified as comma-separated values.
 
 
+### update command
+
+Update twsla to the latest or specified version from GitHub releases.
+
+```
+$ twsla help update
+Update twsla to the latest or specified version from GitHub releases.
+
+Usage:
+  twsla update [flags]
+
+Flags:
+  -c, --check            Check for updates only
+  -h, --help             help for update
+      --version string   Update to specified version
+  -y, --yes              Update without confirmation
+
+Global Flags:
+      --config string      config file (default is $HOME/.twsla.yaml)
+  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
+  -f, --filter string      Simple filter
+  -v, --not string         Invert regexp filter
+  -r, --regex string       Regexp filter
+      --sixel              show chart by sixel
+  -t, --timeRange string   Time range
+```
+
 ### completion command
 
 Generates shell autocompletion scripts for `bash`, `fish`, `powershell`, and `zsh`.
@@ -1065,7 +1093,7 @@ Supports ZIP, Tar.gz, and GZ compression. Timestamps are automatically detected.
 
 A beginner-friendly alternative to regular expressions. Supports `*` and `?` wildcards. For example, `Message*` becomes `Message.*` internally. From v1.15.0, keywords are supported:
 
-| Keyword | Descr |
+| Keyword | Description |
 | --- | --- |
 | #IP | Contains IP address |
 | #IPV6 | Contains IPv6 address |
@@ -1117,7 +1145,7 @@ $ twsla count -e ip --ip country --geoip ./GeoLite2-City.mmdb "Failed password"
 
 Supports `~/.twsla.yaml` and environment variables like `TWSLA_DATASTORE`, `TWSLA_GEOIP`, `TWSLA_GROK`, and `TWSLA_SIXEL`.
 
-| Key | Descr |
+| Key | Description |
 | --- | --- |
 | timeRange | Time range |
 | filter | Simple filter |

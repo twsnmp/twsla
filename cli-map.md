@@ -2,7 +2,7 @@
 
 ## Global Flags
 - `--config`: config file (default $HOME/.twsla.yaml)
-- `-d, --datastore`: Bblot log db (default "./twsla.db")
+- `-d, --datastore`: Bbolt Log DB (default "./twsla.db")
 - `-t, --timeRange`: Time range
 - `-f, --filter`: Simple filter
 - `-r, --regex`: Regexp filter
@@ -135,13 +135,13 @@
     - target: notify | logs | report
     - sub target: syslog | trap | netflow | winevent | otel | mqtt | monitor | anomaly
 - Flags
-    - `--apiServer`: twlogeye api server ip address
+    - `--apiServer`: twlogeye api server IP address
     - `--apiPort`: twlogeye api port number (default 8081)
     - `--ca`: CA Cert file path
     - `--cert`: Client cert file path
     - `--key`: Client key file path
     - `--filter`: Log search text
-    - `--level`: Notfiy level
+    - `--level`: Notify level
     - `--anomaly`: Anomaly report type (default "monitor")
 
 ### twsnmp
@@ -152,6 +152,13 @@
     - `--jsonOut`: output json format
     - `--checkCert`: TWSNMP FC API verify certificate
     - `--twsnmp`: TWSNMP FC URL (default "http://localhost:8080")
+
+### update
+- `update`: Update twsla to the latest or specified version from GitHub releases.
+- Flags
+    - `-c, --check`: Check for updates only
+    - `--version`: Update to specified version
+    - `-y, --yes`: Update without confirmation
 
 ### version
 - `version`: Show twsla version
