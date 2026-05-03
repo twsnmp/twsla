@@ -57,3 +57,12 @@ tasks:
   cmd_map:
     cmds:
       - npx markmap-cli cli-map.md -o cli-map-v.html
+  test:
+    desc: Run unit tests (for CI)
+    cmds:
+      - go test -short ./...
+  record:
+    desc: Record terminal operations using VHS
+    cmds:
+      - mkdir -p images
+      - for f in tests/vhs/*.tape; do vhs "$f"; done

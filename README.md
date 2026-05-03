@@ -224,6 +224,8 @@ Importing is faster when logs are in chronological order. Random logs are slower
 
 ![search command](images/search.png)
 
+<video src="images/search.mp4" width="800" controls></video>
+
 You can search once the logs are imported.
 
 ```
@@ -294,6 +296,8 @@ Displays the marker input screen. Following `simple filter` or `regex:`, you can
 ### count command
 
 ![count command](images/count.png)
+
+<video src="images/count.mp4" width="800" controls></video>
 
 This command aggregates the number of logs on an hourly basis, or uses data extracted from the log as a key.
 
@@ -490,6 +494,8 @@ Since v1.10, you can use `-n` to get the top N rare cases.
 ### anomaly command
 
 ![anomaly command](images/anomaly.png)
+
+<video src="images/anomaly.mp4" width="800" controls></video>
 
 Added in v1.1.0, this command analyzes logs to find anomalies.
 
