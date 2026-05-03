@@ -79,6 +79,8 @@ func TestGetTimeRange(t *testing.T) {
 			tr:   "2026/02/24T10:30:10+0900,1h",
 			checkFunc: func(t *testing.T, st, et time.Time) {
 				// 2026/02/24T10:30:10+0900 is 2026-02-24 10:30:10 +0900
+				jst := time.FixedZone("JST", 9*3600)
+				st = st.In(jst)
 				if st.Year() != 2026 || st.Month() != 2 || st.Day() != 24 || st.Hour() != 10 || st.Minute() != 30 || st.Second() != 10 {
 					t.Errorf("ISO-like: expected 2026-02-24 10:30:10, got %v", st)
 				}
