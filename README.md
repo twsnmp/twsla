@@ -111,6 +111,8 @@ When the command is illustrated
 
 ![import command](images/import.png)
 
+<video src="images/import.mp4" width="800" controls></video>
+
 This command imports logs and saves them in a searchable time-series database. The command arguments are:
 
 ```
@@ -406,6 +408,8 @@ Examples:
 
 ![extract command](images/extract.png)
 
+<video src="images/extract.mp4" width="800" controls></video>
+
 This command extracts specific data from the logs.
 
 ```terminal
@@ -460,6 +464,8 @@ Press the `s` key to save as CSV.
 ### tfidf command
 
 ![tfidf command](images/tfidf.png)
+
+<video src="images/tfidf.mp4" width="800" controls></video>
 
 Find rare logs using TF-IDF.
 
@@ -547,6 +553,8 @@ Higher scores indicate greater anomalies. `sql` and `walu` modes are effective f
 
 ![delay command](images/delay.png)
 
+<video src="images/delay.mp4" width="800" controls></video>
+
 Added in v1.3.0, this command detects processing delays from access logs. Apache's access log records the timestamp when a request is accepted, but outputs the entry after the response is sent. This can cause timestamps to appear out of order. This reversal can be used to detect delays in processing requests or downloading large files.
 It can also detect delays between timestamps when access logs are transferred to syslog with multiple timestamps.
 
@@ -627,6 +635,8 @@ Outputs are tab-separated text by default. Use `--jsonOut` for JSON format, whic
 ### relation command
 
 ![relation command](images/relation.png)
+
+<video src="images/relation.mp4" width="800" controls></video>
 
 Analyzes relationships between multiple items in log lines. Results can be output as an interactive graph.
 

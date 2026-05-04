@@ -1,4 +1,4 @@
-Output images/count.mp4
+Output images/heatmap.mp4
 
 Set Shell "bash"
 Set FontSize 16
@@ -11,26 +11,20 @@ Set Theme "Chalk"
 Hide
 Type "go build -o twsla ." Enter
 Type "rm -f test.db" Enter
-Show
 Type "./twsla import -d test.db testlog/syslog.log" Enter
-Sleep 2s
+Sleep 5s
+Show
 
-# Run count (default time aggregation)
-Type "./twsla count -d test.db" Enter
-Sleep 3s
+# Run heatmap
+Type "./twsla heatmap -d test.db" Enter
+Sleep 5s
 
-# Scroll down
-Type "j" Sleep 500ms
-Type "j" Sleep 500ms
-
-# Run count with extraction
+# Chart
+Type "h" Sleep 5s
 Type "q" Sleep 1s
-Type "./twsla count -d test.db -e ip" Enter
-Sleep 3s
-# Scroll down
-Type "j" Sleep 500ms
-Type "j" Sleep 500ms
-Type "q"
+
+# Quit
+Type "q" Sleep 1s
 
 # Cleanup
 Hide

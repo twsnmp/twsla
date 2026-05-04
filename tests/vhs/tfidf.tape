@@ -1,4 +1,4 @@
-Output images/count.mp4
+Output images/tfidf.mp4
 
 Set Shell "bash"
 Set FontSize 16
@@ -11,26 +11,21 @@ Set Theme "Chalk"
 Hide
 Type "go build -o twsla ." Enter
 Type "rm -f test.db" Enter
-Show
 Type "./twsla import -d test.db testlog/syslog.log" Enter
-Sleep 2s
+Sleep 5s
+Show
 
-# Run count (default time aggregation)
-Type "./twsla count -d test.db" Enter
-Sleep 3s
+# Run tfidf
+Type "./twsla tfidf -d test.db -n 10" Enter
+Sleep 10s
 
 # Scroll down
 Type "j" Sleep 500ms
 Type "j" Sleep 500ms
+Type "j" Sleep 500ms
 
-# Run count with extraction
+# Quit
 Type "q" Sleep 1s
-Type "./twsla count -d test.db -e ip" Enter
-Sleep 3s
-# Scroll down
-Type "j" Sleep 500ms
-Type "j" Sleep 500ms
-Type "q"
 
 # Cleanup
 Hide

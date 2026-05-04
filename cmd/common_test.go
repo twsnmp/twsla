@@ -115,3 +115,151 @@ func TestGetTimeRange(t *testing.T) {
 		})
 	}
 }
+
+func TestSetExtPat(t *testing.T) {
+	tests := []struct {
+		pattern string
+		pos     int
+		input   string
+		want    string
+	}{
+		{"ip", 1, "Connection from 192.168.1.1", "192.168.1.1"},
+		{"email", 1, "Email to test@example.com", "test@example.com"},
+		{"number", 1, "Value is 123.45", "123.45"},
+		{"number", 2, "Values are 123.45 and 67.89", "67.89"},
+		{"%{word} is 100", 1, "Price is 100", "Price"},
+	}
+
+	for _, tt := range tests {
+		extract = tt.pattern
+		pos = tt.pos
+		err := setExtPat()
+		if err != nil {
+			t.Errorf("setExtPat(%q) error: %v", tt.pattern, err)
+			continue
+		}
+		if extPat == nil {
+			t.Errorf("setExtPat(%q) extPat is nil", tt.pattern)
+			continue
+		}
+		matches := extPat.ExtReg.FindAllStringSubmatch(tt.input, -1)
+		if len(matches) < extPat.Index {
+			t.Errorf("setExtPat(%q) input %q: expected match at index %d, got %d matches", tt.pattern, tt.input, extPat.Index, len(matches))
+			continue
+		}
+		got := matches[extPat.Index-1][1]
+		if got != tt.want {
+			t.Errorf("setExtPat(%q) input %q: got %q, want %q", tt.pattern, tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestWrapString(t *testing.T) {
+	tests := []struct {
+		input string
+		width int
+		want  string
+	}{
+		{"abcdef", 3, "abc\ndef"},
+		{"abc", 5, "abc"},
+		{"", 3, ""},
+	}
+
+	for _, tt := range tests {
+		got := wrapString(tt.input, tt.width)
+		if got != tt.want {
+			t.Errorf("wrapString(%q, %d) = %q, want %q", tt.input, tt.width, got, tt.want)
+		}
+	}
+}
+
+func TestFilters(t *testing.T) {
+	tests := []struct {
+		name     string
+		args     []string
+		regexp   string
+		simple   string
+		notF     string
+		input    string
+		expected bool
+	}{
+		{
+			name:     "simple filter match",
+			simple:   "fail",
+			input:    "login failed",
+			expected: true,
+		},
+		{
+			name:     "simple filter mismatch",
+			simple:   "fail",
+			input:    "login success",
+			expected: false,
+		},
+		{
+			name:     "regexp filter match",
+			regexp:   "user [0-9]+",
+			input:    "login user 123",
+			expected: true,
+		},
+		{
+			name:     "regexp filter mismatch",
+			regexp:   "user [0-9]+",
+			input:    "login user guest",
+			expected: false,
+		},
+		{
+			name:     "combined match",
+			simple:   "login",
+			regexp:   "failed",
+			input:    "login failed",
+			expected: true,
+		},
+		{
+			name:     "combined mismatch simple",
+			simple:   "logout",
+			regexp:   "failed",
+			input:    "login failed",
+			expected: false,
+		},
+		{
+			name:     "not filter match",
+			simple:   "login",
+			notF:     "success",
+			input:    "login failed",
+			expected: true,
+		},
+		{
+			name:     "not filter mismatch (excluded)",
+			simple:   "login",
+			notF:     "success",
+			input:    "login success",
+			expected: false,
+		},
+		{
+			name:     "arg filter match",
+			args:     []string{"login"},
+			input:    "login failed",
+			expected: true,
+		},
+		{
+			name:     "arg not filter mismatch (excluded)",
+			args:     []string{"^success"},
+			input:    "login success",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			regexpFilter = tt.regexp
+			simpleFilter = tt.simple
+			notFilter = tt.notF
+			setupFilter(tt.args)
+			got := matchFilter(&tt.input)
+			if got != tt.expected {
+				t.Errorf("matchFilter(%q) = %v, want %v (args=%v, regexp=%q, simple=%q, notF=%q)",
+					tt.input, got, tt.expected, tt.args, tt.regexp, tt.simple, tt.notF)
+			}
+		})
+	}
+}
