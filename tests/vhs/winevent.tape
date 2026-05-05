@@ -27,7 +27,7 @@ Type "j" Sleep 500ms
 Type "q" Sleep 1s
 
 # 3. Count by Event ID
-Type "./twsla count -d winevt.db -e 'regex/EventID=(\d+)/1' -n EventID" Enter
+Type "./twsla count -d winevt.db -e 'EventID=%{number}' -n EventID" Enter
 Sleep 5s
 # Scroll through the counts
 Type "j" Sleep 500ms
