@@ -51,6 +51,12 @@ var logType string
 var noDeltaCheck bool
 var noTimeStamp bool
 var batchSize int
+var mlStart string
+var mlSep string
+var mlLines int
+var mlInspect bool
+var mlStartRe *regexp.Regexp
+var mlSepRe *regexp.Regexp
 
 var listIMAPFolder bool
 var emailUser string
@@ -123,10 +129,27 @@ func init() {
 	importCmd.Flags().BoolVar(&emailTLS, "emailTLS", false, "IMAP use start TLS")
 	importCmd.Flags().StringVar(&emailUser, "emailUser", "", "IMAP or POP3 user name")
 	importCmd.Flags().StringVar(&emailPassword, "emailPassword", "", "IMAP or POP3 password")
+	importCmd.Flags().StringVar(&mlStart, "mlStart", "", "Multiline log start pattern (regex)")
+	importCmd.Flags().StringVar(&mlSep, "mlSep", "", "Multiline log separator pattern (regex)")
+	importCmd.Flags().IntVar(&mlLines, "mlLines", 0, "Multiline log fixed lines")
+	importCmd.Flags().BoolVar(&mlInspect, "mlInspect", false, "Inspect log to suggest multiline settings")
 }
 
 func importMain() {
 	st = time.Now()
+	if mlInspect {
+		setupTimeGrinder()
+		for _, src := range sources {
+			doInspect(src)
+		}
+		return
+	}
+	if mlStart != "" {
+		mlStartRe = regexp.MustCompile(mlStart)
+	}
+	if mlSep != "" {
+		mlSepRe = regexp.MustCompile(mlSep)
+	}
 	if err := openDB(); err != nil {
 		log.Fatalln(err)
 	}
@@ -246,30 +269,32 @@ func doImport(path string, r io.Reader) {
 	st, et := getTimeRange()
 	readLines := 0
 	skipLines := 0
-	i := 0
-	scanner := bufio.NewScanner(r)
-	for scanner.Scan() {
-		if stopImport {
+
+	var logBuffer []string
+	logStartLine := 0
+
+	commitLog := func() {
+		if len(logBuffer) == 0 {
 			return
 		}
-		l := scanner.Text()
+		l := strings.Join(logBuffer, "\n")
 		var t int64
 		if noTimeStamp {
 			t = time.Now().UnixNano()
 		} else {
-			ts, ok, _ := tg.Extract([]byte(l))
+			// Extract timestamp from the first line of the buffer
+			ts, ok, _ := tg.Extract([]byte(logBuffer[0]))
 			if !ok {
-				continue
+				skipLines += len(logBuffer)
+				logBuffer = nil
+				return
 			}
 			t = ts.UnixNano()
 		}
-		readBytes += int64(len(l))
-		totalBytes += int64(len(l))
-		readLines++
-		totalLines++
 		if importFilter != nil && !importFilter.MatchString(l) {
-			skipLines++
-			continue
+			skipLines += len(logBuffer)
+			logBuffer = nil
+			return
 		}
 		d := 0
 		if !noDeltaCheck {
@@ -279,18 +304,67 @@ func doImport(path string, r io.Reader) {
 			lastTime = t
 		}
 		if st > t || et < t {
-			skipLines++
-			continue
+			skipLines += len(logBuffer)
+			logBuffer = nil
+			return
 		}
 		logCh <- &LogEnt{
 			Time:  t,
 			Log:   l,
 			Delta: d,
 			Hash:  hash,
-			Line:  readLines,
+			Line:  logStartLine,
 		}
-		i++
-		if i%2000 == 0 {
+		logBuffer = nil
+	}
+
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		if stopImport {
+			return
+		}
+		l := scanner.Text()
+		readBytes += int64(len(l))
+		totalBytes += int64(len(l))
+		readLines++
+		totalLines++
+
+		isCommit := false
+		isAppend := true
+
+		if mlStartRe != nil {
+			if mlStartRe.MatchString(l) {
+				commitLog()
+				logStartLine = readLines
+			}
+		} else if mlSepRe != nil {
+			if mlSepRe.MatchString(l) {
+				isCommit = true
+			}
+		} else if mlLines > 0 {
+			if len(logBuffer) == 0 {
+				logStartLine = readLines
+			}
+			if len(logBuffer)+1 >= mlLines {
+				isCommit = true
+			}
+		} else {
+			// Default: Single line
+			logStartLine = readLines
+			isCommit = true
+		}
+
+		if len(logBuffer) == 0 {
+			logStartLine = readLines
+		}
+		if isAppend {
+			logBuffer = append(logBuffer, l)
+		}
+		if isCommit {
+			commitLog()
+		}
+
+		if totalLines%2000 == 0 {
 			teaProg.Send(ImportMsg{
 				Done:  false,
 				Path:  path,
@@ -300,6 +374,7 @@ func doImport(path string, r io.Reader) {
 			})
 		}
 	}
+	commitLog()
 	teaProg.Send(ImportMsg{
 		Done:  false,
 		Path:  path,
@@ -385,6 +460,80 @@ func getCommand() string {
 		return command
 	}
 	return ""
+}
+
+func doInspect(path string) {
+	fmt.Printf("Inspecting %s...\n", path)
+	var r io.Reader
+	if getSourceType() == "file" {
+		f, err := os.Open(path)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			return
+		}
+		defer f.Close()
+		r = f
+	} else {
+		fmt.Println("Inspection is only supported for local files.")
+		return
+	}
+
+	scanner := bufio.NewScanner(r)
+	lines := []string{}
+	for i := 0; i < 100 && scanner.Scan(); i++ {
+		lines = append(lines, scanner.Text())
+	}
+
+	if len(lines) == 0 {
+		fmt.Println("No lines found to inspect.")
+		return
+	}
+
+	tsCount := 0
+	tsLines := []int{}
+	for i, l := range lines {
+		if _, ok, _ := tg.Extract([]byte(l)); ok {
+			tsCount++
+			tsLines = append(tsLines, i)
+		}
+	}
+
+	fmt.Printf("Found %d timestamps in %d lines.\n", tsCount, len(lines))
+
+	if tsCount > 1 {
+		// Suggest mlStart
+		fmt.Println("Suggested setting (by timestamp start):")
+		fmt.Println("  --mlStart '^[A-Z][a-z]{2}\\s+\\d+' (Example for syslog)")
+		fmt.Println("  Or more specific regex that matches your log start.")
+
+		// Analyze intervals for mlLines
+		intervals := make(map[int]int)
+		for i := 1; i < len(tsLines); i++ {
+			intervals[tsLines[i]-tsLines[i-1]]++
+		}
+		maxFreq := 0
+		suggestedLines := 0
+		for interval, freq := range intervals {
+			if freq > maxFreq {
+				maxFreq = freq
+				suggestedLines = interval
+			}
+		}
+		if suggestedLines > 1 {
+			fmt.Printf("Suggested setting (by fixed lines): --mlLines %d\n", suggestedLines)
+		}
+	}
+
+	// Suggest mlSep if empty lines or separators exist
+	sepCount := 0
+	for _, l := range lines {
+		if l == "" || strings.HasPrefix(l, "---") {
+			sepCount++
+		}
+	}
+	if sepCount > 1 {
+		fmt.Println("Suggested setting (by separator): --mlSep '^---$' or --mlSep '^$'")
+	}
 }
 
 type importModel struct {

@@ -141,6 +141,10 @@ Flags:
   -s, --source string          Log source
       --tls                    TWSNMP FC API TLS
       --utc                    Force UTC
+      --mlStart string         Multiline log start pattern (regex)
+      --mlSep string           Multiline log separator pattern (regex)
+      --mlLines int            Multiline log fixed lines
+      --mlInspect              Inspect log to suggest multiline settings
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
@@ -150,6 +154,24 @@ Global Flags:
   -r, --regex string       Regexp filter
       --sixel              show chart by sixel
   -t, --timeRange string   Time range
+```
+
+Starting from v1.22.0, support for importing multiline logs has been added.
+You can specify how to combine lines using the following options:
+
+- `--mlStart 'regex'`: Specifies the pattern for the start of a log entry. Subsequent lines are combined into a single entry until the next start pattern is found.
+- `--mlSep 'regex'`: Specifies the pattern for the separator line between log entries.
+- `--mlLines number`: Combines a fixed number of lines into a single log entry.
+
+If you are unsure which setting to use, run with the `--mlInspect` flag. It will analyze the beginning of the log and suggest the recommended settings.
+
+```terminal
+$ twsla import -s testlog/multi.log --mlInspect
+Inspecting testlog/multi.log...
+Found 4 timestamps in 9 lines.
+Suggested settings:
+  --mlStart '^\d{4}/\d{2}/\d{2}'
+  --mlLines 3
 ```
 
 Specify the location of the log to read with `-s` or `--source`.

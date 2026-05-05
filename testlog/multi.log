@@ -1,0 +1,21 @@
+2024/05/01 10:00:00 [INFO] Start process
+  detail line 1
+  detail line 2
+2024/05/01 10:01:00 [ERROR] Failed to connect
+  stacktrace:
+    at connection.go:123
+    at main.go:45
+2024/05/01 10:02:00 [DEBUG] Config loaded
+---
+Log entry with separator
+More details
+---
+Another log entry
+With multiple lines
+---
+Line 1 of 3
+Line 2 of 3
+Line 3 of 3
+Line 1 of 3 (next)
+Line 2 of 3 (next)
+Line 3 of 3 (next)
