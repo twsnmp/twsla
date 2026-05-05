@@ -221,7 +221,12 @@ $ twsla import sample.eml
 ```
 のように指定します。
 
-v1.1.0からevtxファイルを読み込む時に--jsonを指定すれば、WindowsのイベントログをJSON形式で読み込みます。詳しい情報が表示できます。
+v1.1.0からevtxファイルを読み込む時に、Windowsのイベントログを読み込むことができます。
+
+<video src="images/winevent.mp4" width="800" controls></video>
+
+詳しい情報が表示できます。
+
 
 ![](https://assets.st-note.com/img/1717709455800-myzsaGfpvI.png?width=1200)
 

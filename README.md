@@ -216,6 +216,8 @@ To import from an email file (.eml):
 
 If you specify `--json` when reading an EVTX file from v1.1.0, the Windows event log is read in JSON format, allowing detailed information to be displayed.
 
+<video src="images/winevent.mp4" width="800" controls></video>
+
 ![](https://assets.st-note.com/img/1717709455800-myzsaGfpvI.png?width=1200)
 
 The log destination is specified with the `-d` option (bbolt database). If you omit it, it defaults to `twsla.db` in the current directory.
