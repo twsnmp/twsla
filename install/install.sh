@@ -13,8 +13,8 @@ BLUE="$(tput setaf 4 2>/dev/null || printf '')"
 MAGENTA="$(tput setaf 5 2>/dev/null || printf '')"
 NO_COLOR="$(tput sgr0 2>/dev/null || printf '')"
 
-SUPPORTED_TARGETS="Linux_x86_64 Linux_arm64 \
-                  Darwin_x86_64 Darwin_arm64"
+SUPPORTED_TARGETS="linux_amd64 linux_arm64 \
+                  darwin_amd64 darwin_arm64"
 info() {
   printf '%s\n' "${BOLD}${GREY}>${NO_COLOR} $*"
 }
@@ -160,12 +160,6 @@ install() {
 #   - linux
 detect_platform() {
   platform="$(uname -s | tr '[:upper:]' '[:lower:]')"
-
-  case "${platform}" in
-    linux) platform="Linux" ;;
-    darwin) platform="Darwin" ;;
-  esac
-
   printf '%s' "${platform}"
 }
 
@@ -176,7 +170,7 @@ detect_arch() {
   arch="$(uname -m | tr '[:upper:]' '[:lower:]')"
 
   case "${arch}" in
-    amd64) arch="x86_64" ;;
+    x86_64) arch="amd64" ;;
     aarch64) arch="arm64" ;;
   esac
   printf '%s' "${arch}"
