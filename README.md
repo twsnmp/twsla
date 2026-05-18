@@ -22,7 +22,7 @@ Works on Linux/Mac OS/Windows.
 It is recommended to install on Linux/macOS using the shell script.
 
 ```terminal
-$ curl -sS https://lhx98.linkclub.jp/twise.co.jp/download/install.sh | sh
+$ curl -sS https://raw.githubusercontent.com/twsnmp/twsla/main/install/install.sh | sh
 ```
 
 On Linux/macOS, it can also be installed via Homebrew.
