@@ -37,7 +37,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/montanaflynn/stats"
 	"github.com/spf13/cobra"
-	"go.etcd.io/bbolt"
+	"github.com/twsnmp/twsla/pkg/datastore"
 )
 
 // extractCmd represents the extract command
@@ -83,7 +83,7 @@ func extractMain() {
 	if err := openDB(); err != nil {
 		log.Fatalln(err)
 	}
-	defer db.Close()
+	defer closeDB()
 	teaProg = tea.NewProgram(initExtractModel())
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -134,90 +134,78 @@ func extractSub(wg *sync.WaitGroup) {
 		}
 	}
 	sti, eti := getTimeRange()
-	sk := fmt.Sprintf("%016x:", sti)
 	i := 0
 	hit := 0
-	db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket([]byte("logs"))
-		c := b.Cursor()
-		for k, v := c.Seek([]byte(sk)); k != nil; k, v = c.Next() {
-			a := strings.Split(string(k), ":")
-			if len(a) < 1 {
-				continue
-			}
-			t, err := strconv.ParseInt(a[0], 16, 64)
-			if err == nil && t > eti {
-				break
-			}
-			l := string(v)
-			i++
-			if matchFilter(&l) {
-				switch mode {
-				case 1:
-					// JSON
-					var data map[string]interface{}
-					if ji := strings.IndexByte(string(v), '{'); ji >= 0 {
-						if err := json.Unmarshal(v[ji:], &data); err == nil {
-							if val, err := jsonpath.Get(name, data); err == nil && val != nil {
-								if ipm > 0 {
-									ip := fmt.Sprintf("%v", val)
-									extractList = append(extractList, extractEnt{Time: t, Value: fmt.Sprintf("%s(%s)", ip, getIPInfo(ip, ipm))})
-								} else {
-									extractList = append(extractList, extractEnt{Time: t, Value: fmt.Sprintf("%v", val)})
-								}
-								hit++
-							}
-						}
-					}
-				case 2:
-					// GROK
-					if data, err := gr.ParseString(l); err == nil {
-						if val, ok := data[name]; ok {
+	_ = ds.ForEach(sti, eti, func(entry *datastore.LogEntry) bool {
+		t := entry.Time
+		l := entry.Log
+		i++
+		if matchFilter(&l) {
+			switch mode {
+			case 1:
+				// JSON
+				var data map[string]interface{}
+				if ji := strings.IndexByte(l, '{'); ji >= 0 {
+					if err := json.Unmarshal([]byte(l[ji:]), &data); err == nil {
+						if val, err := jsonpath.Get(name, data); err == nil && val != nil {
 							if ipm > 0 {
-								val = fmt.Sprintf("%s(%s)", val, getIPInfo(val, ipm))
+								ip := fmt.Sprintf("%v", val)
+								extractList = append(extractList, extractEnt{Time: t, Value: fmt.Sprintf("%s(%s)", ip, getIPInfo(ip, ipm))})
+							} else {
+								extractList = append(extractList, extractEnt{Time: t, Value: fmt.Sprintf("%v", val)})
 							}
-							extractList = append(extractList, extractEnt{Time: t, Value: val})
 							hit++
 						}
 					}
-				case 3:
-					f := strings.Fields(l)
-					if pos < len(f) {
-						val := strings.TrimSpace(f[pos])
-						if val != "" {
-							extractList = append(extractList, extractEnt{Time: t, Value: val})
-						}
-					}
-				case 4:
-					f := strings.Split(l, sep)
-					if pos < len(f) {
-						val := strings.TrimSpace(f[pos])
-						if val != "" {
-							extractList = append(extractList, extractEnt{Time: t, Value: val})
-						}
-					}
-				default:
-					// TWSLA
-					a := extPat.ExtReg.FindAllStringSubmatch(l, -1)
-					if len(a) >= extPat.Index && len(a[extPat.Index-1]) > 1 {
+				}
+			case 2:
+				// GROK
+				if data, err := gr.ParseString(l); err == nil {
+					if val, ok := data[name]; ok {
 						if ipm > 0 {
-							ip := a[extPat.Index-1][1]
-							extractList = append(extractList, extractEnt{Time: t, Value: fmt.Sprintf("%s(%s)", ip, getIPInfo(ip, ipm))})
-						} else {
-							extractList = append(extractList, extractEnt{Time: t, Value: a[extPat.Index-1][1]})
+							val = fmt.Sprintf("%s(%s)", val, getIPInfo(val, ipm))
 						}
+						extractList = append(extractList, extractEnt{Time: t, Value: val})
 						hit++
 					}
 				}
-			}
-			if i%100 == 0 {
-				teaProg.Send(SearchMsg{Lines: i, Hit: hit, Dur: time.Since(st)})
-			}
-			if stopSearch {
-				break
+			case 3:
+				f := strings.Fields(l)
+				if pos < len(f) {
+					val := strings.TrimSpace(f[pos])
+					if val != "" {
+						extractList = append(extractList, extractEnt{Time: t, Value: val})
+					}
+				}
+			case 4:
+				f := strings.Split(l, sep)
+				if pos < len(f) {
+					val := strings.TrimSpace(f[pos])
+					if val != "" {
+						extractList = append(extractList, extractEnt{Time: t, Value: val})
+					}
+				}
+			default:
+				// TWSLA
+				a := extPat.ExtReg.FindAllStringSubmatch(l, -1)
+				if len(a) >= extPat.Index && len(a[extPat.Index-1]) > 1 {
+					if ipm > 0 {
+						ip := a[extPat.Index-1][1]
+						extractList = append(extractList, extractEnt{Time: t, Value: fmt.Sprintf("%s(%s)", ip, getIPInfo(ip, ipm))})
+					} else {
+						extractList = append(extractList, extractEnt{Time: t, Value: a[extPat.Index-1][1]})
+					}
+					hit++
+				}
 			}
 		}
-		return nil
+		if i%100 == 0 {
+			teaProg.Send(SearchMsg{Lines: i, Hit: hit, Dur: time.Since(st)})
+		}
+		if stopSearch {
+			return false
+		}
+		return true
 	})
 	for i := 0; i < len(extractList); i++ {
 		if v, err := strconv.ParseFloat(extractList[i].Value, 64); err == nil {

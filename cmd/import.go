@@ -35,7 +35,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/gravwell/gravwell/v3/timegrinder"
 	"github.com/spf13/cobra"
-	"go.etcd.io/bbolt"
+	"github.com/twsnmp/twsla/pkg/datastore"
 )
 
 var source string
@@ -153,7 +153,7 @@ func importMain() {
 	if err := openDB(); err != nil {
 		log.Fatalln(err)
 	}
-	defer db.Close()
+	defer closeDB()
 	teaProg = tea.NewProgram(initImportModel())
 	setupTimeGrinder()
 	logCh = make(chan *LogEnt, 10000)
@@ -387,40 +387,21 @@ func doImport(path string, r io.Reader) {
 func logSaver(wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	logsBuffer := make([]struct {
-		ID    []byte
-		Log   []byte
-		Delta []byte // Deltaが存在する場合のみ使用
-	}, 0, batchSize+2)
+	logsBuffer := make([]*datastore.LogEntry, 0, batchSize+2)
 
 	for l := range logCh {
-		id := []byte(fmt.Sprintf("%016x:%s:%x", l.Time, l.Hash, l.Line))
-		logsBuffer = append(logsBuffer, struct {
-			ID    []byte
-			Log   []byte
-			Delta []byte
-		}{ID: id, Log: []byte(l.Log), Delta: nil})
-
-		if l.Delta < 0 {
-			logsBuffer[len(logsBuffer)-1].Delta = []byte(fmt.Sprintf("%d", l.Delta))
+		entry := &datastore.LogEntry{
+			Time:     l.Time,
+			Hash:     l.Hash,
+			Line:     l.Line,
+			Log:      l.Log,
+			Delta:    int64(l.Delta),
+			HasDelta: l.Delta < 0,
 		}
+		logsBuffer = append(logsBuffer, entry)
 
 		if len(logsBuffer) >= batchSize {
-			if err := db.Batch(func(tx *bbolt.Tx) error {
-				bl := tx.Bucket([]byte("logs"))
-				bd := tx.Bucket([]byte("delta"))
-				for _, data := range logsBuffer {
-					if err := bl.Put(data.ID, data.Log); err != nil {
-						return err
-					}
-					if data.Delta != nil {
-						if err := bd.Put(data.ID, data.Delta); err != nil {
-							return err
-						}
-					}
-				}
-				return nil
-			}); err != nil {
+			if err := ds.SaveLogs(logsBuffer); err != nil {
 				log.Printf("Error during batch commit: %v\n", err)
 			}
 			logsBuffer = logsBuffer[:0] // バッファをクリア
@@ -429,21 +410,7 @@ func logSaver(wg *sync.WaitGroup) {
 
 	// チャネルが閉じられた後に残っているログを処理
 	if len(logsBuffer) > 0 {
-		if err := db.Batch(func(tx *bbolt.Tx) error {
-			bl := tx.Bucket([]byte("logs"))
-			bd := tx.Bucket([]byte("delta"))
-			for _, data := range logsBuffer {
-				if err := bl.Put(data.ID, data.Log); err != nil {
-					return err
-				}
-				if data.Delta != nil {
-					if err := bd.Put(data.ID, data.Delta); err != nil {
-						return err
-					}
-				}
-			}
-			return nil
-		}); err != nil {
+		if err := ds.SaveLogs(logsBuffer); err != nil {
 			log.Printf("Error during final batch commit: %v\n", err)
 		}
 	}

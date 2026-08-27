@@ -242,7 +242,7 @@ If you specify `--json` when reading an EVTX file from v1.1.0, the Windows event
 
 ![](https://assets.st-note.com/img/1717709455800-myzsaGfpvI.png?width=1200)
 
-The log destination is specified with the `-d` option (bbolt database). If you omit it, it defaults to `twsla.db` in the current directory.
+The log destination is specified with the `-d` option (bbolt `.db`, Badger `.badger`, or Parquet `.parquet` datastore). If you omit it, it defaults to `twsla.db` in the current directory.
 By specifying `--noDelta` from v1.8.0, it is possible to skip the time difference calculation to speed up the process.
 Importing is faster when logs are in chronological order. Random logs are slower.
 

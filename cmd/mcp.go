@@ -30,7 +30,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -40,7 +39,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
-	"go.etcd.io/bbolt"
+	"github.com/twsnmp/twsla/pkg/datastore"
 )
 
 var mcpTransport = ""
@@ -335,31 +334,18 @@ func searchLog(ctx context.Context, req *mcp.CallToolRequest, args searchLogPara
 	if err := openDB(); err != nil {
 		return nil, nil, err
 	}
-	defer db.Close()
+	defer closeDB()
 	results = []string{}
 	sti, eti := getTimeRange()
-	sk := fmt.Sprintf("%016x:", sti)
-	db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket([]byte("logs"))
-		c := b.Cursor()
-		for k, v := c.Seek([]byte(sk)); k != nil; k, v = c.Next() {
-			a := strings.Split(string(k), ":")
-			if len(a) < 1 {
-				continue
-			}
-			t, err := strconv.ParseInt(a[0], 16, 64)
-			if err == nil && t > eti {
-				break
-			}
-			l := string(v)
-			if matchFilter(&l) {
-				results = append(results, l)
-				if len(results) >= limit {
-					break
-				}
+	_ = ds.ForEach(sti, eti, func(entry *datastore.LogEntry) bool {
+		l := entry.Log
+		if matchFilter(&l) {
+			results = append(results, l)
+			if len(results) >= limit {
+				return false
 			}
 		}
-		return nil
+		return true
 	})
 
 	j, err := json.Marshal(&results)
@@ -489,64 +475,52 @@ func countLog(ctx context.Context, req *mcp.CallToolRequest, args countLogParams
 	if err := openDB(); err != nil {
 		return nil, nil, err
 	}
-	defer db.Close()
+	defer closeDB()
 	var countMap = make(map[string]int)
 	intv := int64(getInterval()) * 1000 * 1000 * 1000
 	sti, eti := getTimeRange()
-	sk := fmt.Sprintf("%016x:", sti)
-	db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket([]byte("logs"))
-		c := b.Cursor()
-		for k, v := c.Seek([]byte(sk)); k != nil; k, v = c.Next() {
-			a := strings.Split(string(k), ":")
-			if len(a) < 1 {
-				continue
-			}
-			t, err := strconv.ParseInt(a[0], 16, 64)
-			if err == nil && t > eti {
-				break
-			}
-			l := string(v)
-			if matchFilter(&l) {
-				switch mode {
-				case 1:
-					a := extPat.ExtReg.FindAllStringSubmatch(l, -1)
-					if len(a) >= extPat.Index {
-						ck := a[extPat.Index-1][1]
-						if ipm > 0 {
-							ck = getIPInfo(ck, ipm)
-						}
-						countMap[ck]++
+	_ = ds.ForEach(sti, eti, func(entry *datastore.LogEntry) bool {
+		t := entry.Time
+		l := entry.Log
+		if matchFilter(&l) {
+			switch mode {
+			case 1:
+				a := extPat.ExtReg.FindAllStringSubmatch(l, -1)
+				if len(a) >= extPat.Index {
+					ck := a[extPat.Index-1][1]
+					if ipm > 0 {
+						ck = getIPInfo(ck, ipm)
 					}
-				case 2:
-					ck := normalizeLog(l)
-					countMap[ck]++
-				case 3:
-					// Word
-					words := strings.Fields(strings.ToLower(l))
-					for _, word := range words {
-						if len(word) >= 2 && len(word) <= 50 {
-							word = strings.Trim(word, ".,!?;:()[]{}\"'")
-							if len(word) >= 2 {
-								countMap[word]++
-							}
-						}
-					}
-				case 4:
-					// Field
-					f := strings.Fields(l)
-					if len(f) > pos {
-						k := f[pos]
-						countMap[k]++
-					}
-				default:
-					d := t / intv
-					ck := time.Unix(0, d*intv).Format("2006/01/02 15:04")
 					countMap[ck]++
 				}
+			case 2:
+				ck := normalizeLog(l)
+				countMap[ck]++
+			case 3:
+				// Word
+				words := strings.Fields(strings.ToLower(l))
+				for _, word := range words {
+					if len(word) >= 2 && len(word) <= 50 {
+						word = strings.Trim(word, ".,!?;:()[]{}\"'")
+						if len(word) >= 2 {
+							countMap[word]++
+						}
+					}
+				}
+			case 4:
+				// Field
+				f := strings.Fields(l)
+				if len(f) > pos {
+					k := f[pos]
+					countMap[k]++
+				}
+			default:
+				d := t / intv
+				ck := time.Unix(0, d*intv).Format("2006/01/02 15:04")
+				countMap[ck]++
 			}
 		}
-		return nil
+		return true
 	})
 	cl := []mcpCountEnt{}
 	for k, v := range countMap {
@@ -649,31 +623,19 @@ func extractDataFromLog(ctx context.Context, req *mcp.CallToolRequest, args extr
 	if err := openDB(); err != nil {
 		return nil, nil, err
 	}
-	defer db.Close()
+	defer closeDB()
 	mcpExtractList := []mcpExtractEnt{}
 	sti, eti := getTimeRange()
-	sk := fmt.Sprintf("%016x:", sti)
-	db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket([]byte("logs"))
-		c := b.Cursor()
-		for k, v := c.Seek([]byte(sk)); k != nil; k, v = c.Next() {
-			a := strings.Split(string(k), ":")
-			if len(a) < 1 {
-				continue
-			}
-			t, err := strconv.ParseInt(a[0], 16, 64)
-			if err == nil && t > eti {
-				break
-			}
-			l := string(v)
-			if matchFilter(&l) {
-				a := extPat.ExtReg.FindAllStringSubmatch(l, -1)
-				if len(a) >= extPat.Index && len(a[extPat.Index-1]) > 1 {
-					mcpExtractList = append(mcpExtractList, mcpExtractEnt{Time: time.Unix(0, t).Format(time.RFC3339Nano), Value: a[extPat.Index-1][1]})
-				}
+	_ = ds.ForEach(sti, eti, func(entry *datastore.LogEntry) bool {
+		t := entry.Time
+		l := entry.Log
+		if matchFilter(&l) {
+			a := extPat.ExtReg.FindAllStringSubmatch(l, -1)
+			if len(a) >= extPat.Index && len(a[extPat.Index-1]) > 1 {
+				mcpExtractList = append(mcpExtractList, mcpExtractEnt{Time: time.Unix(0, t).Format(time.RFC3339Nano), Value: a[extPat.Index-1][1]})
 			}
 		}
-		return nil
+		return true
 	})
 	j, err := json.Marshal(&mcpExtractList)
 	if err != nil {
@@ -735,7 +697,7 @@ func importLog(ctx context.Context, req *mcp.CallToolRequest, args importLogPara
 	if err := openDB(); err != nil {
 		return nil, nil, err
 	}
-	defer db.Close()
+	defer closeDB()
 	totalFiles = 0
 	totalLines = 0
 	totalBytes = 0
@@ -1035,10 +997,9 @@ func summaryLog(ctx context.Context, req *mcp.CallToolRequest, args summaryLogPa
 	if err := openDB(); err != nil {
 		return nil, nil, err
 	}
-	defer db.Close()
+	defer closeDB()
 	results = []string{}
 	sti, eti := getTimeRange()
-	sk := fmt.Sprintf("%016x:", sti)
 	errorLogMap := make(map[string]*aiErrorPattern)
 	setupTimeGrinder()
 	aiStartTime = time.Now().Add(time.Hour * 24 * 365 * 100).UnixNano()
@@ -1046,48 +1007,37 @@ func summaryLog(ctx context.Context, req *mcp.CallToolRequest, args summaryLogPa
 	aiErrorCount = 0
 	aiWarningCount = 0
 	aiTotalEntries = 0
-	db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket([]byte("logs"))
-		c := b.Cursor()
-		for k, v := c.Seek([]byte(sk)); k != nil; k, v = c.Next() {
-			a := strings.Split(string(k), ":")
-			if len(a) < 1 {
-				continue
-			}
-			t, err := strconv.ParseInt(a[0], 16, 64)
-			if err == nil && t > eti {
-				break
-			}
-			l := string(v)
-			if matchFilter(&l) {
-				level := getAILogLevel(&l)
-				switch level {
-				case "ERROR":
-					aiErrorCount++
-					nl := normalizeLog(l)
-					if p, ok := errorLogMap[nl]; !ok {
-						errorLogMap[nl] = &aiErrorPattern{
-							Pattern: nl,
-							Count:   1,
-							Example: l,
-						}
-					} else {
-						p.Count++
+	_ = ds.ForEach(sti, eti, func(entry *datastore.LogEntry) bool {
+		t := entry.Time
+		l := entry.Log
+		if matchFilter(&l) {
+			level := getAILogLevel(&l)
+			switch level {
+			case "ERROR":
+				aiErrorCount++
+				nl := normalizeLog(l)
+				if p, ok := errorLogMap[nl]; !ok {
+					errorLogMap[nl] = &aiErrorPattern{
+						Pattern: nl,
+						Count:   1,
+						Example: l,
 					}
-				case "WARN":
-					aiWarningCount++
-				default:
+				} else {
+					p.Count++
 				}
-				if aiStartTime > t {
-					aiStartTime = t
-				}
-				if aiEndTime < t {
-					aiEndTime = t
-				}
-				aiTotalEntries++
+			case "WARN":
+				aiWarningCount++
+			default:
 			}
+			if aiStartTime > t {
+				aiStartTime = t
+			}
+			if aiEndTime < t {
+				aiEndTime = t
+			}
+			aiTotalEntries++
 		}
-		return nil
+		return true
 	})
 	aiErrorPatternList = []*aiErrorPattern{}
 	for _, v := range errorLogMap {

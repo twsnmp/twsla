@@ -21,7 +21,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -34,7 +33,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/gravwell/gravwell/v3/timegrinder"
 	"github.com/spf13/cobra"
-	"go.etcd.io/bbolt"
+	"github.com/twsnmp/twsla/pkg/datastore"
 )
 
 // delayCmd represents the delay command
@@ -68,7 +67,7 @@ func delayMain() {
 	if err := openDB(); err != nil {
 		log.Fatalln(err)
 	}
-	defer db.Close()
+	defer closeDB()
 	teaProg = tea.NewProgram(initDelayModel())
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -92,7 +91,6 @@ func delaySub(wg *sync.WaitGroup) {
 	defer wg.Done()
 	results = []string{}
 	sti, eti := getTimeRange()
-	sk := fmt.Sprintf("%016x:", sti)
 	var err error
 	if posDelay > 0 {
 		tg, err = getTimeGrinder()
@@ -100,63 +98,43 @@ func delaySub(wg *sync.WaitGroup) {
 			log.Fatalln(err)
 		}
 	}
-	db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket([]byte("logs"))
-		bd := tx.Bucket([]byte("delta"))
-		c := bd.Cursor()
-		if posDelay > 0 {
-			c = b.Cursor()
+	_ = ds.ForEach(sti, eti, func(entry *datastore.LogEntry) bool {
+		t := entry.Time
+		var d float64
+		if posDelay < 1 {
+			if !entry.HasDelta {
+				return true
+			}
+			d = float64(entry.Delta)
+		} else {
+			t2 := getTimestamp([]byte(entry.Log))
+			if t2 == 0 {
+				return true
+			}
+			d = float64(t2 - t)
 		}
-		for k, v := c.Seek([]byte(sk)); k != nil; k, v = c.Next() {
-			a := strings.Split(string(k), ":")
-			if len(a) < 1 {
-				continue
-			}
-			t, err := strconv.ParseInt(a[0], 16, 64)
-			if err == nil && t > eti {
-				break
-			}
-			var d float64
-			if posDelay < 1 {
-				d, err = strconv.ParseFloat(string(v), 64)
-				if err != nil {
-					continue
-				}
-				v = b.Get(k)
-				if v == nil {
-					continue
-				}
-			} else {
-				t2 := getTimestamp(v)
-				if t2 == 0 {
-					continue
-				}
-				d = float64(t2 - t)
-			}
-			l := string(v)
-			lines++
-			if matchFilter(&l) {
-				results = append(results, l)
-				delayList = append(delayList, delayEnt{
-					Log:   hit,
-					Time:  t,
-					Delay: -d / (1000 * 1000 * 1000),
-				})
-				hit++
-			}
-			if lines%100 == 0 {
-				teaProg.Send(delayMsg{Lines: lines, Hit: hit, Dur: time.Since(st)})
-			}
-			if stopSearch {
-				break
-			}
+		l := entry.Log
+		lines++
+		if matchFilter(&l) {
+			results = append(results, l)
+			delayList = append(delayList, delayEnt{
+				Log:   hit,
+				Time:  t,
+				Delay: -d / (1000 * 1000 * 1000),
+			})
+			hit++
 		}
-		return nil
+		if lines%100 == 0 {
+			teaProg.Send(delayMsg{Lines: lines, Hit: hit, Dur: time.Since(st)})
+		}
+		if stopSearch {
+			return false
+		}
+		return true
 	})
-	sort.Slice(delayList, func(a, b int) bool {
-		return delayList[a].Delay > delayList[b].Delay
+	sort.Slice(delayList, func(i, j int) bool {
+		return delayList[i].Delay > delayList[j].Delay
 	})
-
 	teaProg.Send(delayMsg{Done: true, Lines: lines, Hit: hit, Dur: time.Since(st)})
 }
 

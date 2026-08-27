@@ -21,7 +21,6 @@ import (
 	"log"
 	"os"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -33,7 +32,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/dustin/go-humanize"
 	"github.com/muesli/reflow/wordwrap"
-	"go.etcd.io/bbolt"
+	"github.com/twsnmp/twsla/pkg/datastore"
 
 	"github.com/spf13/cobra"
 )
@@ -78,7 +77,7 @@ func searchMain() {
 	if err := openDB(); err != nil {
 		log.Fatalln(err)
 	}
-	defer db.Close()
+	defer closeDB()
 	teaProg = tea.NewProgram(initSearchModel())
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -100,33 +99,20 @@ func searchSub(wg *sync.WaitGroup) {
 	makeColorList()
 	results = []string{}
 	sti, eti := getTimeRange()
-	sk := fmt.Sprintf("%016x:", sti)
 	i := 0
-	db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket([]byte("logs"))
-		c := b.Cursor()
-		for k, v := c.Seek([]byte(sk)); k != nil; k, v = c.Next() {
-			a := strings.Split(string(k), ":")
-			if len(a) < 1 {
-				continue
-			}
-			t, err := strconv.ParseInt(a[0], 16, 64)
-			if err == nil && t > eti {
-				break
-			}
-			l := string(v)
-			i++
-			if matchFilter(&l) {
-				results = append(results, l)
-			}
-			if i%100 == 0 {
-				teaProg.Send(SearchMsg{Lines: i, Hit: len(results), Dur: time.Since(st)})
-			}
-			if stopSearch {
-				break
-			}
+	_ = ds.ForEach(sti, eti, func(entry *datastore.LogEntry) bool {
+		l := entry.Log
+		i++
+		if matchFilter(&l) {
+			results = append(results, l)
 		}
-		return nil
+		if i%100 == 0 {
+			teaProg.Send(SearchMsg{Lines: i, Hit: len(results), Dur: time.Since(st)})
+		}
+		if stopSearch {
+			return false
+		}
+		return true
 	})
 	teaProg.Send(SearchMsg{Done: true, Lines: i, Hit: len(results), Dur: time.Since(st)})
 }

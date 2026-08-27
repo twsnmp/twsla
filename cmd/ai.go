@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -39,7 +38,7 @@ import (
 	"github.com/tmc/langchaingo/llms/ollama"
 	"github.com/tmc/langchaingo/llms/openai"
 	"github.com/tmc/langchaingo/prompts"
-	"go.etcd.io/bbolt"
+	"github.com/twsnmp/twsla/pkg/datastore"
 )
 
 var aiProvider = "ollama"
@@ -139,7 +138,7 @@ func aiMain() {
 	if err := openDB(); err != nil {
 		log.Fatalln(err)
 	}
-	defer db.Close()
+	defer closeDB()
 	teaProg = tea.NewProgram(initAIModel())
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -158,64 +157,52 @@ func aiSub(wg *sync.WaitGroup) {
 	errCheckList = strings.Split(strings.ToLower(aiErrorLevels), ",")
 	warnCheckList = strings.Split(strings.ToLower(aiWarnLevels), ",")
 	sti, eti := getTimeRange()
-	sk := fmt.Sprintf("%016x:", sti)
 	setupTimeGrinder()
 	i := 0
-	db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket([]byte("logs"))
-		c := b.Cursor()
-		for k, v := c.Seek([]byte(sk)); k != nil; k, v = c.Next() {
-			a := strings.Split(string(k), ":")
-			if len(a) < 1 {
-				continue
-			}
-			t, err := strconv.ParseInt(a[0], 16, 64)
-			if err == nil && t > eti {
-				break
-			}
-			l := string(v)
-			i++
-			if matchFilter(&l) {
-				hit++
-				level := getAILogLevel(&l)
-				switch level {
-				case "ERROR":
-					aiErrorCount++
-					nl := normalizeLog(l)
-					if p, ok := errorLogMap[nl]; !ok {
-						errorLogMap[nl] = &aiErrorPattern{
-							Pattern: nl,
-							Count:   1,
-							Example: l,
-						}
-					} else {
-						p.Count++
+	_ = ds.ForEach(sti, eti, func(entry *datastore.LogEntry) bool {
+		t := entry.Time
+		l := entry.Log
+		i++
+		if matchFilter(&l) {
+			hit++
+			level := getAILogLevel(&l)
+			switch level {
+			case "ERROR":
+				aiErrorCount++
+				nl := normalizeLog(l)
+				if p, ok := errorLogMap[nl]; !ok {
+					errorLogMap[nl] = &aiErrorPattern{
+						Pattern: nl,
+						Count:   1,
+						Example: l,
 					}
-				case "WARN":
-					aiWarningCount++
-				default:
+				} else {
+					p.Count++
 				}
-				if aiStartTime > t {
-					aiStartTime = t
-				}
-				if aiEndTime < t {
-					aiEndTime = t
-				}
-				aiTotalEntries++
-				aiLogs = append(aiLogs, &aiLogEntry{
-					Time:  t,
-					Log:   l,
-					Level: level,
-				})
+			case "WARN":
+				aiWarningCount++
+			default:
 			}
-			if i%100 == 0 {
-				teaProg.Send(aiImportMsg{Lines: i, Hit: hit, Dur: time.Since(st)})
+			if aiStartTime > t {
+				aiStartTime = t
 			}
-			if stopSearch {
-				break
+			if aiEndTime < t {
+				aiEndTime = t
 			}
+			aiTotalEntries++
+			aiLogs = append(aiLogs, &aiLogEntry{
+				Time:  t,
+				Log:   l,
+				Level: level,
+			})
 		}
-		return nil
+		if i%100 == 0 {
+			teaProg.Send(aiImportMsg{Lines: i, Hit: hit, Dur: time.Since(st)})
+		}
+		if stopSearch {
+			return false
+		}
+		return true
 	})
 	teaProg.Send(aiImportMsg{Done: true, Lines: i, Hit: hit, Dur: time.Since(st)})
 }

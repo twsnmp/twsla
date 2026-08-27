@@ -32,7 +32,7 @@ require (
 	github.com/muesli/reflow v0.3.0
 	github.com/oschwald/geoip2-golang v1.11.0
 	github.com/rhysd/go-github-selfupdate v1.2.3
-	github.com/spf13/cobra v1.8.1
+	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.19.0
 	github.com/tmc/langchaingo v0.1.13
 	github.com/twsnmp/twlogeye/api v0.4.0
@@ -63,6 +63,7 @@ require (
 	github.com/Masterminds/sprig/v3 v3.2.3 // indirect
 	github.com/PaesslerAG/gval v1.0.0 // indirect
 	github.com/alecthomas/participle v0.7.1 // indirect
+	github.com/andybalholm/brotli v1.1.1 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/blend/go-sdk v1.20220411.3 // indirect
@@ -71,6 +72,8 @@ require (
 	github.com/charmbracelet/x/ansi v0.8.0 // indirect
 	github.com/charmbracelet/x/cellbuf v0.0.13-0.20250311204145-2c3ea96c31dd // indirect
 	github.com/charmbracelet/x/term v0.2.1 // indirect
+	github.com/dgraph-io/badger/v4 v4.9.6 // indirect
+	github.com/dgraph-io/ristretto/v2 v2.2.0 // indirect
 	github.com/dlclark/regexp2 v1.10.0 // indirect
 	github.com/emersion/go-message v0.18.1 // indirect
 	github.com/emersion/go-sasl v0.0.0-20231106173351-e73c9f7bad43 // indirect
@@ -82,6 +85,7 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
+	github.com/google/flatbuffers v25.2.10+incompatible // indirect
 	github.com/google/generative-ai-go v0.15.1 // indirect
 	github.com/google/go-github/v30 v30.1.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
@@ -97,6 +101,7 @@ require (
 	github.com/inconshreveable/go-update v0.0.0-20160112193335-8152e7eb6ccf // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
+	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/lrstanley/bubblezone v0.0.0-20240914071701-b48c55a5e78e // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/magefile/mage v1.15.0 // indirect
@@ -116,7 +121,11 @@ require (
 	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/nikolalohinski/gonja v1.5.3 // indirect
 	github.com/oschwald/maxminddb-golang v1.13.0 // indirect
+	github.com/parquet-go/bitpack v1.0.0 // indirect
+	github.com/parquet-go/jsonlite v1.0.0 // indirect
+	github.com/parquet-go/parquet-go v0.32.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.2 // indirect
+	github.com/pierrec/lz4/v4 v4.1.21 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pkoukk/tiktoken-go v0.1.6 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
@@ -130,9 +139,10 @@ require (
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.11.0 // indirect
 	github.com/spf13/cast v1.7.1 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/tcnksm/go-gitconfig v0.1.2 // indirect
+	github.com/twpayne/go-geom v1.6.1 // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/yargevad/filepathx v1.0.0 // indirect

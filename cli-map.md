@@ -2,7 +2,7 @@
 
 ## Global Flags
 - `--config`: config file (default $HOME/.twsla.yaml)
-- `-d, --datastore`: Bbolt Log DB (default "./twsla.db")
+- `-d, --datastore`: Log DataStore path (.db, .badger, .parquet) (default "./twsla.db")
 - `-t, --timeRange`: Time range
 - `-f, --filter`: Simple filter
 - `-r, --regex`: Regexp filter

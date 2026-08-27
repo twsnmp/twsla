@@ -25,7 +25,6 @@ import (
 	"os"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -39,7 +38,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/muesli/reflow/wordwrap"
 	"github.com/spf13/cobra"
-	"go.etcd.io/bbolt"
+	"github.com/twsnmp/twsla/pkg/datastore"
 	"golang.org/x/text/encoding/japanese"
 	"golang.org/x/text/transform"
 )
@@ -120,7 +119,10 @@ func emailSearchMain() {
 	if err := openDB(); err != nil {
 		log.Fatalln(err)
 	}
-	defer db.Close()
+	defer closeDB()
+	if ds.Type() == datastore.EngineParquet {
+		log.Fatalln("email command does not support parquet datastore")
+	}
 	loadEmailSPFMap()
 	teaProg = tea.NewProgram(initEmailSearchModel())
 	var wg sync.WaitGroup
@@ -137,36 +139,23 @@ func emailSearchMain() {
 func emailSearchSub(wg *sync.WaitGroup) {
 	defer wg.Done()
 	sti, eti := getTimeRange()
-	sk := fmt.Sprintf("%016x:", sti)
 	i := 0
-	db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket([]byte("logs"))
-		c := b.Cursor()
-		for k, v := c.Seek([]byte(sk)); k != nil; k, v = c.Next() {
-			a := strings.Split(string(k), ":")
-			if len(a) < 1 {
-				continue
-			}
-			t, err := strconv.ParseInt(a[0], 16, 64)
-			if err == nil && t > eti {
-				break
-			}
-			i++
-			l := string(v)
-			email := getMailInfo(&l)
-			if matchFilter(&l) {
-				email.Time = time.Unix(0, t).Format("2006/01/02 15:04")
-				emailSearchList = append(emailSearchList, *email)
-
-			}
-			teaProg.Send(emailSearchMsg{Lines: i, Hit: len(emailSearchList), Dur: time.Since(st)})
-			if stopSearch {
-				break
-			}
+	_ = ds.ForEach(sti, eti, func(entry *datastore.LogEntry) bool {
+		t := entry.Time
+		l := entry.Log
+		i++
+		email := getMailInfo(&l)
+		if matchFilter(&l) {
+			email.Time = time.Unix(0, t).Format("2006/01/02 15:04")
+			emailSearchList = append(emailSearchList, *email)
 		}
-		return nil
+		teaProg.Send(emailSearchMsg{Lines: i, Hit: len(emailSearchList), Dur: time.Since(st)})
+		if stopSearch {
+			return false
+		}
+		return true
 	})
-	teaProg.Send(emailSearchMsg{Done: true, Lines: i, Hit: hit, Dur: time.Since(st)})
+	teaProg.Send(emailSearchMsg{Done: true, Lines: i, Hit: len(emailSearchList), Dur: time.Since(st)})
 }
 
 type emailSearchModel struct {
@@ -387,7 +376,10 @@ func emailCountMain() {
 	if err := openDB(); err != nil {
 		log.Fatalln(err)
 	}
-	defer db.Close()
+	defer closeDB()
+	if ds.Type() == datastore.EngineParquet {
+		log.Fatalln("email command does not support parquet datastore")
+	}
 	loadEmailSPFMap()
 	teaProg = tea.NewProgram(initCountModel())
 	var wg sync.WaitGroup
@@ -406,7 +398,6 @@ func emailCountSub(wg *sync.WaitGroup) {
 	var countMap = make(map[string]int)
 	intv := int64(getInterval()) * 1000 * 1000 * 1000
 	sti, eti := getTimeRange()
-	sk := fmt.Sprintf("%016x:", sti)
 	i := 0
 	hit := 0
 	mode := 0
@@ -446,59 +437,48 @@ func emailCountSub(wg *sync.WaitGroup) {
 		name = emailCountBy
 		mode = 8
 	}
-	db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket([]byte("logs"))
-		c := b.Cursor()
-		for k, v := c.Seek([]byte(sk)); k != nil; k, v = c.Next() {
-			a := strings.Split(string(k), ":")
-			if len(a) < 1 {
-				continue
-			}
-			t, err := strconv.ParseInt(a[0], 16, 64)
-			if err == nil && t > eti {
-				break
-			}
-			i++
-			l := string(v)
-			email := getMailInfo(&l)
-			if email == nil {
-				continue
-			}
-			if matchFilter(&l) {
-				switch mode {
-				case 1:
-					countMap[email.To]++
-				case 2:
-					countMap[email.From]++
-				case 3:
-					countMap[email.From+"=>"+email.To]++
-				case 4:
-					countMap[email.Subject]++
-				case 5:
-					countMap[email.SenderIP]++
-				case 6:
-					countMap[email.Domain]++
-				case 7:
-					countMap[email.SPF]++
-				case 8:
-					countMap[email.SPFList]++
-				case 9:
-					k := email.Msg.Header.Get(emailCountBy)
-					countMap[k]++
-				case 0:
-					// TIME
-					d := t / intv
-					ck := time.Unix(0, d*intv).Format("2006/01/02 15:04")
-					countMap[ck]++
-				}
-				hit++
-			}
-			teaProg.Send(SearchMsg{Lines: i, Hit: hit, Dur: time.Since(st)})
-			if stopSearch {
-				break
-			}
+	_ = ds.ForEach(sti, eti, func(entry *datastore.LogEntry) bool {
+		t := entry.Time
+		l := entry.Log
+		i++
+		email := getMailInfo(&l)
+		if email == nil {
+			return true
 		}
-		return nil
+		if matchFilter(&l) {
+			switch mode {
+			case 1:
+				countMap[email.To]++
+			case 2:
+				countMap[email.From]++
+			case 3:
+				countMap[email.From+"=>"+email.To]++
+			case 4:
+				countMap[email.Subject]++
+			case 5:
+				countMap[email.SenderIP]++
+			case 6:
+				countMap[email.Domain]++
+			case 7:
+				countMap[email.SPF]++
+			case 8:
+				countMap[email.SPFList]++
+			case 9:
+				k := email.Msg.Header.Get(emailCountBy)
+				countMap[k]++
+			case 0:
+				// TIME
+				d := t / intv
+				ck := time.Unix(0, d*intv).Format("2006/01/02 15:04")
+				countMap[ck]++
+			}
+			hit++
+		}
+		teaProg.Send(SearchMsg{Lines: i, Hit: hit, Dur: time.Since(st)})
+		if stopSearch {
+			return false
+		}
+		return true
 	})
 	for k, v := range countMap {
 		countList = append(countList, countEnt{
@@ -706,30 +686,15 @@ func getSPF(ip net.IP, helo, sender string) (string, string) {
 }
 
 func loadEmailSPFMap() {
-	db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket([]byte("emailSPF"))
-		if b == nil {
-			return nil
-		}
-		b.ForEach(func(k []byte, v []byte) error {
-			emailSPFMap[string(k)] = string(v)
-			return nil
-		})
-		return nil
-	})
+	if err := ds.LoadSPF(emailSPFMap); err != nil {
+		log.Printf("failed to load email SPF map: %v", err)
+	}
 }
 
 func saveEmailSPFMap() {
-	db.Batch(func(tx *bbolt.Tx) error {
-		b, err := tx.CreateBucketIfNotExists([]byte("emailSPF"))
-		if err != nil {
-			log.Fatalln(err)
-		}
-		for k, v := range emailSPFMap {
-			b.Put([]byte(k), []byte(v))
-		}
-		return nil
-	})
+	if err := ds.SaveSPF(emailSPFMap); err != nil {
+		log.Printf("failed to save email SPF map: %v", err)
+	}
 }
 
 func extractTimestamp(header string) (time.Time, error) {

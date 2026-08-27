@@ -24,7 +24,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -37,7 +36,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/dustin/go-humanize"
 	"github.com/spf13/cobra"
-	"go.etcd.io/bbolt"
+	"github.com/twsnmp/twsla/pkg/datastore"
 )
 
 // countCmd represents the count command
@@ -90,7 +89,7 @@ func countMain() {
 	if err := openDB(); err != nil {
 		log.Fatalln(err)
 	}
-	defer db.Close()
+	defer closeDB()
 	teaProg = tea.NewProgram(initCountModel())
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -171,63 +170,38 @@ func countSub(wg *sync.WaitGroup) {
 	}
 	intv := int64(getInterval()) * 1000 * 1000 * 1000
 	sti, eti := getTimeRange()
-	sk := fmt.Sprintf("%016x:", sti)
 	i := 0
 	hit := 0
-	db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket([]byte("logs"))
-		bd := tx.Bucket([]byte("delta"))
-		c := b.Cursor()
-		for k, v := c.Seek([]byte(sk)); k != nil; k, v = c.Next() {
-			a := strings.Split(string(k), ":")
-			if len(a) < 1 {
-				continue
-			}
-			t, err := strconv.ParseInt(a[0], 16, 64)
-			if err == nil && t > eti {
-				break
-			}
-			l := string(v)
-			i++
-			if matchFilter(&l) {
-				if delayFilter > 0 {
-					dth := int64(delayFilter) * (1000 * 1000 * 1000)
-					if posDelay > 0 {
-						t2 := getTimestamp(v)
-						if t2 == 0 || dth < (t-t2) {
-							continue
-						}
-					} else {
-						vd := bd.Get(k)
-						if vd == nil {
-							continue
-						}
-						d, err := strconv.ParseFloat(string(vd), 64)
-						if err != nil || -d < float64(dth) {
-							continue
-						}
+	_ = ds.ForEach(sti, eti, func(entry *datastore.LogEntry) bool {
+		t := entry.Time
+		l := entry.Log
+		i++
+		if matchFilter(&l) {
+			if delayFilter > 0 {
+				dth := int64(delayFilter) * (1000 * 1000 * 1000)
+				if posDelay > 0 {
+					t2 := getTimestamp([]byte(l))
+					if t2 == 0 || dth < (t-t2) {
+						return true
+					}
+				} else {
+					if !entry.HasDelta {
+						return true
+					}
+					d := float64(entry.Delta)
+					if -d < float64(dth) {
+						return true
 					}
 				}
-				switch mode {
-				case 1:
-					// JSON
-					var data map[string]interface{}
-					if ji := strings.IndexByte(string(v), '{'); ji >= 0 {
-						if err := json.Unmarshal(v[ji:], &data); err == nil {
-							if val, err := jsonpath.Get(name, data); err == nil && val != nil {
-								ck := fmt.Sprintf("%v", val)
-								if ipm > 0 {
-									ck = getIPInfo(ck, ipm)
-								}
-								countMap[ck]++
-								hit++
-							}
-						}
-					}
-				case 2:
-					// GROK
-					if data, err := gr.ParseString(l); err == nil {
-						if ck, ok := data[name]; ok {
+			}
+			switch mode {
+			case 1:
+				// JSON
+				var data map[string]interface{}
+				if ji := strings.IndexByte(l, '{'); ji >= 0 {
+					if err := json.Unmarshal([]byte(l[ji:]), &data); err == nil {
+						if val, err := jsonpath.Get(name, data); err == nil && val != nil {
+							ck := fmt.Sprintf("%v", val)
 							if ipm > 0 {
 								ck = getIPInfo(ck, ipm)
 							}
@@ -235,43 +209,11 @@ func countSub(wg *sync.WaitGroup) {
 							hit++
 						}
 					}
-				case 3:
-					// TIME
-					d := t / intv
-					ck := time.Unix(0, d*intv).Format("2006/01/02 15:04")
-					countMap[ck]++
-					hit++
-				case 4:
-					ck := normalizeLog(l)
-					countMap[ck]++
-					hit++
-				case 5:
-					words := strings.Fields(strings.ToLower(l))
-					for _, word := range words {
-						if len(word) >= 2 && len(word) <= 50 {
-							word = strings.Trim(word, ".,!?;:()[]{}\"'")
-							if len(word) >= 2 {
-								countMap[word]++
-							}
-						}
-					}
-				case 6:
-					f := strings.Fields(l)
-					if len(f) > pos {
-						k := f[pos]
-						countMap[k]++
-					}
-				case 7:
-					f := strings.Split(l, sep)
-					if len(f) > pos {
-						k := strings.TrimSpace(f[pos])
-						countMap[k]++
-					}
-				default:
-					// TWSLA
-					a := extPat.ExtReg.FindAllStringSubmatch(l, -1)
-					if len(a) >= extPat.Index && len(a[extPat.Index-1]) > 1 {
-						ck := a[extPat.Index-1][1]
+				}
+			case 2:
+				// GROK
+				if data, err := gr.ParseString(l); err == nil {
+					if ck, ok := data[name]; ok {
 						if ipm > 0 {
 							ck = getIPInfo(ck, ipm)
 						}
@@ -279,15 +221,58 @@ func countSub(wg *sync.WaitGroup) {
 						hit++
 					}
 				}
-			}
-			if i%100 == 0 {
-				teaProg.Send(SearchMsg{Lines: i, Hit: hit, Dur: time.Since(st)})
-			}
-			if stopSearch {
-				break
+			case 3:
+				// TIME
+				d := t / intv
+				ck := time.Unix(0, d*intv).Format("2006/01/02 15:04")
+				countMap[ck]++
+				hit++
+			case 4:
+				ck := normalizeLog(l)
+				countMap[ck]++
+				hit++
+			case 5:
+				words := strings.Fields(strings.ToLower(l))
+				for _, word := range words {
+					if len(word) >= 2 && len(word) <= 50 {
+						word = strings.Trim(word, ".,!?;:()[]{}\"'")
+						if len(word) >= 2 {
+							countMap[word]++
+						}
+					}
+				}
+			case 6:
+				f := strings.Fields(l)
+				if len(f) > pos {
+					k := f[pos]
+					countMap[k]++
+				}
+			case 7:
+				f := strings.Split(l, sep)
+				if len(f) > pos {
+					k := strings.TrimSpace(f[pos])
+					countMap[k]++
+				}
+			default:
+				// TWSLA
+				a := extPat.ExtReg.FindAllStringSubmatch(l, -1)
+				if len(a) >= extPat.Index && len(a[extPat.Index-1]) > 1 {
+					ck := a[extPat.Index-1][1]
+					if ipm > 0 {
+						ck = getIPInfo(ck, ipm)
+					}
+					countMap[ck]++
+					hit++
+				}
 			}
 		}
-		return nil
+		if i%100 == 0 {
+			teaProg.Send(SearchMsg{Lines: i, Hit: hit, Dur: time.Since(st)})
+		}
+		if stopSearch {
+			return false
+		}
+		return true
 	})
 	for k, v := range countMap {
 		countList = append(countList, countEnt{

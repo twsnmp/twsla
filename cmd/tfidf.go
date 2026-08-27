@@ -21,7 +21,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -35,7 +34,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/montanaflynn/stats"
 	"github.com/spf13/cobra"
-	"go.etcd.io/bbolt"
+	"github.com/twsnmp/twsla/pkg/datastore"
 )
 
 var tfidfThreshold float64
@@ -76,7 +75,7 @@ func tfidfMain() {
 	if err := openDB(); err != nil {
 		log.Fatalln(err)
 	}
-	defer db.Close()
+	defer closeDB()
 	teaProg = tea.NewProgram(initTfidfModel())
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -105,35 +104,22 @@ func tfidfSub(wg *sync.WaitGroup) {
 		tfidfCount = 1
 	}
 	sti, eti := getTimeRange()
-	sk := fmt.Sprintf("%016x:", sti)
 	lines := 0
 	hit := 0
-	db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket([]byte("logs"))
-		c := b.Cursor()
-		for k, v := c.Seek([]byte(sk)); k != nil; k, v = c.Next() {
-			a := strings.Split(string(k), ":")
-			if len(a) < 1 {
-				continue
-			}
-			t, err := strconv.ParseInt(a[0], 16, 64)
-			if err == nil && t > eti {
-				break
-			}
-			l := string(v)
-			lines++
-			if matchFilter(&l) {
-				hit++
-				results = append(results, l)
-			}
-			if lines%100 == 0 {
-				teaProg.Send(tfidfMsg{Phase: "Search", Lines: lines, Hit: hit, Dur: time.Since(st)})
-			}
-			if stopSearch {
-				break
-			}
+	_ = ds.ForEach(sti, eti, func(entry *datastore.LogEntry) bool {
+		l := entry.Log
+		lines++
+		if matchFilter(&l) {
+			hit++
+			results = append(results, l)
 		}
-		return nil
+		if lines%100 == 0 {
+			teaProg.Send(tfidfMsg{Phase: "Search", Lines: lines, Hit: hit, Dur: time.Since(st)})
+		}
+		if stopSearch {
+			return false
+		}
+		return true
 	})
 	// TF-IDF
 	tfidf := tf_idf.New(

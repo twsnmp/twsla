@@ -22,7 +22,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -34,7 +33,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/dustin/go-humanize"
 	"github.com/spf13/cobra"
-	"go.etcd.io/bbolt"
+	"github.com/twsnmp/twsla/pkg/datastore"
 )
 
 // heatmapCmd represents the heatmap command
@@ -61,7 +60,7 @@ func heatmapMain() {
 	if err := openDB(); err != nil {
 		log.Fatalln(err)
 	}
-	defer db.Close()
+	defer closeDB()
 	teaProg = tea.NewProgram(initHeatmapModel())
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -89,63 +88,51 @@ func heatmapSub(wg *sync.WaitGroup) {
 	var dateMap = make(map[string]bool)
 	defer wg.Done()
 	sti, eti := getTimeRange()
-	sk := fmt.Sprintf("%016x:", sti)
 	i := 0
 	hit := 0
-	db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket([]byte("logs"))
-		c := b.Cursor()
-		for k, v := c.Seek([]byte(sk)); k != nil; k, v = c.Next() {
-			a := strings.Split(string(k), ":")
-			if len(a) < 1 {
-				continue
-			}
-			t, err := strconv.ParseInt(a[0], 16, 64)
-			if err == nil && t > eti {
-				break
-			}
-			l := string(v)
-			i++
-			if matchFilter(&l) {
-				ih := t / (3600 * 1000 * 1000 * 1000)
-				th := time.Unix(3600*ih, 0)
-				k := ""
-				x := 0
-				if week {
-					w := th.Weekday()
-					k = w.String()
-					x = int(w)
-				} else {
-					k = th.Format("2006/01/02")
-					if _, ok := dateMap[k]; !ok {
-						dateMap[k] = true
-						dateList = append(dateList, k)
-					}
-					x = len(dateList) - 1
+	_ = ds.ForEach(sti, eti, func(entry *datastore.LogEntry) bool {
+		t := entry.Time
+		l := entry.Log
+		i++
+		if matchFilter(&l) {
+			ih := t / (3600 * 1000 * 1000 * 1000)
+			th := time.Unix(3600*ih, 0)
+			k := ""
+			x := 0
+			if week {
+				w := th.Weekday()
+				k = w.String()
+				x = int(w)
+			} else {
+				k = th.Format("2006/01/02")
+				if _, ok := dateMap[k]; !ok {
+					dateMap[k] = true
+					dateList = append(dateList, k)
 				}
-				hit++
-				h := th.Hour()
-				key := fmt.Sprintf("%s:%d", k, h)
-				if e, ok := heatmapMap[key]; ok {
-					e.Count++
-				} else {
-					heatmapMap[key] = &heapmapEnt{
-						Key:   k,
-						TimeH: h,
-						X:     x,
-						Y:     h,
-						Count: 1,
-					}
+				x = len(dateList) - 1
+			}
+			hit++
+			h := th.Hour()
+			key := fmt.Sprintf("%s:%d", k, h)
+			if e, ok := heatmapMap[key]; ok {
+				e.Count++
+			} else {
+				heatmapMap[key] = &heapmapEnt{
+					X:     x,
+					Y:     h,
+					Key:   k,
+					TimeH: h,
+					Count: 1,
 				}
-			}
-			if i%100 == 0 {
-				teaProg.Send(SearchMsg{Lines: i, Hit: hit, Dur: time.Since(st)})
-			}
-			if stopSearch {
-				break
 			}
 		}
-		return nil
+		if i%100 == 0 {
+			teaProg.Send(SearchMsg{Lines: i, Hit: hit, Dur: time.Since(st)})
+		}
+		if stopSearch {
+			return false
+		}
+		return true
 	})
 	for _, v := range heatmapMap {
 		heatmapList = append(heatmapList, v)

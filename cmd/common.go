@@ -30,8 +30,8 @@ import (
 	"github.com/domainr/dnsr"
 	"github.com/elastic/go-grok"
 	"github.com/oschwald/geoip2-golang"
+	"github.com/twsnmp/twsla/pkg/datastore"
 	"github.com/xhit/go-str2duration/v2"
-	"go.etcd.io/bbolt"
 )
 
 var dataStore string
@@ -46,7 +46,7 @@ var pos int
 // common data
 type errMsg error
 
-var db *bbolt.DB
+var ds datastore.DataStore
 var teaProg *tea.Program
 var st time.Time
 var gr *grok.Grok
@@ -80,22 +80,18 @@ var markStyle = lipgloss.NewStyle().
 	Foreground(lipgloss.Color("#FAFAFA")).
 	Background(lipgloss.Color("#c00000"))
 
-// openDB : open bbolt DB
+// openDB : open DataStore
 func openDB() error {
 	var err error
-	db, err = bbolt.Open(dataStore, 0600, &bbolt.Options{Timeout: 3 * time.Second})
-	if err != nil {
-		return err
+	ds, err = datastore.Open(dataStore)
+	return err
+}
+
+func closeDB() error {
+	if ds != nil {
+		return ds.Close()
 	}
-	return db.Update(func(tx *bbolt.Tx) error {
-		if _, err := tx.CreateBucketIfNotExists([]byte("logs")); err != nil {
-			return fmt.Errorf("create bucket: %s", err)
-		}
-		if _, err := tx.CreateBucketIfNotExists([]byte("delta")); err != nil {
-			return fmt.Errorf("create bucket: %s", err)
-		}
-		return nil
-	})
+	return nil
 }
 
 // getSimpleFilter : get filter from like test* test?k

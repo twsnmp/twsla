@@ -23,6 +23,9 @@ go.work
 dist/
 
 twsla.db
+twsla.badger/
+twsla.pq/
+twsla.parquet/
 
 .DS_Store
 .gemini/

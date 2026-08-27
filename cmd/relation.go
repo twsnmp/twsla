@@ -35,7 +35,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/dustin/go-humanize"
 	"github.com/spf13/cobra"
-	"go.etcd.io/bbolt"
+	"github.com/twsnmp/twsla/pkg/datastore"
 )
 
 type relationDataEnt struct {
@@ -139,7 +139,7 @@ func relationMain() {
 	if err := openDB(); err != nil {
 		log.Fatalln(err)
 	}
-	defer db.Close()
+	defer closeDB()
 	teaProg = tea.NewProgram(initRelationModel())
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -163,55 +163,42 @@ func relationSub(wg *sync.WaitGroup) {
 	var relationMap = make(map[string]*relationEnt)
 	defer wg.Done()
 	sti, eti := getTimeRange()
-	sk := fmt.Sprintf("%016x:", sti)
 	i := 0
 	hit := 0
-	db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket([]byte("logs"))
-		c := b.Cursor()
-		for k, v := c.Seek([]byte(sk)); k != nil; k, v = c.Next() {
-			a := strings.Split(string(k), ":")
-			if len(a) < 1 {
-				continue
-			}
-			t, err := strconv.ParseInt(a[0], 16, 64)
-			if err == nil && t > eti {
-				break
-			}
-			l := string(v)
-			i++
-			if matchFilter(&l) {
-				var vals = []string{}
-				for _, r := range relationCheckList {
-					a := r.Reg.FindAllString(l, -1)
-					if len(a) < r.Index+1 {
-						break
-					}
-					vals = append(vals, a[r.Index])
+	_ = ds.ForEach(sti, eti, func(entry *datastore.LogEntry) bool {
+		l := entry.Log
+		i++
+		if matchFilter(&l) {
+			var vals = []string{}
+			for _, r := range relationCheckList {
+				a := r.Reg.FindAllString(l, -1)
+				if len(a) < r.Index+1 {
+					break
 				}
-				if len(vals) != len(relationCheckList) {
-					continue
-				}
-				hit++
-				key := strings.Join(vals, "\t")
-				if e, ok := relationMap[key]; ok {
-					e.Count++
-				} else {
-					relationMap[key] = &relationEnt{
-						Key:    key,
-						Values: vals,
-						Count:  1,
-					}
-				}
+				vals = append(vals, a[r.Index])
 			}
-			if i%100 == 0 {
-				teaProg.Send(SearchMsg{Lines: i, Hit: hit, Dur: time.Since(st)})
+			if len(vals) != len(relationCheckList) {
+				return true
 			}
-			if stopSearch {
-				break
+			hit++
+			key := strings.Join(vals, "\t")
+			if e, ok := relationMap[key]; ok {
+				e.Count++
+			} else {
+				relationMap[key] = &relationEnt{
+					Key:    key,
+					Values: vals,
+					Count:  1,
+				}
 			}
 		}
-		return nil
+		if i%100 == 0 {
+			teaProg.Send(SearchMsg{Lines: i, Hit: hit, Dur: time.Since(st)})
+		}
+		if stopSearch {
+			return false
+		}
+		return true
 	})
 	for _, v := range relationMap {
 		relationList = append(relationList, v)

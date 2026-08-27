@@ -21,7 +21,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -33,7 +32,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/dustin/go-humanize"
 	"github.com/montanaflynn/stats"
-	"go.etcd.io/bbolt"
+	"github.com/twsnmp/twsla/pkg/datastore"
 
 	"github.com/spf13/cobra"
 )
@@ -66,7 +65,7 @@ func timeMain() {
 	if err := openDB(); err != nil {
 		log.Fatalln(err)
 	}
-	defer db.Close()
+	defer closeDB()
 	teaProg = tea.NewProgram(initTimeModel())
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -91,37 +90,25 @@ var timeList = []timeEnt{}
 func timeSub(wg *sync.WaitGroup) {
 	defer wg.Done()
 	sti, eti := getTimeRange()
-	sk := fmt.Sprintf("%016x:", sti)
 	i := 0
-	db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket([]byte("logs"))
-		c := b.Cursor()
-		for k, v := c.Seek([]byte(sk)); k != nil; k, v = c.Next() {
-			a := strings.Split(string(k), ":")
-			if len(a) < 1 {
-				continue
-			}
-			t, err := strconv.ParseInt(a[0], 16, 64)
-			if err == nil && t > eti {
-				break
-			}
-			l := string(v)
-			i++
-			if matchFilter(&l) {
-				hit++
-				timeList = append(timeList, timeEnt{
-					Log:  l,
-					Time: t,
-				})
-			}
-			if i%100 == 0 {
-				teaProg.Send(timeMsg{Lines: i, Hit: len(timeList), Dur: time.Since(st)})
-			}
-			if stopSearch {
-				break
-			}
+	_ = ds.ForEach(sti, eti, func(entry *datastore.LogEntry) bool {
+		t := entry.Time
+		l := entry.Log
+		i++
+		if matchFilter(&l) {
+			hit++
+			timeList = append(timeList, timeEnt{
+				Log:  l,
+				Time: t,
+			})
 		}
-		return nil
+		if i%100 == 0 {
+			teaProg.Send(timeMsg{Lines: i, Hit: len(timeList), Dur: time.Since(st)})
+		}
+		if stopSearch {
+			return false
+		}
+		return true
 	})
 	teaProg.Send(timeMsg{Done: true, Lines: i, Hit: len(timeList), Dur: time.Since(st)})
 }

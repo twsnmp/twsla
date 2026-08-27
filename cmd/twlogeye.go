@@ -90,7 +90,7 @@ func twLogEyeMain() {
 	if err := openDB(); err != nil {
 		log.Fatalln(err)
 	}
-	defer db.Close()
+	defer closeDB()
 	teaProg = tea.NewProgram(initImportModel())
 	logCh = make(chan *LogEnt, 10000)
 	var wg sync.WaitGroup
