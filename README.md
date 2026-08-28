@@ -236,6 +236,20 @@ You can also specify user and password via flags:
 To import from an email file (.eml):
 `twsla import sample.eml`
 
+To import from twlogeye:
+`twlogeye://192.168.1.1:8081`
+`twlogeye://192.168.1.1:8081/logs/syslog`
+Flags: `--twlogeyeTarget`, `--twlogeyeSubTarget`, `--twlogeyeLevel`, `--twlogeyeAnomaly`, `--ca`, `--cert`, `--key`.
+
+To import from Grafana Loki:
+`loki://192.168.1.1:3100` or `lokis://...`
+Flags: `--lokiQuery` (LogQL query), `--lokiOrgId` (tenant ID), `--lokiToken` (Bearer token).
+
+To import from Elasticsearch / OpenSearch:
+`es://user:pass@192.168.1.1:9200/logs-*`
+`opensearch://user:pass@192.168.1.1:9200/logs-*`
+Flags: `--esIndex`, `--esQuery`, `--esTimeField` (default `@timestamp`), `--esMessageField` (default `message`), `--esApiKey`.
+
 If you specify `--json` when reading an EVTX file from v1.1.0, the Windows event log is read in JSON format, allowing detailed information to be displayed.
 
 <video src="images/winevent.mp4" width="800" controls></video>

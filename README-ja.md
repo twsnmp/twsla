@@ -237,6 +237,22 @@ IMAPのフォルダを確認したい場合は
 --imapFolder
 を指定します。
 
+twlogeyeからのインポートにも対応しています。
+`twlogeye://192.168.1.1:8081`
+`twlogeye://192.168.1.1:8081/logs/syslog`
+`twlogeye://192.168.1.1:8081/report/anomaly/monitor`
+のように指定することで、twlogeyeの通知、ログ、レポートを取り込めます。
+オプションとして `--twlogeyeTarget`、`--twlogeyeSubTarget`、`--twlogeyeLevel`、`--twlogeyeAnomaly`、`--ca`、`--cert`、`--key` が利用可能です。
+
+Grafana Lokiからのインポート:
+`loki://192.168.1.1:3100` または `lokis://...`
+`--lokiQuery` で LogQL クエリ（例: `--lokiQuery '{job="varlog"}'`）、`--lokiOrgId` でテナントID、`--lokiToken` で認証トークンを指定できます。
+
+Elasticsearch / OpenSearch からのインポート:
+`es://user:pass@192.168.1.1:9200/logs-*`
+`opensearch://user:pass@192.168.1.1:9200/logs-*`
+`--esIndex`（インデックス指定）、`--esQuery`（Lucene検索文字列またはQuery DSL）、`--esTimeField`（タイムスタンプフィールド、デフォルト: `@timestamp`）、`--esMessageField`（メッセージフィールド、デフォルト: `message`）、`--esApiKey`（API Key）が利用可能です。
+
 emlファイルを読み込む場合は、
 ```terminal
 $ twsla import sample.eml

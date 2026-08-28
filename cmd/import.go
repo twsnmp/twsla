@@ -93,7 +93,7 @@ var importCmd = &cobra.Command{
 	Use:   "import",
 	Short: "Import log from source",
 	Long: `Import log from source
-source is file | dir | scp | ssh | twsnmp | imap | pop3
+source is file | dir | scp | ssh | twsnmp | twlogeye | loki | es | opensearch | imap | pop3
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		if listIMAPFolder {
@@ -122,7 +122,7 @@ func init() {
 	importCmd.Flags().BoolVar(&noTimeStamp, "noTS", false, "Import no time stamp file")
 	importCmd.Flags().StringVarP(&source, "source", "s", "", "Log source")
 	importCmd.Flags().StringVarP(&command, "command", "c", "", "SSH Command")
-	importCmd.Flags().StringVarP(&sshKey, "key", "k", "", "SSH Key")
+	importCmd.Flags().StringVarP(&sshKey, "key", "k", "", "SSH Key / twlogeye Client key")
 	importCmd.Flags().StringVarP(&filePat, "filePat", "p", "", "File name pattern")
 	importCmd.Flags().StringVarP(&logType, "logType", "l", "syslog", "TWSNNP FC log type")
 	importCmd.Flags().BoolVar(&listIMAPFolder, "imapFolder", false, "List IMAP folder names")
@@ -133,6 +133,26 @@ func init() {
 	importCmd.Flags().StringVar(&mlSep, "mlSep", "", "Multiline log separator pattern (regex)")
 	importCmd.Flags().IntVar(&mlLines, "mlLines", 0, "Multiline log fixed lines")
 	importCmd.Flags().BoolVar(&mlInspect, "mlInspect", false, "Inspect log to suggest multiline settings")
+
+	// twlogeye flags
+	importCmd.Flags().StringVar(&twLogEyeTarget, "twlogeyeTarget", "notify", "twlogeye target: notify | logs | report")
+	importCmd.Flags().StringVar(&twLogEyeSubTarget, "twlogeyeSubTarget", "", "twlogeye sub target: syslog | trap | netflow | winevent | otel | mqtt | monitor | anomaly")
+	importCmd.Flags().StringVar(&twLogEyeLevel, "twlogeyeLevel", "", "twlogeye notify level")
+	importCmd.Flags().StringVar(&twLogEyeAnomalyReportType, "twlogeyeAnomaly", "monitor", "twlogeye anomaly report type")
+	importCmd.Flags().StringVar(&twLogEyeCaCert, "ca", "", "CA Cert file path")
+	importCmd.Flags().StringVar(&twLogEyeClientCert, "cert", "", "Client cert file path")
+
+	// loki flags
+	importCmd.Flags().StringVar(&lokiQuery, "lokiQuery", "", "Loki LogQL query")
+	importCmd.Flags().StringVar(&lokiOrgId, "lokiOrgId", "", "Loki tenant ID (X-Scope-OrgID)")
+	importCmd.Flags().StringVar(&lokiToken, "lokiToken", "", "Loki Bearer auth token")
+
+	// es / opensearch flags
+	importCmd.Flags().StringVar(&esIndex, "esIndex", "", "Elasticsearch/OpenSearch index")
+	importCmd.Flags().StringVar(&esQuery, "esQuery", "", "Elasticsearch/OpenSearch query (Lucene or JSON)")
+	importCmd.Flags().StringVar(&esTimeField, "esTimeField", "@timestamp", "Elasticsearch/OpenSearch timestamp field")
+	importCmd.Flags().StringVar(&esMessageField, "esMessageField", "message", "Elasticsearch/OpenSearch message field")
+	importCmd.Flags().StringVar(&esApiKey, "esApiKey", "", "Elasticsearch/OpenSearch API Key")
 }
 
 func importMain() {
@@ -191,12 +211,18 @@ func importOne() {
 		importFromSSH()
 	case "twsnmp":
 		importFromTWSNMP()
+	case "twlogeye":
+		importFromTwLogEye()
+	case "loki":
+		importFromLoki()
+	case "es":
+		importFromES()
 	case "imap":
 		importEMailIMAP()
 	case "pop3":
 		importEMailPOP3()
 	default:
-		teaProg.Send(fmt.Errorf("invalid source"))
+		teaProg.Send(fmt.Errorf("invalid source: %s", source))
 		return
 	}
 }
@@ -210,6 +236,17 @@ func getSourceType() string {
 	}
 	if strings.HasPrefix(source, "twsnmp:") {
 		return "twsnmp"
+	}
+	if strings.HasPrefix(source, "twlogeye:") {
+		return "twlogeye"
+	}
+	if strings.HasPrefix(source, "loki:") || strings.HasPrefix(source, "lokis:") {
+		return "loki"
+	}
+	if strings.HasPrefix(source, "es:") || strings.HasPrefix(source, "ess:") ||
+		strings.HasPrefix(source, "elasticsearch:") || strings.HasPrefix(source, "opensearch:") ||
+		strings.HasPrefix(source, "opensearchs:") {
+		return "es"
 	}
 	if strings.HasPrefix(source, "pop:") || strings.HasPrefix(source, "pop3:") {
 		return "pop3"
@@ -588,4 +625,35 @@ func (m importModel) View() string {
 		return str + "\n"
 	}
 	return str + "\n\n" + helpStyle("Press q to quit") + "\n"
+}
+
+func sendImportMsg(msg ImportMsg) {
+	if teaProg != nil {
+		teaProg.Send(msg)
+	}
+}
+
+func sendErrorMsg(err error) {
+	if err == nil {
+		return
+	}
+	if teaProg != nil {
+		teaProg.Send(err)
+	} else {
+		log.Println("Import error:", err)
+	}
+}
+
+// getImportTimeRange returns start and end timestamps (in Unix nanos) for importing logs from remote services.
+// If timeRange is not specified, defaults to the past 24 hours (now - 24h to now).
+func getImportTimeRange() (int64, int64) {
+	st, et := getTimeRange()
+	now := time.Now().UnixNano()
+	if st == 0 {
+		st = time.Now().Add(-24 * time.Hour).UnixNano()
+	}
+	if et > now {
+		et = now
+	}
+	return st, et
 }
