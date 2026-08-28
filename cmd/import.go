@@ -564,10 +564,11 @@ func (m importModel) View() string {
 	if m.err != nil {
 		return "\n" + errorStyle(m.err.Error()) + "\n"
 	}
-	d := time.Now().Unix() - st.Unix()
-	if d > 0 {
-		d = int64(totalBytes) / d
-		m.sl.Push(float64(d))
+	dur := time.Since(st).Seconds()
+	var bytesPerSec float64
+	if dur > 0 {
+		bytesPerSec = float64(totalBytes) / dur
+		m.sl.Push(bytesPerSec)
 		m.sl.Draw()
 	}
 	str := fmt.Sprintf("%s Loading path=%s line=%s byte=%s\n  Total file=%s line=%s byte=%s time=%v\n%s %s/Sec",
@@ -580,7 +581,7 @@ func (m importModel) View() string {
 		humanize.Bytes(uint64(totalBytes)),
 		time.Since(st),
 		m.sl.View(),
-		humanize.Bytes(uint64(d)),
+		humanize.Bytes(uint64(bytesPerSec)),
 	)
 	str = importStatsStyle.Render(str)
 	if m.quitting {
