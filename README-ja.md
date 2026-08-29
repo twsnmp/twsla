@@ -548,15 +548,22 @@ v1.10から-nで珍しい上位N件を取得できるようになりました。
 v1.1.0で追加したコマンドです。ログをAI分析して異常なものを見つけるコマンドです。
 
 ```terminal
-
 Anomaly log detection
-	Detect anomaly logs using isolation forests.
-	Detection modes include walu, SQL injection, OS command injections, and directory traverses.
+	Detect anomaly logs using various machine learning and statistical algorithms:
+	  - iforest: Isolation Forest
+	  - autoencoder: Deep Learning Autoencoder via tensai
+	  - lstm: Sequential transition anomaly detection via tensai
+	  - lof: Local Outlier Factor
+	  - knn: k-Nearest Neighbor distance
+	  - mahalanobis: Mahalanobis distance
+	  - zscore: Statistical Z-Score
+	Detection modes include tfidf, walu, SQL injection, OS command injections, directory traverses, and number.
 
 Usage:
   twsla anomaly [flags]
 
 Flags:
+  -a, --algo string      Anomaly algorithm(iforest|autoencoder|lstm|lof|knn|mahalanobis|zscore) (default "iforest")
   -e, --extract string   Extract pattern
   -h, --help             help for anomaly
   -m, --mode string      Detection modes(tfidf|sql|os|dir|walu|number) (default "tfidf")
@@ -570,12 +577,20 @@ Global Flags:
   -t, --timeRange string   Time range
 ```
 
--mでモードを指定します。tfidfはTF-IDFでログの特徴ベクターを作成します。sql,os,dirは、SQLインジェクション、OSインジェクションなどに登場するキーワードの数からログの特徴ベクターを作成します。Numberは、ログに登場する数値から特徴ベクターを作成します。
--eオプションで数値の位置を指定できます。
-start*end
-のように指定すると　
-11:00 start 0.1  0.2 1.4 end
-のようなログの 0.1  0.2 1.4の３つだけ採用します。
+-mで特徴抽出モードを指定します。
+- `tfidf`: TF-IDFでログの特徴ベクターを作成します。
+- `sql`, `os`, `dir`: SQLインジェクション、OSインジェクション、パストラバーサルに登場するキーワードの頻度から特徴ベクターを作成します。
+- `walu`: Webアクセスログ向けの複合特徴量を抽出します。
+- `number`: ログに登場する数値から特徴ベクターを作成します。`-e` オプション（例: `start*end`）で数値の位置を指定可能です。
+
+-a（--algo）で異常検知アルゴリズムを指定します。
+- `iforest` (デフォルト): 孤立木（Isolation Forest）による外れ値検知。
+- `autoencoder`: [tensai](https://github.com/mattn/tensai) を利用したニューラルネットワーク自己符号化器（Autoencoder）。再構成誤差から異常を検出します。
+- `lstm`: [tensai](https://github.com/mattn/tensai) による時系列・シーケンス遷移予測誤差検知。
+- `lof`: Local Outlier Factor（局所外れ値因子法）。密度ベースの外れ値検知。
+- `knn`: k-Nearest Neighbor（k近傍平均距離）による距離ベース検知。
+- `mahalanobis`: マハラノビス距離による多変量異常検知。
+- `zscore`: 統計的偏差（Z-Score）による高速検知。
 
 分析結果は
 
@@ -1000,7 +1015,7 @@ Global Flags:
 ![ai コマンド](images/ai.png)
 
 LLMと連携してログを分析するためのコマンドです。
-v1.17.0で大きく変更しました。
+[tensai](https://github.com/mattn/tensai) による組み込み（Embedded）推論に対応しており、外部APIやOllamaサーバーなしでローカルにAI分析を実行することもできます。
 
 ![](https://assets.st-note.com/img/1758318692-ujPGHdgEcA40JOQLNhCVz7bU.png?width=1200)
 
@@ -1020,37 +1035,55 @@ Flags:
       --aiErrorLevels string   Words included in the error level log (default "error,fatal,fail,crit,alert")
       --aiLang string          Language of the response
       --aiModel string         LLM Model name
-      --aiProvider string      AI provider(ollama|gemini|openai|claude)
+      --aiProvider string      AI provider(tensai|embedded|ollama|gemini|openai|claude)
       --aiSampleSize int       Number of sample log to be analyzed by AI (default 50)
       --aiTopNError int        Number of error log patterns to be analyzed by AI (default 10)
       --aiWarnLevels string    Words included in the warning level log (default "warn")
       --aiNoMask               Do not mask PII in logs
   -h, --help                   help for ai
-
-Global Flags:
-      --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
-  -f, --filter string      Simple filter
-  -v, --not string         Invert regexp filter
-  -r, --regex string       Regexp filter
-      --sixel              show chart by sixel
-  -t, --timeRange string   Time range
 ```
 
-aiコマンドでログを分析するためには、AI(LLM）のプロバイダー、モデル、APIキー
-とログを検索するフィルターを指定して起動します。
-APIキーは、環境変数で指定します。
- GOOGLE_API_KEY : gemini
- ANTHROPIC_API_KEY : claude
- OPENAI_API_KEY: openai
-
-Ollamaの場合はAPIキーは必要ありません。
+#### プロバイダの選択
+- `--aiProvider` を明示的に指定した場合、指定したプロバイダ（`ollama`, `gemini`, `openai`, `claude`, `tensai` / `embedded`）が使用されます。
+- `--aiProvider` を省略した場合：
+  1. ローカルモデル（`~/.twsla/models/`）が存在すれば自動的に組み込みの `tensai` を使用します。
+  2. 存在しない場合、APIキー環境変数（`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`）を検索します。
+  3. APIキーも見つからない場合は `ollama` にフォールバックします。
 
 v1.21.0から、AIに分析を依頼する前にログ内のPII（個人情報：IPアドレス、メールアドレス、電話番号など）を自動的にマスクするようになりました。マスクせずに元のログを送信したい場合は、`--aiNoMask`フラグを使用してください。
 
+### model コマンド
+
+組み込みAI分析で使用するLLMモデルをローカルにダウンロード・管理するコマンドです。
+
 ```terminal
-$twsla ai -aiProvider -aiModel ollama qwen3:latest <Filter>
+Manage local LLM models for embedded AI analysis.
+Download, list, and remove models stored locally.
+
+Usage:
+  twsla model [command]
+
+Available Commands:
+  download    Download a model from Hugging Face or URL
+  list        List locally downloaded models
+  presets     List available preset models
+  remove      Remove a local model
 ```
+
+#### モデルのダウンロード
+プリセット名またはHugging FaceのGGUF URLを指定してダウンロードします。
+
+```terminal
+# プリセット一覧の確認
+$ twsla model presets
+
+# プリセットモデルのダウンロード（例: qwen2.5-0.5b）
+$ twsla model download qwen2.5-0.5b
+
+# ダウンロード済みモデル一覧
+$ twsla model list
+```
+
 ログ検索して
 
 ![](https://assets.st-note.com/img/1758318933-VnEzfqCPXT3a9hY0k6KLpy1o.png?width=1200)

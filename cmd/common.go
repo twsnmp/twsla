@@ -29,6 +29,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/domainr/dnsr"
 	"github.com/elastic/go-grok"
+	"github.com/mattn/go-runewidth"
 	"github.com/oschwald/geoip2-golang"
 	"github.com/twsnmp/twsla/pkg/datastore"
 	"github.com/xhit/go-str2duration/v2"
@@ -263,18 +264,26 @@ func setExtPat() error {
 }
 
 func wrapString(s string, w int) string {
-	r := ""
-	a := strings.Split(s, "")
-	ln := 0
-	for _, ss := range a {
-		if w < len(ss)+ln {
-			r += "\n"
-			ln = 0
-		}
-		ln += len(ss)
-		r += ss
+	if w <= 0 {
+		return s
 	}
-	return r
+	lines := strings.Split(s, "\n")
+	var result []string
+	for _, line := range lines {
+		var sb strings.Builder
+		curWidth := 0
+		for _, r := range line {
+			rw := runewidth.RuneWidth(r)
+			if curWidth > 0 && curWidth+rw > w {
+				sb.WriteRune('\n')
+				curWidth = 0
+			}
+			sb.WriteRune(r)
+			curWidth += rw
+		}
+		result = append(result, sb.String())
+	}
+	return strings.Join(result, "\n")
 }
 
 // regexp patterns

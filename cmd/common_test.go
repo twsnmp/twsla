@@ -163,6 +163,8 @@ func TestWrapString(t *testing.T) {
 		{"abcdef", 3, "abc\ndef"},
 		{"abc", 5, "abc"},
 		{"", 3, ""},
+		{"あいうえお", 4, "あい\nうえ\nお"},
+		{"こんにちは\n世界", 6, "こんに\nちは\n世界"},
 	}
 
 	for _, tt := range tests {

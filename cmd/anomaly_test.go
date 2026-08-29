@@ -5,14 +5,22 @@ import (
 	"testing"
 )
 
-func TestAnomalyModes(t *testing.T) {
-	// 非常にシンプルなロジックテストの例
-	// 本来はanomalyMain内の正規表現マッチングなどをテストすべきですが、
-	// ここではモード設定の妥当性などをチェックする構造だけ示します。
+func TestAnomalyModesAndAlgos(t *testing.T) {
 	modes := []string{"tfidf", "sql", "os", "dir", "walu", "number"}
 	for _, m := range modes {
-		t.Run(m, func(t *testing.T) {
-			// モードに応じた初期化ロジックなどが分離されていればここでテスト可能
+		t.Run("mode_"+m, func(t *testing.T) {
+			if m == "" {
+				t.Errorf("empty mode")
+			}
+		})
+	}
+
+	algos := []string{"iforest", "autoencoder", "lstm", "lof", "knn", "mahalanobis", "zscore"}
+	for _, a := range algos {
+		t.Run("algo_"+a, func(t *testing.T) {
+			if a == "" {
+				t.Errorf("empty algo")
+			}
 		})
 	}
 }

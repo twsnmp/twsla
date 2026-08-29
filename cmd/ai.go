@@ -30,7 +30,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/dustin/go-humanize"
-	"github.com/muesli/reflow/wordwrap"
 	"github.com/spf13/cobra"
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/anthropic"
@@ -38,7 +37,9 @@ import (
 	"github.com/tmc/langchaingo/llms/ollama"
 	"github.com/tmc/langchaingo/llms/openai"
 	"github.com/tmc/langchaingo/prompts"
+	aitensai "github.com/twsnmp/twsla/pkg/ai/tensai"
 	"github.com/twsnmp/twsla/pkg/datastore"
+	"github.com/twsnmp/twsla/pkg/model"
 )
 
 var aiProvider = "ollama"
@@ -108,7 +109,7 @@ Using environment variable for API key.
 
 func init() {
 	rootCmd.AddCommand(aiCmd)
-	aiCmd.Flags().StringVar(&aiProvider, "aiProvider", "", "AI provider(ollama|gemini|openai|claude)")
+	aiCmd.Flags().StringVar(&aiProvider, "aiProvider", "", "AI provider(tensai|embedded|ollama|gemini|openai|claude)")
 	aiCmd.Flags().StringVar(&aiBaseURL, "aiBaseURL", "", "AI base URL")
 	aiCmd.Flags().StringVar(&aiModelName, "aiModel", "", "LLM Model name")
 	aiCmd.Flags().StringVar(&aiErrorLevels, "aiErrorLevels", "error,fatal,fail,crit,alert", "Words included in the error level log")
@@ -271,7 +272,7 @@ func (m aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if !m.wait && (m.answer != "" || m.log != "") {
 				m.log = ""
 				m.answer = ""
-				m.viewport.SetContent(wordwrap.String(m.answer, m.viewport.Width))
+				m.viewport.SetContent(wrapString(m.answer, m.viewport.Width))
 				return m, nil
 			}
 			if m.done {
@@ -308,7 +309,7 @@ func (m aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					m.log = ""
 					m.answer = ""
-					m.viewport.SetContent(wordwrap.String(m.answer, m.viewport.Width))
+					m.viewport.SetContent(wrapString(m.answer, m.viewport.Width))
 					return m, nil
 				}
 			}
@@ -327,7 +328,7 @@ func (m aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.table.SetColumns(columns)
 		if m.answer != "" {
-			m.viewport.SetContent(wordwrap.String(m.answer, m.viewport.Width))
+			m.viewport.SetContent(wrapString(m.answer, m.viewport.Width))
 		}
 	case aiImportMsg:
 		if msg.Done {
@@ -347,7 +348,7 @@ func (m aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.answer += msg.Text
 		}
-		m.viewport.SetContent(wordwrap.String(m.answer, m.viewport.Width))
+		m.viewport.SetContent(wrapString(m.answer, m.viewport.Width))
 		m.viewport.GotoBottom()
 	default:
 		if !m.done || m.wait {
@@ -415,7 +416,27 @@ func askToAI() {
 		})
 		return
 	}
-	template := prompts.NewPromptTemplate(`
+	var template prompts.PromptTemplate
+	if isJapaneseLang(aiLang) {
+		template = prompts.NewPromptTemplate(`
+あなたはログ分析のエキスパートです。以下のログメッセージの意味と影響を日本語で分かりやすく解説してください。
+
+ログ情報:
+- 記録日時: {{.timestamp}}
+- 重要度: {{.severity}}
+- ログ本文: {{.message}}
+
+以下の項目について日本語で解説してください:
+1. 発生した事象（何が起きたか）
+2. 正常な動作か、問題の発生か
+3. 問題である場合の考えられる根本原因
+4. 推奨される対応策や調査手順
+5. システム運用における一般的な意味
+
+簡潔かつ分かりやすく、実践的な解説を日本語で記述してください。
+`, []string{"message", "severity", "timestamp"})
+	} else {
+		template = prompts.NewPromptTemplate(`
 You are an expert log analyst. Help me understand what this log message means and its implications.
 
 Log Details:
@@ -433,11 +454,9 @@ Please provide:
 Keep your response concise but informative. Focus on practical insights that would help a developer or operator understand and respond to this log entry.
 {{.add_prompt}}
 `, []string{"message", "severity", "timestamp", "add_prompt"})
-
-	addPrompt := ""
-	if aiLang != "" {
-		addPrompt = fmt.Sprintf("Responce in %s.", aiLang)
 	}
+
+	addPrompt := getAILanguagePrompt(aiLang)
 
 	prompt, err := template.Format(map[string]any{
 		"message":    getAILog(le.Log),
@@ -482,7 +501,47 @@ func aiAnalyze() {
 		sampleSize = len(aiLogs)
 	}
 	sample := aiLogs[len(aiLogs)-sampleSize:]
-	template := prompts.NewPromptTemplate(`
+
+	var template prompts.PromptTemplate
+	if isJapaneseLang(aiLang) {
+		template = prompts.NewPromptTemplate(`
+あなたはログ分析のエキスパートです。提供されたログデータを分析し、日本語でレポートを作成してください。
+
+1. **異常（Anomalies）**: 異常なパターン、急増、予期しない動作
+2. **推奨事項（Recommendations）**: システムの信頼性向上のための具体的な対応
+3. **重要課題（Critical Issues）**: 直ちに対処すべき問題
+
+ログ概要:
+- 総エントリ数: {{.total_entries}}
+- エラー数: {{.error_count}}
+- 警告数: {{.warning_count}}
+- 対象期間: {{.time_range}}
+
+頻出エラーパターン:
+{{range .top_errors}}
+- {{.pattern}} ({{.count}} 回発生)
+{{end}}
+
+最近のログサンプル:
+{{range .sample}}
+{{.timestamp}} [{{.level}}] {{.message}}
+{{end}}
+
+以下の形式でMarkdown形式で日本語で回答してください。
+- 概要（サマリー）:
+  - 総ログ数
+  - エラーログ数
+  - 警告ログ数
+  - 期間
+- 検出された異常:
+  - 種類: error_spike / performance / security / other
+  - 内容: 検出された事象
+  - 重要度: critical / high / medium / low
+  - 該当ログ例
+- 推奨対応策: 具体的なアクションプラン
+`, []string{"total_entries", "error_count", "warning_count", "time_range", "top_errors", "sample"})
+	} else {
+		template = prompts.NewPromptTemplate(`
 You are an expert system administrator analyzing logs. Based on the log data provided, identify:
 
 1. **Anomalies**: Unusual patterns, spikes, or unexpected behaviors
@@ -522,6 +581,7 @@ Please include the following information in your response. format in markdown.
 
 {{.add_prompt}}
 `, []string{"total_entries", "error_count", "warning_count", "time_range", "top_errors", "sample", "add_prompt"})
+	}
 
 	sampleData := make([]map[string]string, len(sample))
 	for i, entry := range sample {
@@ -539,10 +599,7 @@ Please include the following information in your response. format in markdown.
 			"count":   fmt.Sprintf("%d", entry.Count),
 		}
 	}
-	addPrompt := ""
-	if aiLang != "" {
-		addPrompt = fmt.Sprintf("Responce in %s.", aiLang)
-	}
+	addPrompt := getAILanguagePrompt(aiLang)
 
 	prompt, err := template.Format(map[string]any{
 		"total_entries": aiTotalEntries,
@@ -593,7 +650,25 @@ func getAILogLevel(l *string) string {
 	return "INFO"
 }
 
+func isJapaneseLang(lang string) bool {
+	l := strings.ToLower(lang)
+	return l == "ja" || l == "japanese" || l == "jp"
+}
+
+func getAILanguagePrompt(lang string) string {
+	if lang == "" {
+		return ""
+	}
+	if isJapaneseLang(lang) {
+		return "\n[IMPORTANT] Please write your entire response strictly in Japanese (必ず日本語で回答してください).\n"
+	}
+	return fmt.Sprintf("\n[IMPORTANT] Please write your entire response strictly in %s.\n", lang)
+}
+
 func findAIProvider() string {
+	if mPath, err := model.FindModel(modelDirFlag, ""); err == nil && mPath != "" {
+		return "tensai"
+	}
 	if os.Getenv("OPENAI_API_KEY") != "" {
 		return "openai"
 	}
@@ -608,6 +683,16 @@ func findAIProvider() string {
 
 func getLLM() llms.Model {
 	switch aiProvider {
+	case "tensai", "embedded":
+		modelPath, err := model.FindModel(modelDirFlag, aiModelName)
+		if err != nil {
+			log.Fatalf("tensai model error: %v (download one using 'twsla model download <preset>')", err)
+		}
+		llm, err := aitensai.New(modelPath)
+		if err != nil {
+			log.Fatalf("failed to initialize tensai LLM: %v", err)
+		}
+		return llm
 	case "ollama":
 		llm, err := ollama.New(
 			ollama.WithModel(aiModelName),

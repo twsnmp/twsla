@@ -18,6 +18,7 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -26,16 +27,16 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	go_iforest "github.com/codegaudi/go-iforest"
-	tf_idf "github.com/dkgv/go-tf-idf"
 	"github.com/dustin/go-humanize"
 	"github.com/spf13/cobra"
+	"github.com/twsnmp/twsla/pkg/anomaly"
 	"github.com/twsnmp/twsla/pkg/datastore"
 )
 
@@ -44,8 +45,15 @@ var anomalyCmd = &cobra.Command{
 	Use:   "anomaly",
 	Short: "Anomaly log detection",
 	Long: `Anomaly log detection
-	Detect anomaly logs using isolation forests.
-	Detection modes include walu, SQL injection, OS command injections, and directory traverses.
+	Detect anomaly logs using various machine learning and statistical algorithms:
+	  - iforest: Isolation Forest
+	  - autoencoder: Deep Learning Autoencoder via tensai
+	  - lstm: Sequential transition anomaly detection via tensai
+	  - lof: Local Outlier Factor
+	  - knn: k-Nearest Neighbor distance
+	  - mahalanobis: Mahalanobis distance
+	  - zscore: Statistical Z-Score
+	Detection modes include tfidf, walu, SQL injection, OS command injections, directory traverses, and number.
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		setupFilter(args)
@@ -54,10 +62,12 @@ var anomalyCmd = &cobra.Command{
 }
 
 var anomalyMode string
+var anomalyAlgo string
 
 func init() {
 	rootCmd.AddCommand(anomalyCmd)
 	anomalyCmd.Flags().StringVarP(&anomalyMode, "mode", "m", "tfidf", "Detection modes(tfidf|sql|os|dir|walu|number)")
+	anomalyCmd.Flags().StringVarP(&anomalyAlgo, "algo", "a", "iforest", "Anomaly algorithm(iforest|autoencoder|lstm|lof|knn|mahalanobis|zscore)")
 	anomalyCmd.Flags().StringVarP(&extract, "extract", "e", "", "Extract pattern")
 }
 
@@ -137,12 +147,17 @@ func anomalySub(wg *sync.WaitGroup) {
 		// TF-IDF
 		anomalyTFIDF()
 	}
-	// iforest
-	teaProg.Send(anomalyMsg{Phase: "Trainnig", PLines: 0, Lines: lines, Hit: hit, Dur: time.Since(st)})
-	iforest, err := go_iforest.NewIForest(vectors, 1000, 256)
+	// Anomaly Detection
+	teaProg.Send(anomalyMsg{Phase: "Training (" + anomalyAlgo + ")", PLines: 0, Lines: lines, Hit: hit, Dur: time.Since(st)})
+	detector, err := anomaly.NewDetector(anomalyAlgo)
 	if err != nil {
-		log.Fatalf("iforest err=%v", err)
+		log.Fatalf("anomaly detector err=%v", err)
 	}
+
+	if err := detector.Fit(vectors); err != nil {
+		log.Fatalf("training anomaly detector err=%v", err)
+	}
+
 	anomalyList = []anomalyEnt{}
 	for i, v := range vectors {
 		if i%100 == 0 {
@@ -154,7 +169,7 @@ func anomalySub(wg *sync.WaitGroup) {
 		anomalyList = append(anomalyList,
 			anomalyEnt{
 				Log:   i,
-				Score: iforest.CalculateAnomalyScore(v),
+				Score: detector.Score(v),
 			},
 		)
 	}
@@ -380,12 +395,35 @@ func saveAnomalyTSVFile(path string) {
 }
 
 func anomalyTFIDF() {
-	// TF-IDF
-	tfidf := tf_idf.New(
-		tf_idf.WithDefaultStopWords(),
-	)
-	for i, l := range results {
-		tfidf.AddDocument(l)
+	nDocs := len(results)
+	if nDocs == 0 {
+		vectors = [][]float64{}
+		return
+	}
+
+	docTokens := make([][]string, nDocs)
+	vocab := make(map[string]int)
+	df := make(map[string]int)
+
+	for i, d := range results {
+		tokens := strings.FieldsFunc(d, func(r rune) bool {
+			return !unicode.IsLetter(r) && !unicode.IsNumber(r)
+		})
+		docTokens[i] = tokens
+		seen := make(map[string]bool)
+		for _, t := range tokens {
+			t = strings.ToLower(t)
+			if len(t) < 2 {
+				continue
+			}
+			if !seen[t] {
+				seen[t] = true
+				df[t]++
+				if _, ok := vocab[t]; !ok {
+					vocab[t] = len(vocab)
+				}
+			}
+		}
 		if i%100 == 0 {
 			teaProg.Send(anomalyMsg{Phase: "Add", PLines: i, Lines: lines, Hit: hit, Dur: time.Since(st)})
 		}
@@ -393,9 +431,40 @@ func anomalyTFIDF() {
 			break
 		}
 	}
-	vectors = [][]float64{}
-	for i, l := range results {
-		vectors = append(vectors, tfidf.TermFrequencyInverseDocumentFrequencyForDocument(l))
+
+	dim := len(vocab)
+	idf := make([]float64, dim)
+	for term, idx := range vocab {
+		docFreq := df[term]
+		idf[idx] = math.Log(1.0 + float64(nDocs)/float64(docFreq+1))
+	}
+
+	vectors = make([][]float64, nDocs)
+	for i, tokens := range docTokens {
+		vec := make([]float64, dim)
+		if len(tokens) > 0 {
+			termCounts := make(map[int]int)
+			for _, t := range tokens {
+				t = strings.ToLower(t)
+				if idx, ok := vocab[t]; ok {
+					termCounts[idx]++
+				}
+			}
+			var sumSq float64
+			for idx, cnt := range termCounts {
+				tf := float64(cnt) / float64(len(tokens))
+				val := tf * idf[idx]
+				vec[idx] = val
+				sumSq += val * val
+			}
+			if sumSq > 0 {
+				norm := math.Sqrt(sumSq)
+				for j := range vec {
+					vec[j] /= norm
+				}
+			}
+		}
+		vectors[i] = vec
 		if i%100 == 0 {
 			teaProg.Send(anomalyMsg{Phase: "TFIDF", PLines: i, Lines: lines, Hit: hit, Dur: time.Since(st)})
 		}
