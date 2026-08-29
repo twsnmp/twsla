@@ -80,6 +80,12 @@ type anomalyMsg struct {
 	Dur    time.Duration
 }
 
+func sendAnomalyMsg(msg anomalyMsg) {
+	if teaProg != nil {
+		teaProg.Send(msg)
+	}
+}
+
 func anomalyMain() {
 	st = time.Now()
 	if err := openDB(); err != nil {
@@ -125,7 +131,7 @@ func anomalySub(wg *sync.WaitGroup) {
 			times = append(times, t)
 		}
 		if lines%100 == 0 {
-			teaProg.Send(anomalyMsg{Phase: "Search", Lines: lines, Hit: hit, Dur: time.Since(st)})
+			sendAnomalyMsg(anomalyMsg{Phase: "Search", Lines: lines, Hit: hit, Dur: time.Since(st)})
 		}
 		if stopSearch {
 			return false
@@ -148,7 +154,7 @@ func anomalySub(wg *sync.WaitGroup) {
 		anomalyTFIDF()
 	}
 	// Anomaly Detection
-	teaProg.Send(anomalyMsg{Phase: "Training (" + anomalyAlgo + ")", PLines: 0, Lines: lines, Hit: hit, Dur: time.Since(st)})
+	sendAnomalyMsg(anomalyMsg{Phase: "Training (" + anomalyAlgo + ")", PLines: 0, Lines: lines, Hit: hit, Dur: time.Since(st)})
 	detector, err := anomaly.NewDetector(anomalyAlgo)
 	if err != nil {
 		log.Fatalf("anomaly detector err=%v", err)
@@ -161,7 +167,7 @@ func anomalySub(wg *sync.WaitGroup) {
 	anomalyList = []anomalyEnt{}
 	for i, v := range vectors {
 		if i%100 == 0 {
-			teaProg.Send(anomalyMsg{Phase: "Score", PLines: i, Lines: lines, Hit: hit, Dur: time.Since(st)})
+			sendAnomalyMsg(anomalyMsg{Phase: "Score", PLines: i, Lines: lines, Hit: hit, Dur: time.Since(st)})
 		}
 		if stopSearch {
 			break
@@ -176,7 +182,7 @@ func anomalySub(wg *sync.WaitGroup) {
 	sort.Slice(anomalyList, func(a, b int) bool {
 		return anomalyList[a].Score > anomalyList[b].Score
 	})
-	teaProg.Send(anomalyMsg{Phase: "Done", Done: true, PLines: hit, Lines: lines, Hit: hit, Dur: time.Since(st)})
+	sendAnomalyMsg(anomalyMsg{Phase: "Done", Done: true, PLines: hit, Lines: lines, Hit: hit, Dur: time.Since(st)})
 
 }
 
@@ -425,7 +431,7 @@ func anomalyTFIDF() {
 			}
 		}
 		if i%100 == 0 {
-			teaProg.Send(anomalyMsg{Phase: "Add", PLines: i, Lines: lines, Hit: hit, Dur: time.Since(st)})
+			sendAnomalyMsg(anomalyMsg{Phase: "Add", PLines: i, Lines: lines, Hit: hit, Dur: time.Since(st)})
 		}
 		if stopSearch {
 			break
@@ -466,7 +472,7 @@ func anomalyTFIDF() {
 		}
 		vectors[i] = vec
 		if i%100 == 0 {
-			teaProg.Send(anomalyMsg{Phase: "TFIDF", PLines: i, Lines: lines, Hit: hit, Dur: time.Since(st)})
+			sendAnomalyMsg(anomalyMsg{Phase: "TFIDF", PLines: i, Lines: lines, Hit: hit, Dur: time.Since(st)})
 		}
 	}
 }
@@ -486,7 +492,7 @@ func anomalySQL() {
 			vectors = append(vectors, v)
 		}
 		if i%100 == 0 {
-			teaProg.Send(anomalyMsg{Phase: "Add", PLines: i, Lines: lines, Hit: hit, Dur: time.Since(st)})
+			sendAnomalyMsg(anomalyMsg{Phase: "Add", PLines: i, Lines: lines, Hit: hit, Dur: time.Since(st)})
 		}
 	}
 }
@@ -507,7 +513,7 @@ func anomalyOS() {
 			vectors = append(vectors, v)
 		}
 		if i%100 == 0 {
-			teaProg.Send(anomalyMsg{Phase: "Add", PLines: i, Lines: lines, Hit: hit, Dur: time.Since(st)})
+			sendAnomalyMsg(anomalyMsg{Phase: "Add", PLines: i, Lines: lines, Hit: hit, Dur: time.Since(st)})
 		}
 	}
 }
@@ -525,7 +531,7 @@ func anomalyDir() {
 			vectors = append(vectors, v)
 		}
 		if i%100 == 0 {
-			teaProg.Send(anomalyMsg{Phase: "Add", PLines: i, Lines: lines, Hit: hit, Dur: time.Since(st)})
+			sendAnomalyMsg(anomalyMsg{Phase: "Add", PLines: i, Lines: lines, Hit: hit, Dur: time.Since(st)})
 		}
 	}
 }
@@ -570,7 +576,7 @@ func anomalyNumber() {
 		}
 		vectors = append(vectors, v)
 		if i%100 == 0 {
-			teaProg.Send(anomalyMsg{Phase: "Add", PLines: i, Lines: lines, Hit: hit, Dur: time.Since(st)})
+			sendAnomalyMsg(anomalyMsg{Phase: "Add", PLines: i, Lines: lines, Hit: hit, Dur: time.Since(st)})
 		}
 	}
 }
@@ -582,7 +588,7 @@ func anomalyWalu() {
 			vectors = append(vectors, v)
 		}
 		if i%100 == 0 {
-			teaProg.Send(anomalyMsg{Phase: "Add", PLines: i, Lines: lines, Hit: hit, Dur: time.Since(st)})
+			sendAnomalyMsg(anomalyMsg{Phase: "Add", PLines: i, Lines: lines, Hit: hit, Dur: time.Since(st)})
 		}
 	}
 }
