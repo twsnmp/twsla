@@ -27,6 +27,7 @@
 - `anomaly`: Anomaly log detection
 - Flags
     - `-m, --mode`: Detection modes (tfidf|sql|os|dir|walu|number) (default "tfidf")
+    - `-a, --algo`: Anomaly algorithm (iforest|autoencoder|lstm|lof|knn|mahalanobis|zscore) (default "iforest")
     - `-e, --extract`: Extract pattern
 
 ### count
@@ -73,7 +74,7 @@
     - `-w, --week`: Week mode
 
 ### import
-- `import`: Import log from source (file | dir | scp | ssh | twsnmp | imap | pop3)
+- `import`: Import log from source (file | dir | scp | ssh | twsnmp | imap | pop3 | loki | es | opensearch | twlogeye)
 - Flags
     - `--utc`: Force UTC
     - `-b, --size`: Batch Size (default 10000)
@@ -99,6 +100,16 @@
     - `--endpoint`: MCP server endpoint (default "127.0.0.1:8085")
     - `--clients`: IP address of MCP client to be allowed to connect
     - `--geoip`: geo IP database file
+
+### model
+- `model`: Manage local LLM models
+- Subcommands
+    - `download <preset|url>`: Download a model from Hugging Face or URL
+    - `list`: List locally downloaded models
+    - `presets`: List available preset models
+    - `remove <name>`: Remove a local model
+- Flags
+    - `--modelDir`: Directory to store models (default "$HOME/.twsla/models")
 
 ### relation
 - `relation <data1> <data2>...`: Relation Analysis
@@ -130,7 +141,7 @@
 - `time`: Time analysis
 
 ### twlogeye
-- `twlogeye`: Import notify, logs and report from twlogeye
+- `twlogeye`: Import notify, logs and report from twlogeye (deprecated: use 'import twlogeye://...' instead)
 - Arguments
     - target: notify | logs | report
     - sub target: syslog | trap | netflow | winevent | otel | mqtt | monitor | anomaly

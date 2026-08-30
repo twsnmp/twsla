@@ -81,19 +81,20 @@ Available Commands:
   help        Help about any command
   import      Import log from source
   mcp         MCP server
+  model       Manage local LLM models
   relation    Relation Analysis
   search      Search logs.
   sigma       Detect threats using SIGMA rules
   tfidf       Log analysis using TF-IDF
   time        Time analysis
-  twlogeye    Import notify,logs and report from twlogeye
+  twlogeye    Import notify,logs and report from twlogeye (deprecated: use 'import twlogeye://...' instead)
   twsnmp      Get information and logs from TWSNMP FC
   update      Update twsla to the latest or specified version
   version     Show twsla version
 
 Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
+  -d, --datastore string   Log DataStore path (.db, .badger, .parquet) (default "./twsla.db")
   -f, --filter string      Simple filter
   -h, --help               help for twsla
   -v, --not string         Invert regexp filter
@@ -1235,11 +1236,65 @@ TWSLAログデータベースと対話するために、以下のツールにア
 昨日のすべてのログのサマリーを取得する場合:
 `get_log_summary(start="-1d", end="today")`
 
+### 6. `detect_threats_sigma`
+
+SIGMAルールを使用してログ内の脅威を検出します。組み込みのルール定義またはカスタムルールファイルを指定できます。
+
+**パラメータ:**
+
+*   `rules` (string, optional): SIGMAルールファイルまたはディレクトリへのパス。
+*   `config` (string, optional): 組み込みSIGMA設定マッピング名（例: "windows"）。
+*   `strict` (boolean, optional): 厳密なルール構文チェックを行うか（デフォルト: false）。
+
+### 7. `detect_anomalies`
+
+機械学習・統計アルゴリズム（Isolation Forest, Autoencoder, LSTM, LOF, k-NN, Mahalanobis, Z-Score）を用いて異常ログを検出します。
+
+**パラメータ:**
+
+*   `mode` (string, optional): 特徴抽出モード（`tfidf`, `sql`, `os`, `dir`, `walu`, `number`、デフォルト: `tfidf`）。
+*   `algo` (string, optional): 異常検知アルゴリズム（`iforest`, `autoencoder`, `lstm`, `lof`, `knn`, `mahalanobis`, `zscore`、デフォルト: `iforest`）。
+*   `filter` (string, optional): 分析対象のログフィルタ。
+*   `extract` (string, optional): `number` モード等での数値抽出パターン。
+*   `top_n` (integer, optional): 取得する上位異常ログ件数（デフォルト: 10）。
+
+### 8. `analyze_relations`
+
+ログ内に登場する複数の要素（IPアドレス、MACアドレス、メール、URL、正規表現パターン）の共起関係・関連性を分析します。
+
+**パラメータ:**
+
+*   `data` (array of string, required): 分析対象のデータ種別・パターン指定（例: `["ip", "mac"]`, `["ip", "regex/failed/red"]`）。
+*   `filter` (string, optional): 分析対象ログの正規表現フィルタ。
+*   `top_n` (integer, optional): 上位関連性の取得数（デフォルト: 10）。
+
+### 9. `analyze_tfidf`
+
+TF-IDFを用いて類似度閾値を超えない珍しいログや外れ値パターンを発見・抽出します。
+
+**パラメータ:**
+
+*   `filter` (string, optional): フィルタ。
+*   `limit` (number, optional): ログ間の類似度閾値（デフォルト: 0.5）。
+*   `count` (integer, optional): 類似ログの上限出現回数。
+*   `top_n` (integer, optional): 取得件数（デフォルト: 10）。
+
+## 利用可能なリソース (Resources)
+
+*   `twsla://db/status`: TWSLAデータベースのデータストア種別、総レコード数、記録期間（最初と最後のタイムスタンプ）をJSON形式で提供します。
+*   `twsla://sigma/rules`: TWSLAに組み込まれているSigma設定定義一覧を提供します。
+
+## 利用可能なプロンプト (Prompts)
+
+*   `incident_investigation`: セキュリティインシデントやシステム障害調査のためのタイムライン、異常値、相関分析ワークフロー。
+*   `security_threat_hunt`: SIGMA検知およびWeb攻撃異常検知を活用したプロアクティブな脅威ハンティング。
+*   `anomaly_audit`: 孤立木（Isolation Forest）やTF-IDFを用いた外れ値パターンの体系的監査。
+
 ## 一般的な指示
 
 *   常にユーザーの要求を注意深く分析して、最も適切なツールを選択してください。
 *   時間を扱うときは、相対的な期間（例: "-1h"、"-24h"）または絶対的なタイムスタンプを使用できます。
-*   複雑な質問に答えるためにツールを組み合わせてください。たとえば、最初に`search_log`を使用してデータの概要を把握し、次に`count_log`または`extract_data_from_log`を使用して詳細な分析を行うことができます。
+*   複雑な質問に答えるためにツールを組み合わせてください。たとえば、最初に`get_db_info`や`search_log`を使用してデータの概要を把握し、次に`count_log`、`detect_anomalies`、`analyze_relations`を使用して詳細な分析を行うことができます。
 *   ユーザーの要求が曖昧な場合は、ツールを実行する前に明確化を求めてください。
 
 ```
@@ -1339,19 +1394,21 @@ TWSLAのバージョンを表示します。
 
 ```terminal
 $twsla version
-twsla v1.17.0(94cb1ad24408c2dc38f7d178b2d78eaf5f6ad600) 2024-12-15T21:07:47Z
+twsla v2.0.0(commit) 2026-08-30T00:00:00Z
 ```
 
 ## 補足説明
 
 ### 対応しているログ
-2024/9時点では
 
-- テキストファイルで１行毎にタイムスタンプがあるもの
+- テキストファイルで１行毎にタイムスタンプがあるもの（複数行ログ対応）
 - Windowsのevtx形式
 - TWSNMP FCの内部ログ
 - 電子メール(.eml)
 - IMAP/POP3サーバー上のメール
+- Grafana Loki (`loki://`, `lokis://`)
+- Elasticsearch (`es://`) / OpenSearch (`opensearch://`)
+- twlogeye (`twlogeye://`)
 
 
 です。テキスト形式のファイルはZIPやtar.gzの中にあっても直接読み込めます。gzで圧縮されているファイルにも対応しています。

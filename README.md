@@ -80,19 +80,20 @@ Available Commands:
   help        Help about any command
   import      Import log from source
   mcp         MCP server
+  model       Manage local LLM models
   relation    Relation Analysis
   search      Search logs.
   sigma       Detect threats using SIGMA rules
   tfidf       Log analysis using TF-IDF
   time        Time analysis
-  twlogeye    Import notify,logs and report from twlogeye
+  twlogeye    Import notify,logs and report from twlogeye (deprecated: use 'import twlogeye://...' instead)
   twsnmp      Get information and logs from TWSNMP FC
   update      Update twsla to the latest or specified version
   version     Show twsla version
 
 Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
+  -d, --datastore string   Log DataStore path (.db, .badger, .parquet) (default "./twsla.db")
   -f, --filter string      Simple filter
   -h, --help               help for twsla
   -v, --not string         Invert regexp filter
@@ -118,7 +119,7 @@ This command imports logs and saves them in a searchable time-series database. T
 ```
 ＄twsla help import
 Import log from source
-source is file | dir | scp | ssh | twsnmp | imap | pop3
+source is file | dir | scp | ssh | twsnmp | imap | pop3 | loki | es | opensearch | twlogeye
 
 Usage:
   twsla import [flags]
@@ -541,33 +542,52 @@ Since v1.10, you can use `-n` to get the top N rare cases.
 
 <video src="images/anomaly.mp4" width="800" controls></video>
 
-Added in v1.1.0, this command analyzes logs to find anomalies.
+Added in v1.1.0 and enhanced in v2.0.0, this command analyzes logs to find anomalies using various machine learning and statistical algorithms.
 
 ```terminal
-
 Anomaly log detection
-	Detect anomaly logs using isolation forests.
-	Detection modes include walu, SQL injection, OS command injections, and directory traverses.
+	Detect anomaly logs using various machine learning and statistical algorithms:
+	  - iforest: Isolation Forest
+	  - autoencoder: Deep Learning Autoencoder via tensai
+	  - lstm: Sequential transition anomaly detection via tensai
+	  - lof: Local Outlier Factor
+	  - knn: k-Nearest Neighbor distance
+	  - mahalanobis: Mahalanobis distance
+	  - zscore: Statistical Z-Score
+	Detection modes include tfidf, walu, SQL injection, OS command injections, directory traverses, and number.
 
 Usage:
   twsla anomaly [flags]
 
 Flags:
+  -a, --algo string      Anomaly algorithm(iforest|autoencoder|lstm|lof|knn|mahalanobis|zscore) (default "iforest")
   -e, --extract string   Extract pattern
   -h, --help             help for anomaly
   -m, --mode string      Detection modes(tfidf|sql|os|dir|walu|number) (default "tfidf")
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
+  -d, --datastore string   Log DataStore path (.db, .badger, .parquet) (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
   -t, --timeRange string   Time range
 ```
 
-Specify the mode with `-m`. `tfidf` creates log vectors using TF-IDF. `sql`, `os`, and `dir` create vectors based on keywords related to those attacks. `number` creates vectors from numerical values in the log.
-Numerical positions can be specified with `-e`.
+Specify feature extraction mode with `-m`:
+- `tfidf`: Creates log vectors using TF-IDF.
+- `sql`, `os`, and `dir`: Create vectors based on keywords related to SQL injection, OS command injection, and directory traversal.
+- `walu`: Extracts composite features tailored for web access logs.
+- `number`: Creates vectors from numerical values in the log. Numerical positions can be specified with `-e` (e.g. `start*end`).
+
+Specify anomaly detection algorithm with `-a` (`--algo`):
+- `iforest` (default): Isolation Forest outlier detection.
+- `autoencoder`: Deep Learning Autoencoder via [tensai](https://github.com/mattn/tensai). Reconstructs vectors and scores reconstruction loss.
+- `lstm`: Recurrent sequential transition anomaly detection via [tensai](https://github.com/mattn/tensai).
+- `lof`: Local Outlier Factor (density-based outlier detection).
+- `knn`: k-Nearest Neighbor average distance.
+- `mahalanobis`: Multivariate Mahalanobis distance.
+- `zscore`: Fast statistical Z-Score outlier detection.
 
 ```
 start*end
@@ -927,6 +947,47 @@ Select a log and press `e` for an AI explanation, or `a` for a summary of all se
 ![](https://assets.st-note.com/img/1758352154-IHNFWpQdTta6fS97AD8e2nGV.png?width=1200)
 ![](https://assets.st-note.com/img/1758352084-BnFKucxeG4mqSoYCT6tNprH3.png?width=1200)
 
+### model command
+
+Manage local LLM models for embedded AI analysis (via [tensai](https://github.com/mattn/tensai)).
+Download, list, and remove models stored locally.
+
+```terminal
+$ twsla help model
+Manage local LLM models for embedded AI analysis.
+Download, list, and remove models stored locally.
+
+Usage:
+  twsla model [command]
+
+Available Commands:
+  download    Download a model from Hugging Face or URL
+  list        List locally downloaded models
+  presets     List available preset models
+  remove      Remove a local model
+
+Flags:
+  -h, --help              help for model
+      --modelDir string   Directory to store models (default "$HOME/.twsla/models")
+```
+
+#### Downloading Models
+
+View preset models and download one for local inference:
+
+```terminal
+$ twsla model presets
+Available Preset Models:
+
+  qwen2.5-0.5b     https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q8_0.gguf
+  qwen2.5-1.5b     https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf
+  smollm2-360m     https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct-GGUF/resolve/main/smollm2-360m-instruct-q8_0.gguf
+  tinyllama        https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf
+
+$ twsla model download qwen2.5-0.5b
+$ twsla model list
+```
+
 ### mcp command
 
 ![mcp command](images/mcp.png)
@@ -949,7 +1010,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
+  -d, --datastore string   Log DataStore path (.db, .badger, .parquet) (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -962,7 +1023,7 @@ Global Flags:
 ```
 # TWSLA Log Analysis AI - System Prompt
 
-You are an AI assistant for TWSLA (TWSNMP Log Analyzer). Your primary role is to help users analyze logs stored in the TWSLA database. You can search, count, extract data, and summarize logs.
+You are an AI assistant for TWSLA (TWSNMP Log Analyzer). Your primary role is to help users analyze logs stored in the TWSLA database. You can search, count, extract data, detect anomalies and threats, and summarize logs.
 
 ## Available Tools
 
@@ -1058,11 +1119,65 @@ Use this tool to get an overview of logs for a specified period. The summary inc
 To get a summary of all logs from yesterday:
 `get_log_summary(start="-1d", end="today")`
 
+### 6. `detect_threats_sigma`
+
+Detect security threats in logs using SIGMA rules. Supports custom rule paths or embedded configuration mappings.
+
+**Parameters:**
+
+*   `rules` (string, optional): Path to SIGMA rules directory or YAML file.
+*   `config` (string, optional): Embedded SIGMA config name (e.g. "windows").
+*   `strict` (boolean, optional): Enable strict rule parsing (default: false).
+
+### 7. `detect_anomalies`
+
+Detect anomaly logs using machine learning and statistical algorithms (Isolation Forest, Autoencoder, LSTM, LOF, k-NN, Mahalanobis, Z-Score).
+
+**Parameters:**
+
+*   `mode` (string, optional): Detection mode (`tfidf`, `sql`, `os`, `dir`, `walu`, `number`, default: `tfidf`).
+*   `algo` (string, optional): Anomaly algorithm (`iforest`, `autoencoder`, `lstm`, `lof`, `knn`, `mahalanobis`, `zscore`, default: `iforest`).
+*   `filter` (string, optional): Target log filter regex.
+*   `extract` (string, optional): Numeric extraction pattern.
+*   `top_n` (integer, optional): Top N outlier logs to return (default: 10).
+
+### 8. `analyze_relations`
+
+Analyze relationships and co-occurrences between multiple data elements (IP, MAC, Email, URL, Regex patterns).
+
+**Parameters:**
+
+*   `data` (array of string, required): Array of data patterns (e.g. `["ip", "mac"]`, `["ip", "regex/failed/red"]`).
+*   `filter` (string, optional): Log filter regex.
+*   `top_n` (integer, optional): Top N relations to return (default: 10).
+
+### 9. `analyze_tfidf`
+
+Discover rare or outlier logs based on TF-IDF similarity thresholds.
+
+**Parameters:**
+
+*   `filter` (string, optional): Log filter regex.
+*   `limit` (number, optional): Similarity threshold (default: 0.5).
+*   `count` (integer, optional): Threshold crossing limit.
+*   `top_n` (integer, optional): Top N rare logs (default: 10).
+
+## Available Resources
+
+*   `twsla://db/status`: Provides datastore type, total record count, and timestamp range of logs in JSON.
+*   `twsla://sigma/rules`: Provides list of embedded Sigma configuration mappings.
+
+## Available Prompts
+
+*   `incident_investigation`: End-to-end incident investigation workflow across timeline, anomalies, and correlations.
+*   `security_threat_hunt`: Threat hunting workflow using SIGMA detection and Web attack anomaly detection.
+*   `anomaly_audit`: System audit workflow for outliers and rare patterns.
+
 ## General Instructions
 
 *   Always analyze the user's request carefully to choose the most appropriate tool.
 *   When dealing with time, you can use relative periods (e.g., "-1h", "-24h") or absolute timestamps.
-*   Combine tools to answer complex questions. For example, use `search_log` first to get an overview of data, then use `count_log` or `extract_data_from_log` for detailed analysis.
+*   Combine tools to answer complex questions. For example, use `get_db_info` or `search_log` first to get an overview of data, then use `count_log`, `detect_anomalies`, or `analyze_relations` for detailed analysis.
 *   If the user's request is ambiguous, ask for clarification before running any tools.
 ```
 
@@ -1130,18 +1245,24 @@ Displays the `twsla` version.
 
 ```terminal
 $ twsla version
-twsla v1.17.0(94cb1ad24408c2dc38f7d178b2d78eaf5f6ad600) 2024-12-15T21:07:47Z
+twsla v2.0.0(commit) 2026-08-30T00:00:00Z
 ```
 
 ## Basic explanation
 
 ### Supported logs
 
-- Text files with timestamps per line
+- Text files with timestamps per line (including multiline logs)
 - Windows EVTX format
 - TWSNMP's internal logs
+- Email files (`.eml`)
+- Mail on IMAP/POP3 servers
+- Grafana Loki (`loki://`, `lokis://`)
+- Elasticsearch (`es://`) / OpenSearch (`opensearch://`)
+- twlogeye (`twlogeye://`)
 
-Supports ZIP, Tar.gz, and GZ compression. Timestamps are automatically detected. SCP/SSH and TWSNMP FC/FK imports are also supported.
+Supports ZIP, Tar.gz, and GZ compression. Timestamps are automatically detected. SCP/SSH and TWSNMP FC imports are also supported.
+Supports multiple datastore formats: bbolt (`.db`), BadgerDB (`.badger`), and Parquet (`.parquet`).
 
 ### Simple filter
 
