@@ -9,12 +9,14 @@ import (
 	"github.com/mattn/tensai/loss"
 	"github.com/mattn/tensai/model"
 	"github.com/mattn/tensai/optim"
+	aitensai "github.com/twsnmp/twsla/pkg/ai/tensai"
 )
 
 // AutoencoderDetector implements neural network Autoencoder anomaly detection using tensai
 type AutoencoderDetector struct {
 	epochs     int
 	lr         float32
+	noGPU      bool
 	net        *model.Sequential
 	dim        int
 	means      []float64
@@ -24,9 +26,15 @@ type AutoencoderDetector struct {
 
 // NewAutoencoderDetector creates an Autoencoder detector
 func NewAutoencoderDetector() *AutoencoderDetector {
+	return NewAutoencoderDetectorWithOptions(false)
+}
+
+// NewAutoencoderDetectorWithOptions creates an Autoencoder detector with GPU option
+func NewAutoencoderDetectorWithOptions(noGPU bool) *AutoencoderDetector {
 	return &AutoencoderDetector{
 		epochs: 30,
 		lr:     0.01,
+		noGPU:  noGPU,
 	}
 }
 
@@ -41,6 +49,12 @@ func (d *AutoencoderDetector) Fit(vectors [][]float64) error {
 		return errors.New("zero feature dimension")
 	}
 	d.dim = cols
+
+	if !d.noGPU {
+		if dev, err := aitensai.GetGPUDevice(); err == nil && dev != nil {
+			tensai.UseAccelerator(dev)
+		}
+	}
 
 	cleaned := make([][]float64, rows)
 	for i, v := range vectors {
@@ -115,8 +129,10 @@ func (d *AutoencoderDetector) Fit(vectors [][]float64) error {
 	if rows > 1000 {
 		epochs = 20
 	}
-	if err := net.Fit(mat, mat, epochs); err != nil {
-		return err
+	for e := 1; e <= epochs; e++ {
+		if _, err := net.FitStep(mat, mat); err != nil {
+			return err
+		}
 	}
 
 	d.net = net

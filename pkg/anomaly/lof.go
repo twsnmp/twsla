@@ -9,6 +9,7 @@ import (
 // LOFDetector computes Local Outlier Factor
 type LOFDetector struct {
 	k         int
+	noGPU     bool
 	trainData [][]float64
 	kDist     []float64
 	lrd       []float64
@@ -16,10 +17,15 @@ type LOFDetector struct {
 
 // NewLOFDetector creates a new LOF detector with specified k
 func NewLOFDetector(k int) *LOFDetector {
+	return NewLOFDetectorWithOptions(k, false)
+}
+
+// NewLOFDetectorWithOptions creates a new LOF detector with GPU option
+func NewLOFDetectorWithOptions(k int, noGPU bool) *LOFDetector {
 	if k < 2 {
 		k = 5
 	}
-	return &LOFDetector{k: k}
+	return &LOFDetector{k: k, noGPU: noGPU}
 }
 
 type neighbor struct {
@@ -55,7 +61,10 @@ func (d *LOFDetector) Fit(vectors [][]float64) error {
 	d.kDist = make([]float64, n)
 	d.lrd = make([]float64, n)
 
-	// Compute distance matrix / k-nearest neighbors for all points
+	// Compute distance matrix using GPU/SIMD accelerated pairwise distance matrix
+	distMatrix := ComputePairwiseDistanceMatrix(cleaned, d.noGPU)
+
+	// Compute k-nearest neighbors for all points
 	neighbors := make([][]neighbor, n)
 	for i := 0; i < n; i++ {
 		list := make([]neighbor, 0, n)
@@ -63,8 +72,7 @@ func (d *LOFDetector) Fit(vectors [][]float64) error {
 			if i == j {
 				continue
 			}
-			dist := safeEuclideanDist(cleaned[i], cleaned[j])
-			list = append(list, neighbor{idx: j, dist: dist})
+			list = append(list, neighbor{idx: j, dist: distMatrix[i][j]})
 		}
 		sort.Slice(list, func(a, b int) bool {
 			return list[a].dist < list[b].dist

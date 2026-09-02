@@ -10,6 +10,11 @@ type Detector interface {
 	Score(vector []float64) float64
 }
 
+// BatchScorer is an optional interface for detectors that support batch-accelerated scoring
+type BatchScorer interface {
+	ScoreBatch(vectors [][]float64) []float64
+}
+
 // Result represents an scored log entry
 type Result struct {
 	Index int
@@ -21,17 +26,22 @@ type ProgressCallback func(phase string, current, total int)
 
 // NewDetector creates an anomaly detector based on algorithm name
 func NewDetector(algo string) (Detector, error) {
+	return NewDetectorWithOptions(algo, false)
+}
+
+// NewDetectorWithOptions creates an anomaly detector with options
+func NewDetectorWithOptions(algo string, noGPU bool) (Detector, error) {
 	switch algo {
 	case "iforest", "isolation_forest", "":
 		return NewIForestDetector(), nil
 	case "autoencoder", "ae", "nn":
-		return NewAutoencoderDetector(), nil
+		return NewAutoencoderDetectorWithOptions(noGPU), nil
 	case "lstm", "rnn":
-		return NewLSTMDetector(), nil
+		return NewLSTMDetectorWithOptions(noGPU), nil
 	case "lof", "local_outlier_factor":
-		return NewLOFDetector(10), nil
+		return NewLOFDetectorWithOptions(10, noGPU), nil
 	case "knn", "nearest_neighbors":
-		return NewKNNDetector(5), nil
+		return NewKNNDetectorWithOptions(5, noGPU), nil
 	case "mahalanobis", "md":
 		return NewMahalanobisDetector(), nil
 	case "zscore", "stat", "iqr":

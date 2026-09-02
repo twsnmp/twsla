@@ -9,10 +9,12 @@ import (
 	"github.com/mattn/tensai/loss"
 	"github.com/mattn/tensai/model"
 	"github.com/mattn/tensai/optim"
+	aitensai "github.com/twsnmp/twsla/pkg/ai/tensai"
 )
 
 // LSTMDetector detects sequential transition anomalies
 type LSTMDetector struct {
+	noGPU      bool
 	net        *model.Sequential
 	dim        int
 	prevVector []float64
@@ -20,7 +22,12 @@ type LSTMDetector struct {
 
 // NewLSTMDetector creates an LSTM/Sequence transition anomaly detector
 func NewLSTMDetector() *LSTMDetector {
-	return &LSTMDetector{}
+	return NewLSTMDetectorWithOptions(false)
+}
+
+// NewLSTMDetectorWithOptions creates an LSTM detector with GPU option
+func NewLSTMDetectorWithOptions(noGPU bool) *LSTMDetector {
+	return &LSTMDetector{noGPU: noGPU}
 }
 
 // Fit trains the transition predictor model (predict X_{t+1} from X_t)
@@ -33,6 +40,12 @@ func (d *LSTMDetector) Fit(vectors [][]float64) error {
 		return errors.New("zero feature dimension")
 	}
 	d.dim = dim
+
+	if !d.noGPU {
+		if dev, err := aitensai.GetGPUDevice(); err == nil && dev != nil {
+			tensai.UseAccelerator(dev)
+		}
+	}
 
 	// Limit sample size for sequence training to ensure interactive responsiveness
 	maxSamples := 300
@@ -62,7 +75,6 @@ func (d *LSTMDetector) Fit(vectors [][]float64) error {
 
 	inData := make([]tensai.Float, samples*dim)
 	tgtData := make([]tensai.Float, samples*dim)
-
 	for i := 0; i < samples; i++ {
 		for j := 0; j < dim; j++ {
 			inData[i*dim+j] = tensai.Float(sampled[i][j])
@@ -97,8 +109,10 @@ func (d *LSTMDetector) Fit(vectors [][]float64) error {
 	}
 
 	epochs := 20
-	if err := net.Fit(inMat, tgtMat, epochs); err != nil {
-		return err
+	for e := 1; e <= epochs; e++ {
+		if _, err := net.FitStep(inMat, tgtMat); err != nil {
+			return err
+		}
 	}
 
 	d.net = net
@@ -138,14 +152,14 @@ func (d *LSTMDetector) Score(vector []float64) float64 {
 		return 0.0
 	}
 
-	var sumSq float64
+	var mse float64
 	for j := 0; j < d.dim; j++ {
-		diff := float64(cleanVec[j] - float64(predMat.Data[j]))
-		sumSq += diff * diff
+		diff := cleanVec[j] - float64(predMat.Data[j])
+		mse += diff * diff
 	}
-
 	copy(d.prevVector, cleanVec)
-	score := math.Sqrt(sumSq / float64(d.dim))
+
+	score := mse / float64(d.dim)
 	if math.IsNaN(score) || math.IsInf(score, 0) {
 		return 0.0
 	}

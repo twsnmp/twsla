@@ -17,6 +17,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"math"
 	"os"
@@ -45,17 +46,31 @@ var anomalyCmd = &cobra.Command{
 	Use:   "anomaly",
 	Short: "Anomaly log detection",
 	Long: `Anomaly log detection
-	Detect anomaly logs using various machine learning and statistical algorithms:
-	  - iforest: Isolation Forest
-	  - autoencoder: Deep Learning Autoencoder via tensai
-	  - lstm: Sequential transition anomaly detection via tensai
-	  - lof: Local Outlier Factor
-	  - knn: k-Nearest Neighbor distance
-	  - mahalanobis: Mahalanobis distance
-	  - zscore: Statistical Z-Score
-	Detection modes include tfidf, walu, SQL injection, OS command injections, directory traverses, and number.
-	`,
+Detect anomaly logs using various machine learning and statistical algorithms.
+
+Feature Extraction Modes (-m, --mode):
+  tfidf:       TF-IDF vectorized log tokens for finding rare/unusual log patterns (default)
+  sql:         SQL injection detection features (UNION, SELECT, SQL syntax keywords)
+  os:          OS command injection detection features (/bin/sh, cmd.exe, shell commands)
+  dir:         Directory traversal detection features (../, /etc/passwd, path traversal)
+  walu:        Web Access Log Unified composite features (status, method, latency, path)
+  number:      Numerical values extracted from logs (specify position with -e pattern)
+
+Algorithms (-a, --algo):
+  iforest:     Isolation Forest outlier detection (tree-based) (default)
+  autoencoder: Deep Learning Autoencoder via tensai (reconstruction loss)
+  lstm:        Sequential transition anomaly detection via tensai
+  lof:         Local Outlier Factor (density-based outlier detection)
+  knn:         k-Nearest Neighbor distance (distance-based anomaly detection)
+  mahalanobis: Mahalanobis distance (multivariate covariance outlier detection)
+  zscore:      Statistical Z-Score (standard deviation deviations)
+`,
 	Run: func(cmd *cobra.Command, args []string) {
+		if err := validateAnomalyFlags(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n\n", err)
+			_ = cmd.Help()
+			os.Exit(1)
+		}
 		setupFilter(args)
 		anomalyMain()
 	},
@@ -63,12 +78,39 @@ var anomalyCmd = &cobra.Command{
 
 var anomalyMode string
 var anomalyAlgo string
+var anomalyNoGPU bool
+var anomalyAccelBackend string
+
+func validateAnomalyFlags() error {
+	validAlgos := map[string]bool{
+		"iforest": true, "isolation_forest": true, "": true,
+		"autoencoder": true, "ae": true, "nn": true,
+		"lstm": true, "rnn": true,
+		"lof": true, "local_outlier_factor": true,
+		"knn": true, "nearest_neighbors": true,
+		"mahalanobis": true, "md": true,
+		"zscore": true, "stat": true, "iqr": true,
+	}
+	if !validAlgos[strings.ToLower(anomalyAlgo)] {
+		return fmt.Errorf("unknown anomaly algorithm %q (supported: iforest, autoencoder, lstm, lof, knn, mahalanobis, zscore)", anomalyAlgo)
+	}
+
+	validModes := map[string]bool{
+		"tfidf": true, "sql": true, "os": true, "dir": true, "walu": true, "number": true,
+	}
+	if !validModes[strings.ToLower(anomalyMode)] {
+		return fmt.Errorf("unknown detection mode %q (supported: tfidf, sql, os, dir, walu, number)", anomalyMode)
+	}
+	return nil
+}
 
 func init() {
 	rootCmd.AddCommand(anomalyCmd)
-	anomalyCmd.Flags().StringVarP(&anomalyMode, "mode", "m", "tfidf", "Detection modes(tfidf|sql|os|dir|walu|number)")
-	anomalyCmd.Flags().StringVarP(&anomalyAlgo, "algo", "a", "iforest", "Anomaly algorithm(iforest|autoencoder|lstm|lof|knn|mahalanobis|zscore)")
-	anomalyCmd.Flags().StringVarP(&extract, "extract", "e", "", "Extract pattern")
+	anomalyCmd.Flags().StringVarP(&anomalyMode, "mode", "m", "tfidf", "Detection modes: tfidf, sql, os, dir, walu, number")
+	anomalyCmd.Flags().StringVarP(&anomalyAlgo, "algo", "a", "iforest", "Anomaly algorithm: iforest, autoencoder, lstm, lof, knn, mahalanobis, zscore")
+	anomalyCmd.Flags().StringVarP(&extract, "extract", "e", "", "Extract pattern for number mode (e.g. start*end)")
+	anomalyCmd.Flags().BoolVar(&anomalyNoGPU, "noGPU", false, "Disable GPU acceleration and use CPU/SIMD only")
+	anomalyCmd.Flags().BoolVar(&anomalyNoGPU, "no-gpu", false, "Disable GPU acceleration and use CPU/SIMD only")
 }
 
 type anomalyMsg struct {
@@ -88,6 +130,7 @@ func sendAnomalyMsg(msg anomalyMsg) {
 
 func anomalyMain() {
 	st = time.Now()
+	log.SetOutput(io.Discard)
 	if err := openDB(); err != nil {
 		log.Fatalln(err)
 	}
@@ -154,8 +197,9 @@ func anomalySub(wg *sync.WaitGroup) {
 		anomalyTFIDF()
 	}
 	// Anomaly Detection
-	sendAnomalyMsg(anomalyMsg{Phase: "Training (" + anomalyAlgo + ")", PLines: 0, Lines: lines, Hit: hit, Dur: time.Since(st)})
-	detector, err := anomaly.NewDetector(anomalyAlgo)
+	anomalyAccelBackend = anomaly.GetActiveBackend(anomalyNoGPU)
+	sendAnomalyMsg(anomalyMsg{Phase: fmt.Sprintf("Training (%s, %s)", anomalyAlgo, anomalyAccelBackend), PLines: 0, Lines: lines, Hit: hit, Dur: time.Since(st)})
+	detector, err := anomaly.NewDetectorWithOptions(anomalyAlgo, anomalyNoGPU)
 	if err != nil {
 		log.Fatalf("anomaly detector err=%v", err)
 	}
@@ -165,19 +209,32 @@ func anomalySub(wg *sync.WaitGroup) {
 	}
 
 	anomalyList = []anomalyEnt{}
-	for i, v := range vectors {
-		if i%100 == 0 {
-			sendAnomalyMsg(anomalyMsg{Phase: "Score", PLines: i, Lines: lines, Hit: hit, Dur: time.Since(st)})
+	if bs, ok := detector.(anomaly.BatchScorer); ok {
+		sendAnomalyMsg(anomalyMsg{Phase: fmt.Sprintf("Score (%s)", anomalyAccelBackend), PLines: 0, Lines: lines, Hit: hit, Dur: time.Since(st)})
+		scores := bs.ScoreBatch(vectors)
+		for i, sc := range scores {
+			anomalyList = append(anomalyList,
+				anomalyEnt{
+					Log:   i,
+					Score: sc,
+				},
+			)
 		}
-		if stopSearch {
-			break
+	} else {
+		for i, v := range vectors {
+			if i%100 == 0 {
+				sendAnomalyMsg(anomalyMsg{Phase: "Score", PLines: i, Lines: lines, Hit: hit, Dur: time.Since(st)})
+			}
+			if stopSearch {
+				break
+			}
+			anomalyList = append(anomalyList,
+				anomalyEnt{
+					Log:   i,
+					Score: detector.Score(v),
+				},
+			)
 		}
-		anomalyList = append(anomalyList,
-			anomalyEnt{
-				Log:   i,
-				Score: detector.Score(v),
-			},
-		)
 	}
 	sort.Slice(anomalyList, func(a, b int) bool {
 		return anomalyList[a].Score > anomalyList[b].Score
@@ -365,7 +422,11 @@ func (m anomalyModel) View() string {
 }
 
 func (m anomalyModel) headerView() string {
-	title := titleStyle.Render(fmt.Sprintf("Results %d/%d %d s:%s", m.msg.Hit, m.msg.Lines, len(anomalyList), m.msg.Dur.Truncate(time.Millisecond)))
+	titleText := fmt.Sprintf("Results %d/%d %d s:%s", m.msg.Hit, m.msg.Lines, len(anomalyList), m.msg.Dur.Truncate(time.Millisecond))
+	if anomalyAccelBackend != "" {
+		titleText = fmt.Sprintf("Results %d/%d %d [%s (%s)] s:%s", m.msg.Hit, m.msg.Lines, len(anomalyList), anomalyAlgo, anomalyAccelBackend, m.msg.Dur.Truncate(time.Millisecond))
+	}
+	title := titleStyle.Render(titleText)
 	help := helpStyle("enter: Show / s: Save / r: Sort / q : Quit") + "  "
 	gap := strings.Repeat(" ", max(0, m.table.Width()-lipgloss.Width(title)-lipgloss.Width(help)))
 	return lipgloss.JoinHorizontal(lipgloss.Center, title, gap, help)

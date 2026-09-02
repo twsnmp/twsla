@@ -35,10 +35,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/0xrawsec/golang-evtx/evtx"
 	"github.com/bradleyjkemp/sigma-go/evaluator"
-	tf_idf "github.com/dkgv/go-tf-idf"
 	"github.com/domainr/dnsr"
 	"github.com/dustin/go-humanize"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -1861,30 +1861,86 @@ func analyzeTFIDF(ctx context.Context, req *mcp.CallToolRequest, args analyzeTFI
 		}, nil, nil
 	}
 
-	tfidf := tf_idf.New(
-		tf_idf.WithDefaultStopWords(),
-	)
-	for _, l := range results {
-		tfidf.AddDocument(l)
+	nDocs := len(results)
+	docTokens := make([][]string, nDocs)
+	vocab := make(map[string]int)
+	df := make(map[string]int)
+
+	for i, d := range results {
+		tokens := strings.FieldsFunc(d, func(r rune) bool {
+			return !unicode.IsLetter(r) && !unicode.IsNumber(r)
+		})
+		docTokens[i] = tokens
+		seen := make(map[string]bool)
+		for _, t := range tokens {
+			t = strings.ToLower(t)
+			if len(t) < 2 {
+				continue
+			}
+			if !seen[t] {
+				seen[t] = true
+				df[t]++
+				if _, ok := vocab[t]; !ok {
+					vocab[t] = len(vocab)
+				}
+			}
+		}
 	}
 
+	dim := len(vocab)
+	idf := make([]float64, dim)
+	for term, idx := range vocab {
+		docFreq := df[term]
+		idf[idx] = math.Log(1.0 + float64(nDocs)/float64(docFreq+1))
+	}
+
+	vectors := make([][]float64, nDocs)
+	for i, tokens := range docTokens {
+		vec := make([]float64, dim)
+		if len(tokens) > 0 {
+			termCounts := make(map[int]int)
+			for _, t := range tokens {
+				t = strings.ToLower(t)
+				if idx, ok := vocab[t]; ok {
+					termCounts[idx]++
+				}
+			}
+			var sumSq float64
+			for idx, cnt := range termCounts {
+				tf := float64(cnt) / float64(len(tokens))
+				val := tf * idf[idx]
+				vec[idx] = val
+				sumSq += val * val
+			}
+			if sumSq > 0 {
+				norm := math.Sqrt(sumSq)
+				for j := range vec {
+					vec[j] /= norm
+				}
+			}
+		}
+		vectors[i] = vec
+	}
+
+	simMatrix := anomaly.ComputeCosineSimilarityMatrix(vectors, false)
+
 	tfidfList = []tfidfEnt{}
-	for i, l1 := range results {
-		sims := []float64{}
+	for i := 0; i < nDocs; i++ {
+		sims := make([]float64, 0, nDocs-1)
 		done := true
 		cnt := 0
-		for j, l2 := range results {
+		row := simMatrix[i]
+		for j := 0; j < nDocs; j++ {
 			if i == j {
 				continue
 			}
-			if s, err := tfidf.Compare(l1, l2); err == nil {
-				sims = append(sims, s)
-				if threshold < s {
-					cnt++
-					if excludeCount > 0 && cnt > excludeCount {
-						done = false
-						break
-					}
+			s := row[j]
+			sims = append(sims, s)
+			if threshold < s {
+				cnt++
+				if excludeCount > 0 && cnt > excludeCount {
+					done = false
+					break
 				}
 			}
 		}

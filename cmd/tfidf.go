@@ -18,28 +18,32 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	tf_idf "github.com/dkgv/go-tf-idf"
 	"github.com/dustin/go-humanize"
 	"github.com/montanaflynn/stats"
 	"github.com/spf13/cobra"
+	"github.com/twsnmp/twsla/pkg/anomaly"
 	"github.com/twsnmp/twsla/pkg/datastore"
 )
 
 var tfidfThreshold float64
 var tfidfCount int
 var tfidfTop int
+var tfidfNoGPU bool
+var tfidfAccelBackend string
 
 // tfidfCmd represents the tfidf command
 var tfidfCmd = &cobra.Command{
@@ -59,6 +63,8 @@ func init() {
 	tfidfCmd.Flags().Float64VarP(&tfidfThreshold, "limit", "l", 0.5, "Similarity threshold between logs")
 	tfidfCmd.Flags().IntVarP(&tfidfCount, "count", "c", 0, "Number of threshold crossings to exclude")
 	tfidfCmd.Flags().IntVarP(&tfidfTop, "top", "n", 0, "Top N")
+	tfidfCmd.Flags().BoolVar(&tfidfNoGPU, "noGPU", false, "Disable GPU acceleration and use CPU/SIMD only")
+	tfidfCmd.Flags().BoolVar(&tfidfNoGPU, "no-gpu", false, "Disable GPU acceleration and use CPU/SIMD only")
 }
 
 type tfidfMsg struct {
@@ -121,39 +127,100 @@ func tfidfSub(wg *sync.WaitGroup) {
 		}
 		return true
 	})
-	// TF-IDF
-	tfidf := tf_idf.New(
-		tf_idf.WithDefaultStopWords(),
-	)
-	for i, l := range results {
-		tfidf.AddDocument(l)
+	// TF-IDF Feature Vector Generation
+	nDocs := len(results)
+	docTokens := make([][]string, nDocs)
+	vocab := make(map[string]int)
+	df := make(map[string]int)
+
+	for i, d := range results {
+		tokens := strings.FieldsFunc(d, func(r rune) bool {
+			return !unicode.IsLetter(r) && !unicode.IsNumber(r)
+		})
+		docTokens[i] = tokens
+		seen := make(map[string]bool)
+		for _, t := range tokens {
+			t = strings.ToLower(t)
+			if len(t) < 2 {
+				continue
+			}
+			if !seen[t] {
+				seen[t] = true
+				df[t]++
+				if _, ok := vocab[t]; !ok {
+					vocab[t] = len(vocab)
+				}
+			}
+		}
 		if i%100 == 0 {
-			teaProg.Send(tfidfMsg{Phase: "Add", PLines: i, Lines: lines, Hit: hit, Dur: time.Since(st)})
+			teaProg.Send(tfidfMsg{Phase: "Tokenize", PLines: i, Lines: lines, Hit: hit, Dur: time.Since(st)})
 		}
 		if stopSearch {
 			break
 		}
 	}
-	for i, l1 := range results {
-		sims := []float64{}
-		done := true
-		c := 0
-		for j, l2 := range results {
-			if i == j {
-				continue
+
+	dim := len(vocab)
+	idf := make([]float64, dim)
+	for term, idx := range vocab {
+		docFreq := df[term]
+		idf[idx] = math.Log(1.0 + float64(nDocs)/float64(docFreq+1))
+	}
+
+	vectors := make([][]float64, nDocs)
+	for i, tokens := range docTokens {
+		vec := make([]float64, dim)
+		if len(tokens) > 0 {
+			termCounts := make(map[int]int)
+			for _, t := range tokens {
+				t = strings.ToLower(t)
+				if idx, ok := vocab[t]; ok {
+					termCounts[idx]++
+				}
 			}
-			if s, err := tfidf.Compare(l1, l2); err == nil {
-				sims = append(sims, s)
-				if tfidfThreshold < s {
-					c++
-					if c > tfidfCount {
-						done = false
-						break
-					}
+			var sumSq float64
+			for idx, cnt := range termCounts {
+				tf := float64(cnt) / float64(len(tokens))
+				val := tf * idf[idx]
+				vec[idx] = val
+				sumSq += val * val
+			}
+			if sumSq > 0 {
+				norm := math.Sqrt(sumSq)
+				for j := range vec {
+					vec[j] /= norm
 				}
 			}
 		}
-		if done {
+		vectors[i] = vec
+	}
+
+	tfidfAccelBackend = anomaly.GetActiveBackend(tfidfNoGPU)
+	teaProg.Send(tfidfMsg{Phase: fmt.Sprintf("Matrix Sim (%s)", tfidfAccelBackend), PLines: 0, Lines: lines, Hit: hit, Dur: time.Since(st)})
+
+	// Accelerated All-Pairs Cosine Similarity Matrix (GPU / SIMD / CPU)
+	simMatrix := anomaly.ComputeCosineSimilarityMatrix(vectors, tfidfNoGPU)
+
+	for i := 0; i < nDocs; i++ {
+		sims := make([]float64, 0, nDocs-1)
+		done := true
+		c := 0
+		row := simMatrix[i]
+		for j := 0; j < nDocs; j++ {
+			if i == j {
+				continue
+			}
+			s := row[j]
+			sims = append(sims, s)
+			if tfidfThreshold < s {
+				c++
+				if c > tfidfCount {
+					done = false
+					break
+				}
+			}
+		}
+		if done && len(sims) > 0 {
 			min, _ := stats.Min(sims)
 			max, _ := stats.Max(sims)
 			mean, _ := stats.Mean(sims)
@@ -398,7 +465,11 @@ func (m tfidfModel) View() string {
 }
 
 func (m tfidfModel) headerView() string {
-	title := titleStyle.Render(fmt.Sprintf("Results %d/%d/%d s:%s", len(tfidfList), m.msg.Hit, m.msg.Lines, m.msg.Dur.Truncate(time.Millisecond)))
+	titleText := fmt.Sprintf("Results %d/%d/%d s:%s", len(tfidfList), m.msg.Hit, m.msg.Lines, m.msg.Dur.Truncate(time.Millisecond))
+	if tfidfAccelBackend != "" {
+		titleText = fmt.Sprintf("Results %d/%d/%d [%s] s:%s", len(tfidfList), m.msg.Hit, m.msg.Lines, tfidfAccelBackend, m.msg.Dur.Truncate(time.Millisecond))
+	}
+	title := titleStyle.Render(titleText)
 	help := helpStyle("enter: Show / s: Save / i,e,a: Sort / q : Quit") + "  "
 	gap := strings.Repeat(" ", max(0, m.table.Width()-lipgloss.Width(title)-lipgloss.Width(help)))
 	return lipgloss.JoinHorizontal(lipgloss.Center, title, gap, help)

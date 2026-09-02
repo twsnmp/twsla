@@ -521,6 +521,7 @@ Flags:
   -h, --help          help for tfidf
   -l, --limit float   Similarity threshold between logs (default 0.5)
   -n, --top int       Top N
+      --noGPU         Disable GPU acceleration and use CPU/SIMD only
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
@@ -530,6 +531,8 @@ Global Flags:
   -r, --regex string       Regexp filter
   -t, --timeRange string   Time range
 ```
+
+TF-IDF all-pairs cosine similarity calculation is accelerated via GPU (Metal / WebGPU) and SIMD (AVX2) matrix multiplication ($S = X \cdot X^T$), enabling rapid comparison across thousands of logs. Use `--noGPU` (or `--no-gpu`) to disable GPU and run in CPU/SIMD mode.
 
 ![](https://assets.st-note.com/img/1716675268711-yeoAjdEYAx.png?width=1200)
 
@@ -546,24 +549,34 @@ Added in v1.1.0 and enhanced in v2.0.0, this command analyzes logs to find anoma
 
 ```terminal
 Anomaly log detection
-	Detect anomaly logs using various machine learning and statistical algorithms:
-	  - iforest: Isolation Forest
-	  - autoencoder: Deep Learning Autoencoder via tensai
-	  - lstm: Sequential transition anomaly detection via tensai
-	  - lof: Local Outlier Factor
-	  - knn: k-Nearest Neighbor distance
-	  - mahalanobis: Mahalanobis distance
-	  - zscore: Statistical Z-Score
-	Detection modes include tfidf, walu, SQL injection, OS command injections, directory traverses, and number.
+Detect anomaly logs using various machine learning and statistical algorithms.
+
+Feature Extraction Modes (-m, --mode):
+  tfidf:       TF-IDF vectorized log tokens for finding rare/unusual log patterns (default)
+  sql:         SQL injection detection features (UNION, SELECT, SQL syntax keywords)
+  os:          OS command injection detection features (/bin/sh, cmd.exe, shell commands)
+  dir:         Directory traversal detection features (../, /etc/passwd, path traversal)
+  walu:        Web Access Log Unified composite features (status, method, latency, path)
+  number:      Numerical values extracted from logs (specify position with -e pattern)
+
+Algorithms (-a, --algo):
+  iforest:     Isolation Forest outlier detection (tree-based) (default)
+  autoencoder: Deep Learning Autoencoder via tensai (reconstruction loss)
+  lstm:        Sequential transition anomaly detection via tensai
+  lof:         Local Outlier Factor (density-based outlier detection)
+  knn:         k-Nearest Neighbor distance (distance-based anomaly detection)
+  mahalanobis: Mahalanobis distance (multivariate covariance outlier detection)
+  zscore:      Statistical Z-Score (standard deviation deviations)
 
 Usage:
   twsla anomaly [flags]
 
 Flags:
-  -a, --algo string      Anomaly algorithm(iforest|autoencoder|lstm|lof|knn|mahalanobis|zscore) (default "iforest")
-  -e, --extract string   Extract pattern
+  -a, --algo string      Anomaly algorithm: iforest, autoencoder, lstm, lof, knn, mahalanobis, zscore (default "iforest")
+  -e, --extract string   Extract pattern for number mode (e.g. start*end)
   -h, --help             help for anomaly
-  -m, --mode string      Detection modes(tfidf|sql|os|dir|walu|number) (default "tfidf")
+  -m, --mode string      Detection modes: tfidf, sql, os, dir, walu, number (default "tfidf")
+      --noGPU            Disable GPU acceleration and use CPU/SIMD only
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
