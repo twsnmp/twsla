@@ -16,7 +16,6 @@ require (
 	github.com/codegaudi/go-iforest v0.0.1
 	github.com/common-nighthawk/go-figure v0.0.0-20210622060536-734e95fb86be
 	github.com/dgraph-io/badger/v4 v4.9.6
-	github.com/dkgv/go-tf-idf v0.0.0-20220422104447-dad26aa7b2f4
 	github.com/domainr/dnsr v0.0.0-20241209094514-246c78985dc2
 	github.com/dustin/go-humanize v1.0.1
 	github.com/elastic/go-grok v0.3.1
@@ -25,6 +24,7 @@ require (
 	github.com/go-echarts/go-echarts/v2 v2.4.1
 	github.com/gravwell/gravwell/v3 v3.8.31
 	github.com/inconshreveable/go-update v0.0.0-20160112193335-8152e7eb6ccf
+	github.com/jlaffaye/ftp v0.2.4
 	github.com/knadh/go-pop3 v1.0.0
 	github.com/mattn/go-runewidth v0.0.16
 	github.com/mattn/go-sixel v0.0.5
@@ -100,7 +100,6 @@ require (
 	github.com/huandu/xstrings v1.3.3 // indirect
 	github.com/imdario/mergo v0.3.13 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/jlaffaye/ftp v0.2.4 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.19.2 // indirect
 	github.com/lrstanley/bubblezone v0.0.0-20240914071701-b48c55a5e78e // indirect
