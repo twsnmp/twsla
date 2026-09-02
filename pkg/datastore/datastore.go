@@ -46,7 +46,7 @@ func ParseID(id string) (int64, string, int, error) {
 	if err != nil {
 		return 0, "", 0, fmt.Errorf("invalid time in log id: %w", err)
 	}
-	line, err := strconv.ParseInt(parts[2], 16, 64)
+	line, err := strconv.ParseInt(parts[2], 16, 0)
 	if err != nil {
 		return t, parts[1], 0, fmt.Errorf("invalid line in log id: %w", err)
 	}

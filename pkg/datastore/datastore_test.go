@@ -138,3 +138,32 @@ func TestDataStores(t *testing.T) {
 		})
 	}
 }
+
+func TestLogEntryIDAndParseID(t *testing.T) {
+	entry := &LogEntry{
+		Time: 1716000000000,
+		Hash: "abcdef123456",
+		Line: 42,
+	}
+	id := entry.ID()
+	tm, hash, line, err := ParseID(id)
+	if err != nil {
+		t.Fatalf("ParseID failed: %v", err)
+	}
+	if tm != entry.Time || hash != entry.Hash || line != entry.Line {
+		t.Errorf("expected (%d, %s, %d), got (%d, %s, %d)", entry.Time, entry.Hash, entry.Line, tm, hash, line)
+	}
+
+	// Test invalid ID formats
+	invalidIDs := []string{
+		"invalid",
+		"invalid:hash",
+		"invalid_time:hash:1",
+		"1000:hash:invalid_line",
+	}
+	for _, inv := range invalidIDs {
+		if _, _, _, err := ParseID(inv); err == nil {
+			t.Errorf("expected error for invalid ID '%s', got nil", inv)
+		}
+	}
+}
