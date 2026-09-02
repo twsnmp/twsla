@@ -40,8 +40,9 @@ Download, list, and remove models stored locally.`,
 }
 
 var modelListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List locally downloaded models",
+	Use:     "list",
+	Aliases: []string{"ls"},
+	Short:   "List locally downloaded models",
 	Run: func(cmd *cobra.Command, args []string) {
 		models, err := model.ListModels(modelDirFlag)
 		if err != nil {
@@ -97,8 +98,9 @@ var modelDownloadCmd = &cobra.Command{
 }
 
 var modelRemoveCmd = &cobra.Command{
-	Use:   "remove [model_name]",
-	Short: "Remove a local model",
+	Use:     "remove [model_name_or_preset]",
+	Aliases: []string{"rm"},
+	Short:   "Remove a local model",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0]

@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -114,7 +115,7 @@ func init() {
 	rootCmd.AddCommand(aiCmd)
 	aiCmd.Flags().StringVar(&aiProvider, "aiProvider", "", "AI provider(tensai|embedded|ollama|gemini|openai|claude)")
 	aiCmd.Flags().StringVar(&aiBaseURL, "aiBaseURL", "", "AI base URL")
-	aiCmd.Flags().StringVar(&aiModelName, "aiModel", "", "LLM Model name")
+	aiCmd.Flags().StringVar(&aiModelName, "aiModel", "", "LLM Model name or preset (e.g. qwen2.5-0.5b, smollm2-135m)")
 	aiCmd.Flags().StringVar(&aiErrorLevels, "aiErrorLevels", "error,fatal,fail,crit,alert", "Words included in the error level log")
 	aiCmd.Flags().StringVar(&aiWarnLevels, "aiWarnLevels", "warn", "Words included in the warning level log")
 	aiCmd.Flags().IntVar(&aiTopNError, "aiTopNError", 10, "Number of error log patterns to be analyzed by AI")
@@ -726,17 +727,28 @@ func findAIProvider() string {
 	return "ollama"
 }
 
+var cachedLLM llms.Model
+
 func getLLM() llms.Model {
+	if cachedLLM != nil {
+		return cachedLLM
+	}
 	switch aiProvider {
 	case "tensai", "embedded":
 		modelPath, err := model.FindModel(modelDirFlag, aiModelName)
 		if err != nil {
 			log.Fatalf("tensai model error: %v (download one using 'twsla model download <preset>')", err)
 		}
+		modelBase := filepath.Base(modelPath)
+		fmt.Printf("Loading AI model (%s) ...\n", modelBase)
+		t0 := time.Now()
 		llm, err := aitensai.NewWithOptions(modelPath, aiNoGPU)
 		if err != nil {
 			log.Fatalf("failed to initialize tensai LLM: %v", err)
 		}
+		accType, accDetail := llm.Acceleration()
+		fmt.Printf("AI model loaded in %s [%s: %s]\n", time.Since(t0).Round(time.Millisecond), accType, accDetail)
+		cachedLLM = llm
 		return llm
 	case "ollama":
 		llm, err := ollama.New(
@@ -746,6 +758,7 @@ func getLLM() llms.Model {
 		if err != nil {
 			log.Fatalf("get llm err=%v", err)
 		}
+		cachedLLM = llm
 		return llm
 	case "gemini", "googleai":
 		if aiModelName != "" {
@@ -753,12 +766,14 @@ func getLLM() llms.Model {
 			if err != nil {
 				log.Fatalf("get llm err=%v", err)
 			}
+			cachedLLM = llm
 			return llm
 		} else {
 			llm, err := googleai.New(context.Background())
 			if err != nil {
 				log.Fatalf("get llm err=%v", err)
 			}
+			cachedLLM = llm
 			return llm
 		}
 	case "openai":
@@ -767,12 +782,14 @@ func getLLM() llms.Model {
 			if err != nil {
 				log.Fatalf("get llm err=%v", err)
 			}
+			cachedLLM = llm
 			return llm
 		} else {
 			llm, err := openai.New()
 			if err != nil {
 				log.Fatalf("get llm err=%v", err)
 			}
+			cachedLLM = llm
 			return llm
 		}
 	case "anthropic", "claude":
@@ -781,12 +798,14 @@ func getLLM() llms.Model {
 			if err != nil {
 				log.Fatalf("get llm err=%v", err)
 			}
+			cachedLLM = llm
 			return llm
 		} else {
 			llm, err := anthropic.New()
 			if err != nil {
 				log.Fatalf("get llm err=%v", err)
 			}
+			cachedLLM = llm
 			return llm
 		}
 	}

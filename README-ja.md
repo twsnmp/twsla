@@ -1056,7 +1056,7 @@ Flags:
       --aiBaseURL string       AI base URL
       --aiErrorLevels string   Words included in the error level log (default "error,fatal,fail,crit,alert")
       --aiLang string          Language of the response
-      --aiModel string         LLM Model name
+      --aiModel string         LLM Model name or preset (e.g. qwen2.5-0.5b, smollm2-135m)
       --aiProvider string      AI provider(tensai|embedded|ollama|gemini|openai|claude)
       --aiSampleSize int       Number of sample log to be analyzed by AI (default 50)
       --aiTopNError int        Number of error log patterns to be analyzed by AI (default 10)
@@ -1068,6 +1068,7 @@ Flags:
 
 #### プロバイダの選択とGPU/CPU切り替え
 - `--aiProvider` を明示的に指定した場合、指定したプロバイダ（`ollama`, `gemini`, `openai`, `claude`, `tensai` / `embedded`）が使用されます。
+- `--aiModel` でモデルを指定できます。tensaiプロバイダでは、ファイル名だけでなくプリセット名（例: `qwen2.5-coder-0.5b`, `smollm2-135m`）での直接指定も可能です。
 - `--aiProvider` を省略した場合：
   1. ローカルモデル（`~/.twsla/models/`）が存在すれば自動的に組み込みの `tensai` を使用します。
   2. 存在しない場合、APIキー環境変数（`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`）を検索します。
@@ -1090,9 +1091,9 @@ Usage:
 Available Commands:
   download      Download a model from Hugging Face or URL
   download-gpu  Download and install wgpu-native library for GPU acceleration
-  list          List locally downloaded models
+  list          List locally downloaded models (alias: ls)
   presets       List available preset models
-  remove        Remove a local model
+  remove        Remove a local model (alias: rm)
   status        Show model directory and hardware acceleration status
 ```
 
@@ -1109,12 +1110,32 @@ $ twsla model download-gpu
 # プリセット一覧の確認
 $ twsla model presets
 
-# プリセットモデルのダウンロード（例: qwen2.5-0.5b）
-$ twsla model download qwen2.5-0.5b
+# プリセットモデルのダウンロード（例: qwen2.5-coder-0.5b）
+$ twsla model download qwen2.5-coder-0.5b
 
-# ダウンロード済みモデル一覧
+# ダウンロード済みモデル一覧（短縮コマンド: ls）
 $ twsla model list
+$ twsla model ls
+
+# モデルの削除（短縮コマンド: rm、プリセット名でも指定可能）
+$ twsla model rm qwen2.5-coder-0.5b
 ```
+
+**利用可能なプリセットモデル:**
+
+| プリセット名 | モデル | サイズ目安 | 特徴・用途 |
+|---|---|---|---|
+| `qwen2.5-0.5b` | Qwen2.5-0.5B-Instruct (Q8_0) | 約 500MB | 標準軽量モデル（汎用） |
+| `qwen2.5-1.5b` | Qwen2.5-1.5B-Instruct (Q4_K_M) | 約 1.0GB | 高精度軽量モデル（汎用） |
+| `qwen2.5-coder-0.5b` | Qwen2.5-Coder-0.5B-Instruct (Q8_0) | 約 500MB | ログ・JSON・コード構造解析特化 |
+| `qwen2.5-coder-1.5b` | Qwen2.5-Coder-1.5B-Instruct (Q4_K_M) | 約 1.0GB | 高精度コード・ログ解析 |
+| `smollm2-135m` | SmolLM2-135M-Instruct (Q8_0) | 約 145MB | 極小超軽量・高速（IoT/省リソース向け） |
+| `smollm2-360m` | SmolLM2-360M-Instruct (Q8_0) | 約 380MB | 軽量バランスモデル |
+| `smollm2-1.7b` | SmolLM2-1.7B-Instruct (Q4_K_M) | 約 1.1GB | SmolLM2上位高精度モデル |
+| `deepseek-r1-1.5b` | DeepSeek-R1-Distill-Qwen-1.5B (Q4_K_M) | 約 1.1GB | `<think>` 思考プロセスを持つ推論型モデル |
+| `llama-3.2-1b` | Llama-3.2-1B-Instruct (Q4_K_M) | 約 800MB | Meta Llama 3.2 1B モデル |
+| `tinyllama` | TinyLlama-1.1B-Chat-v1.0 (Q4_K_M) | 約 670MB | クラシック軽量モデル |
+
 
 ログ検索して
 

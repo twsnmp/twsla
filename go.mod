@@ -28,7 +28,7 @@ require (
 	github.com/knadh/go-pop3 v1.0.0
 	github.com/mattn/go-runewidth v0.0.16
 	github.com/mattn/go-sixel v0.0.5
-	github.com/mattn/tensai v0.0.22
+	github.com/mattn/tensai v0.0.25
 	github.com/modelcontextprotocol/go-sdk v1.4.1
 	github.com/montanaflynn/stats v0.7.1
 	github.com/muesli/reflow v0.3.0

@@ -37,10 +37,16 @@ func DefaultModelDir() string {
 
 // PresetModels defines recommended lightweight models for twsla
 var PresetModels = map[string]string{
-	"qwen2.5-0.5b": "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q8_0.gguf",
-	"qwen2.5-1.5b": "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf",
-	"tinyllama":    "https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf",
-	"smollm2-360m": "https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct-GGUF/resolve/main/smollm2-360m-instruct-q8_0.gguf",
+	"qwen2.5-0.5b":       "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q8_0.gguf",
+	"qwen2.5-1.5b":       "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf",
+	"qwen2.5-coder-0.5b": "https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-0.5b-instruct-q8_0.gguf",
+	"qwen2.5-coder-1.5b": "https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf",
+	"smollm2-135m":       "https://huggingface.co/bartowski/SmolLM2-135M-Instruct-GGUF/resolve/main/SmolLM2-135M-Instruct-Q8_0.gguf",
+	"smollm2-360m":       "https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct-GGUF/resolve/main/smollm2-360m-instruct-q8_0.gguf",
+	"smollm2-1.7b":       "https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF/resolve/main/smollm2-1.7b-instruct-q4_k_m.gguf",
+	"llama-3.2-1b":       "https://huggingface.co/unsloth/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf",
+	"deepseek-r1-1.5b":   "https://huggingface.co/unsloth/DeepSeek-R1-Distill-Qwen-1.5B-GGUF/resolve/main/DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_M.gguf",
+	"tinyllama":          "https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf",
 }
 
 // ListModels returns a list of models in the model directory
@@ -99,7 +105,7 @@ func ListModels(modelDir string) ([]ModelInfo, error) {
 	return list, nil
 }
 
-// FindModel locates a model by name, filename, or returns the first available model if name is empty
+// FindModel locates a model by name, filename, preset name, or returns the first available model if name is empty
 func FindModel(modelDir, name string) (string, error) {
 	if modelDir == "" {
 		modelDir = DefaultModelDir()
@@ -128,6 +134,18 @@ func FindModel(modelDir, name string) (string, error) {
 				return pGguf, nil
 			}
 		}
+
+		// Check if name is a known preset
+		if presetURL, ok := PresetModels[strings.ToLower(name)]; ok {
+			filename := filepath.Base(presetURL)
+			if idx := strings.Index(filename, "?"); idx != -1 {
+				filename = filename[:idx]
+			}
+			pPreset := filepath.Join(modelDir, filename)
+			if _, err := os.Stat(pPreset); err == nil {
+				return pPreset, nil
+			}
+		}
 	}
 
 	models, err := ListModels(modelDir)
@@ -141,8 +159,32 @@ func FindModel(modelDir, name string) (string, error) {
 		return models[0].Path, nil
 	}
 
+	// 1. Exact match (by filename or filename without extension)
 	for _, m := range models {
 		if strings.EqualFold(m.Name, name) || strings.EqualFold(strings.TrimSuffix(m.Name, ".gguf"), name) {
+			return m.Path, nil
+		}
+	}
+
+	// 2. Preset match against list of models
+	if presetURL, ok := PresetModels[strings.ToLower(name)]; ok {
+		presetFile := filepath.Base(presetURL)
+		if idx := strings.Index(presetFile, "?"); idx != -1 {
+			presetFile = presetFile[:idx]
+		}
+		presetBase := strings.TrimSuffix(presetFile, ".gguf")
+		for _, m := range models {
+			if strings.EqualFold(m.Name, presetFile) || strings.EqualFold(strings.TrimSuffix(m.Name, ".gguf"), presetBase) {
+				return m.Path, nil
+			}
+		}
+	}
+
+	// 3. Prefix or contains match (e.g. "qwen2.5-coder" matches "qwen2.5-coder-0.5b-instruct-q8_0.gguf")
+	nameLower := strings.ToLower(name)
+	for _, m := range models {
+		mBase := strings.ToLower(strings.TrimSuffix(m.Name, ".gguf"))
+		if strings.HasPrefix(mBase, nameLower) || strings.Contains(mBase, nameLower) {
 			return m.Path, nil
 		}
 	}

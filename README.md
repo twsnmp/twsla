@@ -933,6 +933,7 @@ Flags:
       --aiBaseURL string       AI base URL
       --aiErrorLevels string   Words included in the error level log (default "error,fatal,fail,crit,alert")
       --aiLang string          Language of the response
+      --aiModel string         LLM Model name or preset (e.g. qwen2.5-0.5b, smollm2-135m)
       --aiProvider string      AI provider(tensai|embedded|ollama|gemini|openai|claude)
       --aiSampleSize int       Number of sample logs to be analyzed by AI (default 50)
       --aiTopNError int        Number of error log patterns to be analyzed by AI (default 10)
@@ -983,9 +984,9 @@ Usage:
 Available Commands:
   download      Download a model from Hugging Face or URL
   download-gpu  Download and install wgpu-native library for GPU acceleration
-  list          List locally downloaded models
+  list          List locally downloaded models (alias: ls)
   presets       List available preset models
-  remove        Remove a local model
+  remove        Remove a local model (alias: rm)
   status        Show model directory and hardware acceleration status
 
 Flags:
@@ -1008,12 +1009,32 @@ $ twsla model download-gpu
 # View available preset models
 $ twsla model presets
 
-# Download a preset model (e.g. qwen2.5-0.5b)
-$ twsla model download qwen2.5-0.5b
+# Download a preset model (e.g. qwen2.5-coder-0.5b)
+$ twsla model download qwen2.5-coder-0.5b
 
-# List downloaded models
+# List downloaded models (short alias: ls)
 $ twsla model list
+$ twsla model ls
+
+# Remove a model (short alias: rm, preset name supported)
+$ twsla model rm qwen2.5-coder-0.5b
 ```
+
+**Available Preset Models:**
+
+| Preset Name | Model | Approx Size | Features / Recommended Use |
+|---|---|---|---|
+| `qwen2.5-0.5b` | Qwen2.5-0.5B-Instruct (Q8_0) | ~500MB | Default ultra-lightweight general model |
+| `qwen2.5-1.5b` | Qwen2.5-1.5B-Instruct (Q4_K_M) | ~1.0GB | High quality lightweight general model |
+| `qwen2.5-coder-0.5b` | Qwen2.5-Coder-0.5B-Instruct (Q8_0) | ~500MB | Specialized for logs, JSON & code analysis |
+| `qwen2.5-coder-1.5b` | Qwen2.5-Coder-1.5B-Instruct (Q4_K_M) | ~1.0GB | High-accuracy structured log & code analysis |
+| `smollm2-135m` | SmolLM2-135M-Instruct (Q8_0) | ~145MB | Ultra-fast & minimal footprint (IoT / low resources) |
+| `smollm2-360m` | SmolLM2-360M-Instruct (Q8_0) | ~380MB | Balanced compact model |
+| `smollm2-1.7b` | SmolLM2-1.7B-Instruct (Q4_K_M) | ~1.1GB | SmolLM2 top-tier reasoning model |
+| `deepseek-r1-1.5b` | DeepSeek-R1-Distill-Qwen-1.5B (Q4_K_M) | ~1.1GB | Reasoning model with `<think>` step-by-step thinking |
+| `llama-3.2-1b` | Llama-3.2-1B-Instruct (Q4_K_M) | ~800MB | Meta Llama 3.2 1B model |
+| `tinyllama` | TinyLlama-1.1B-Chat-v1.0 (Q4_K_M) | ~670MB | Classic lightweight model |
+
 
 ### mcp command
 
