@@ -28,7 +28,7 @@ func repackQ8(dst *quant.Q8GMatrix, raw []byte, out, in, colOff int) {
 	}
 }
 
-func loadQwenGGUF(path string, bits int) (*qwen, *tokenizer.Tokenizer, error) {
+func loadQwenGGUF(path string, bits int, forGPU bool) (*qwen, *tokenizer.Tokenizer, error) {
 	g, err := gguf.Open(path)
 	if err != nil {
 		return nil, nil, err
@@ -95,7 +95,7 @@ func loadQwenGGUF(path string, bits int) (*qwen, *tokenizer.Tokenizer, error) {
 	m.blocks = make([]qblock, cfg.Layers)
 
 	allQ8 := func(names ...string) bool {
-		if bits != 8 {
+		if forGPU || bits != 8 {
 			return false
 		}
 		for _, name := range names {

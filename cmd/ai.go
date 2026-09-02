@@ -63,6 +63,7 @@ type aiLogEntry struct {
 	Level      string
 	Log        string
 	AIResponce string
+	AIStats    string
 }
 
 var aiLogs = []*aiLogEntry{}
@@ -107,6 +108,8 @@ Using environment variable for API key.
 	},
 }
 
+var aiNoGPU bool
+
 func init() {
 	rootCmd.AddCommand(aiCmd)
 	aiCmd.Flags().StringVar(&aiProvider, "aiProvider", "", "AI provider(tensai|embedded|ollama|gemini|openai|claude)")
@@ -118,6 +121,8 @@ func init() {
 	aiCmd.Flags().IntVar(&aiSampleSize, "aiSampleSize", 50, "Number of sample log to be analyzed by AI")
 	aiCmd.Flags().StringVar(&aiLang, "aiLang", "", "Language of the response")
 	aiCmd.Flags().BoolVar(&aiNoMask, "aiNoMask", false, "Do not mask PII in logs")
+	aiCmd.Flags().BoolVar(&aiNoGPU, "noGPU", false, "Disable GPU acceleration and use CPU/SIMD only")
+	aiCmd.Flags().BoolVar(&aiNoGPU, "no-gpu", false, "Disable GPU acceleration and use CPU/SIMD only")
 }
 
 func getAILog(l string) string {
@@ -215,6 +220,7 @@ type aiModel struct {
 	done      bool
 	log       string
 	answer    string
+	stats     string
 	quitting  bool
 	wait      bool
 	analize   bool
@@ -222,8 +228,9 @@ type aiModel struct {
 }
 
 type aiAnswerMsg struct {
-	Done bool
-	Text string
+	Done  bool
+	Text  string
+	Stats string
 }
 
 func initAIModel() aiModel {
@@ -345,6 +352,7 @@ func (m aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Done {
 			m.wait = false
 			m.answer = msg.Text
+			m.stats = msg.Stats
 		} else {
 			m.answer += msg.Text
 		}
@@ -377,10 +385,14 @@ func (m aiModel) View() string {
 		return fmt.Sprintf("%s AI is thinking... Press esc to quit.\n%s\n%s%s\n%s", m.spinner.View(), getAILog(aiLogs[lastAICursor].Log), div, per, m.viewport.View())
 	}
 	if m.answer != "" {
-		if m.analize {
-			return fmt.Sprintf("AI response Press enter | q | esc to back.\n\n%s%s\n%s", div, per, m.viewport.View())
+		header := "AI response"
+		if m.stats != "" {
+			header = fmt.Sprintf("AI response  (%s)", m.stats)
 		}
-		return fmt.Sprintf("AI response Press enter | q | esc to back.\n%s\n%s%s\n%s", getAILog(aiLogs[lastAICursor].Log), div, per, m.viewport.View())
+		if m.analize {
+			return fmt.Sprintf("%s Press enter | q | esc to back.\n\n%s%s\n%s", header, div, per, m.viewport.View())
+		}
+		return fmt.Sprintf("%s Press enter | q | esc to back.\n%s\n%s%s\n%s", header, getAILog(aiLogs[lastAICursor].Log), div, per, m.viewport.View())
 	}
 	if m.done {
 		if m.log != "" {
@@ -411,8 +423,9 @@ func askToAI() {
 	le := aiLogs[lastAICursor]
 	if le.AIResponce != "" {
 		teaProg.Send(aiAnswerMsg{
-			Text: string(le.AIResponce),
-			Done: true,
+			Text:  string(le.AIResponce),
+			Stats: le.AIStats,
+			Done:  true,
 		})
 		return
 	}
@@ -469,10 +482,13 @@ Keep your response concise but informative. Focus on practical insights that wou
 	}
 	llm := getLLM()
 	ctx := context.Background()
+	st := time.Now()
+	var tokenCount int
 	response, err := llm.GenerateContent(ctx, []llms.MessageContent{
 		llms.TextParts(llms.ChatMessageTypeHuman, prompt),
 	},
 		llms.WithStreamingFunc(func(ctx context.Context, chunk []byte) error {
+			tokenCount++
 			teaProg.Send(aiAnswerMsg{
 				Text: string(chunk),
 			})
@@ -482,18 +498,23 @@ Keep your response concise but informative. Focus on practical insights that wou
 	if err != nil {
 		log.Fatalf("generating analysis: %v", err)
 	}
+	dur := time.Since(st)
+	stats := formatAIStats(dur, tokenCount, llm)
 	le.AIResponce = response.Choices[0].Content + "\n\n"
+	le.AIStats = stats
 	teaProg.Send(aiAnswerMsg{
-		Text: le.AIResponce,
-		Done: true,
+		Text:  le.AIResponce,
+		Stats: stats,
+		Done:  true,
 	})
 }
 
 var analizeAnswer = ""
+var analizeStats = ""
 
 func aiAnalyze() {
 	if analizeAnswer != "" {
-		teaProg.Send(aiAnswerMsg{Done: true, Text: analizeAnswer})
+		teaProg.Send(aiAnswerMsg{Done: true, Text: analizeAnswer, Stats: analizeStats})
 		return
 	}
 	sampleSize := aiSampleSize
@@ -615,10 +636,13 @@ Please include the following information in your response. format in markdown.
 	}
 	llm := getLLM()
 	ctx := context.Background()
+	st := time.Now()
+	var tokenCount int
 	response, err := llm.GenerateContent(ctx, []llms.MessageContent{
 		llms.TextParts(llms.ChatMessageTypeHuman, prompt),
 	},
 		llms.WithStreamingFunc(func(ctx context.Context, chunk []byte) error {
+			tokenCount++
 			teaProg.Send(aiAnswerMsg{
 				Text: string(chunk),
 			})
@@ -628,8 +652,29 @@ Please include the following information in your response. format in markdown.
 	if err != nil {
 		log.Fatalf("generating analysis: %v", err)
 	}
+	dur := time.Since(st)
+	analizeStats = formatAIStats(dur, tokenCount, llm)
 	analizeAnswer = response.Choices[0].Content + "\n\n"
-	teaProg.Send(aiAnswerMsg{Text: analizeAnswer, Done: true})
+	teaProg.Send(aiAnswerMsg{Text: analizeAnswer, Stats: analizeStats, Done: true})
+}
+
+func formatAIStats(dur time.Duration, tokens int, llm llms.Model) string {
+	sec := dur.Seconds()
+	var speedStr string
+	if tokens > 0 && sec > 0.01 {
+		tokPerSec := float64(tokens) / sec
+		speedStr = fmt.Sprintf("%.1f tok/s (%d tokens in %s)", tokPerSec, tokens, dur.Truncate(time.Millisecond))
+	} else {
+		speedStr = fmt.Sprintf("%s", dur.Truncate(time.Millisecond))
+	}
+	if tllm, ok := llm.(*aitensai.TensaiLLM); ok {
+		accType, _ := tllm.Acceleration()
+		return fmt.Sprintf("%s | %s", accType, speedStr)
+	}
+	if aiProvider != "" {
+		return fmt.Sprintf("%s | %s", aiProvider, speedStr)
+	}
+	return speedStr
 }
 
 func getAILogLevel(l *string) string {
@@ -688,7 +733,7 @@ func getLLM() llms.Model {
 		if err != nil {
 			log.Fatalf("tensai model error: %v (download one using 'twsla model download <preset>')", err)
 		}
-		llm, err := aitensai.New(modelPath)
+		llm, err := aitensai.NewWithOptions(modelPath, aiNoGPU)
 		if err != nil {
 			log.Fatalf("failed to initialize tensai LLM: %v", err)
 		}

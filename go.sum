@@ -121,6 +121,8 @@ github.com/domainr/dnsr v0.0.0-20241209094514-246c78985dc2 h1:U2NGIabo1TCKgQbKfP
 github.com/domainr/dnsr v0.0.0-20241209094514-246c78985dc2/go.mod h1:Zwg4ZJM/Jh9zdZ3VA0vyhxE7gs8bNDAmR0a0A2etB4c=
 github.com/dustin/go-humanize v1.0.1 h1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=
 github.com/dustin/go-humanize v1.0.1/go.mod h1:Mu1zIs6XwVuF/gI1OepvI0qD18qycQx+mFykh5fBlto=
+github.com/ebitengine/purego v0.10.2 h1:W809HbnvzAxgdm+aOvlSekrM16wGCdT/e76+9tS7gzE=
+github.com/ebitengine/purego v0.10.2/go.mod h1:iIjxzd6CiRiOG0UyXP+V1+jWqUXVjPKLAI0mRfJZTmQ=
 github.com/elastic/go-grok v0.3.1 h1:WEhUxe2KrwycMnlvMimJXvzRa7DoByJB4PVUIE1ZD/U=
 github.com/elastic/go-grok v0.3.1/go.mod h1:n38ls8ZgOboZRgKcjMY8eFeZFMmcL9n2lP0iHhIDk64=
 github.com/emersion/go-imap/v2 v2.0.0-beta.7 h1:lNznYWa5uhMrngnSYEklzCeye4DBq9TEJ+pr0K593+8=
@@ -265,8 +267,8 @@ github.com/mattn/go-runewidth v0.0.16 h1:E5ScNMtiwvlvB5paMFdw9p4kSQzbXFikJ5SQO6T
 github.com/mattn/go-runewidth v0.0.16/go.mod h1:Jdepj2loyihRzMpdS35Xk/zdY8IAYHsh153qUoGf23w=
 github.com/mattn/go-sixel v0.0.5 h1:55w2FR5ncuhKhXrM5ly1eiqMQfZsnAHIpYNGZX03Cv8=
 github.com/mattn/go-sixel v0.0.5/go.mod h1:h2Sss+DiUEHy0pUqcIB6PFXo5Cy8sTQEFr3a9/5ZLNw=
-github.com/mattn/tensai v0.0.12 h1:FIL4RT0R2aUM67cVg32UeboyVjnpGEVx3lxe1W0hMCQ=
-github.com/mattn/tensai v0.0.12/go.mod h1:QgtvMRNa1G4BxdrnTTz89dK4s68Ad460IgTU5R7tenM=
+github.com/mattn/tensai v0.0.22 h1:Bq1nEJHntVZ2terwLgzF29Xbnbp8ESpyoomBJVuJRVc=
+github.com/mattn/tensai v0.0.22/go.mod h1:QgtvMRNa1G4BxdrnTTz89dK4s68Ad460IgTU5R7tenM=
 github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b h1:j7+1HpAFS1zy5+Q4qx1fWh90gTKwiN4QCGoY9TWyyO4=
 github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b/go.mod h1:01TrycV0kFyexm33Z7vhZRXopbI8J3TDReVlkTgMUxE=
 github.com/miekg/dns v1.1.62 h1:cN8OuEF1/x5Rq6Np+h1epln8OiyPWV+lROx9LxcGgIQ=

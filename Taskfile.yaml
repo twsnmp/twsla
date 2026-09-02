@@ -4,6 +4,7 @@ vars:
   VERSION: 2.0.0
   COMMIT:
     sh: git rev-parse --short HEAD
+  TAGS: wgpu24
 
 tasks:
   default:
@@ -17,23 +18,23 @@ tasks:
   mac_amd64:
     cmds:
       - task: mkdir
-      - GOOS=darwin GOARCH=amd64 go build -o dist/twsla.darwin_amd64 -ldflags "-s -w -X main.version={{.VERSION}} -X main.commit={{.COMMIT}}" .
+      - GOOS=darwin GOARCH=amd64 GOEXPERIMENT=simd go build -tags {{.TAGS}} -o dist/twsla.darwin_amd64 -ldflags "-s -w -X main.version={{.VERSION}} -X main.commit={{.COMMIT}}" .
   mac_arm64:
     cmds:
       - task: mkdir
-      - GOOS=darwin GOARCH=arm64 go build -o dist/twsla.darwin_arm64 -ldflags "-s -w -X main.version={{.VERSION}} -X main.commit={{.COMMIT}}" .
+      - GOOS=darwin GOARCH=arm64 go build -tags {{.TAGS}} -o dist/twsla.darwin_arm64 -ldflags "-s -w -X main.version={{.VERSION}} -X main.commit={{.COMMIT}}" .
   windows:
     cmds:
       - task: mkdir
-      - GOOS=windows GOARCH=amd64 go build -o dist/twsla.exe -ldflags "-s -w -X main.version={{.VERSION}} -X main.commit={{.COMMIT}}" .
+      - GOOS=windows GOARCH=amd64 GOEXPERIMENT=simd go build -tags {{.TAGS}} -o dist/twsla.exe -ldflags "-s -w -X main.version={{.VERSION}} -X main.commit={{.COMMIT}}" .
   linux_amd64:
     cmds:
       - task: mkdir
-      - GOOS=linux GOARCH=amd64 go build -o dist/twsla.linux_amd64 -ldflags "-s -w -X main.version={{.VERSION}} -X main.commit={{.COMMIT}}" .
+      - GOOS=linux GOARCH=amd64 GOEXPERIMENT=simd go build -tags {{.TAGS}} -o dist/twsla.linux_amd64 -ldflags "-s -w -X main.version={{.VERSION}} -X main.commit={{.COMMIT}}" .
   linux_arm64:
     cmds:
       - task: mkdir
-      - GOOS=linux GOARCH=arm64 go build -o dist/twsla.linux_arm64 -ldflags "-s -w -X main.version={{.VERSION}} -X main.commit={{.COMMIT}}" .
+      - GOOS=linux GOARCH=arm64 go build -tags {{.TAGS}} -o dist/twsla.linux_arm64 -ldflags "-s -w -X main.version={{.VERSION}} -X main.commit={{.COMMIT}}" .
   zip:
     cmds:
       - (cd dist;zip twsla.darwin.zip twsla.darwin*)

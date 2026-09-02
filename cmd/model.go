@@ -24,7 +24,9 @@ import (
 
 	"github.com/dustin/go-humanize"
 	"github.com/spf13/cobra"
+	aitensai "github.com/twsnmp/twsla/pkg/ai/tensai"
 	"github.com/twsnmp/twsla/pkg/model"
+	"runtime"
 )
 
 var modelDirFlag string
@@ -125,6 +127,77 @@ var modelPresetsCmd = &cobra.Command{
 	},
 }
 
+var libDirFlag string
+
+var modelDownloadGPUCmd = &cobra.Command{
+	Use:     "download-gpu",
+	Aliases: []string{"setup-gpu"},
+	Short:   "Download and install wgpu-native library for GPU acceleration",
+	Run: func(cmd *cobra.Command, args []string) {
+		url, libFile, err := model.GetWGPUAssetInfo()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "GPU acceleration not supported on this platform: %v\n", err)
+			os.Exit(1)
+		}
+
+		libDir := libDirFlag
+		if libDir == "" {
+			libDir = model.DefaultLibDir()
+		}
+
+		fmt.Printf("Platform: %s/%s\n", runtime.GOOS, runtime.GOARCH)
+		fmt.Printf("Downloading %s from %s ...\n", libFile, url)
+
+		ctx := context.Background()
+		lastPct := -1
+		progress := func(downloaded, total int64) {
+			if total > 0 {
+				pct := int(float64(downloaded) / float64(total) * 100)
+				if pct != lastPct {
+					fmt.Printf("\rDownloading: %3d%% (%s / %s)",
+						pct, humanize.Bytes(uint64(downloaded)), humanize.Bytes(uint64(total)))
+					lastPct = pct
+				}
+			} else {
+				fmt.Printf("\rDownloading: %s", humanize.Bytes(uint64(downloaded)))
+			}
+		}
+
+		path, err := model.DownloadWGPULibrary(ctx, libDir, progress)
+		fmt.Println()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error installing GPU library: %v\n", err)
+			os.Exit(1)
+		}
+
+		fmt.Printf("Successfully installed GPU library to: %s\n\n", path)
+
+		_ = os.Setenv("TENSAI_WGPU_LIB", path)
+		accType, accDetail := aitensai.DetectAcceleration()
+		fmt.Printf("Active Acceleration: [%s] %s\n", accType, accDetail)
+	},
+}
+
+var modelStatusCmd = &cobra.Command{
+	Use:   "status",
+	Short: "Show model directory and hardware acceleration status",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("TWSLA Embedded AI Engine Status:")
+		fmt.Printf("  Model Directory: %s\n", getEffectiveModelDir())
+
+		aitensai.InitWGPULibrary()
+		wgpuLib := os.Getenv("TENSAI_WGPU_LIB")
+		if wgpuLib != "" {
+			fmt.Printf("  wgpu-native Library: %s\n", wgpuLib)
+		} else {
+			fmt.Println("  wgpu-native Library: (not loaded, run 'twsla model download-gpu' to install)")
+		}
+
+		accType, accDetail := aitensai.DetectAcceleration()
+		fmt.Printf("  Active Acceleration: [%s] %s\n", accType, accDetail)
+	},
+}
+
 func getEffectiveModelDir() string {
 	if modelDirFlag != "" {
 		return modelDirFlag
@@ -135,9 +208,12 @@ func getEffectiveModelDir() string {
 func init() {
 	rootCmd.AddCommand(modelCmd)
 	modelCmd.PersistentFlags().StringVar(&modelDirFlag, "modelDir", "", "Directory to store models (default: ~/.twsla/models)")
+	modelCmd.PersistentFlags().StringVar(&libDirFlag, "libDir", "", "Directory to store native libraries (default: ~/.twsla/lib)")
 
 	modelCmd.AddCommand(modelListCmd)
 	modelCmd.AddCommand(modelDownloadCmd)
+	modelCmd.AddCommand(modelDownloadGPUCmd)
 	modelCmd.AddCommand(modelRemoveCmd)
 	modelCmd.AddCommand(modelPresetsCmd)
+	modelCmd.AddCommand(modelStatusCmd)
 }

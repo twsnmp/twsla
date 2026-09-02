@@ -1041,15 +1041,17 @@ Flags:
       --aiTopNError int        Number of error log patterns to be analyzed by AI (default 10)
       --aiWarnLevels string    Words included in the warning level log (default "warn")
       --aiNoMask               Do not mask PII in logs
+      --noGPU                  Disable GPU acceleration and use CPU/SIMD only
   -h, --help                   help for ai
 ```
 
-#### プロバイダの選択
+#### プロバイダの選択とGPU/CPU切り替え
 - `--aiProvider` を明示的に指定した場合、指定したプロバイダ（`ollama`, `gemini`, `openai`, `claude`, `tensai` / `embedded`）が使用されます。
 - `--aiProvider` を省略した場合：
   1. ローカルモデル（`~/.twsla/models/`）が存在すれば自動的に組み込みの `tensai` を使用します。
   2. 存在しない場合、APIキー環境変数（`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`）を検索します。
   3. APIキーも見つからない場合は `ollama` にフォールバックします。
+- `--noGPU`（または `--no-gpu`）を指定すると、GPUアクセラレーションを使用せずCPU/SIMDモードで推論を実行します（速度比較や省電力用途に利用可能）。
 
 v1.21.0から、AIに分析を依頼する前にログ内のPII（個人情報：IPアドレス、メールアドレス、電話番号など）を自動的にマスクするようになりました。マスクせずに元のログを送信したい場合は、`--aiNoMask`フラグを使用してください。
 
@@ -1065,16 +1067,24 @@ Usage:
   twsla model [command]
 
 Available Commands:
-  download    Download a model from Hugging Face or URL
-  list        List locally downloaded models
-  presets     List available preset models
-  remove      Remove a local model
+  download      Download a model from Hugging Face or URL
+  download-gpu  Download and install wgpu-native library for GPU acceleration
+  list          List locally downloaded models
+  presets       List available preset models
+  remove        Remove a local model
+  status        Show model directory and hardware acceleration status
 ```
 
-#### モデルのダウンロード
-プリセット名またはHugging FaceのGGUF URLを指定してダウンロードします。
+#### モデルおよびGPUライブラリの管理
+プリセット名またはHugging FaceのGGUF URLを指定してダウンロードします。また、GPUアクセラレーションライブラリ（wgpu-native）をダウンロードしてGPU推論（Metal / Vulkan / D3D12）を有効化できます。
 
 ```terminal
+# ハードウェアアクセラレーションとモデル状態の確認
+$ twsla model status
+
+# GPUアクセラレーションライブラリ（wgpu-native）のダウンロード・セットアップ
+$ twsla model download-gpu
+
 # プリセット一覧の確認
 $ twsla model presets
 

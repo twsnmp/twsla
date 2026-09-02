@@ -3,7 +3,6 @@ package tensai
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/tmc/langchaingo/llms"
@@ -13,25 +12,40 @@ import (
 type TensaiLLM struct {
 	modelPath string
 	engine    *Engine
+	accType   AccelerationType
+	accDetail string
 }
 
-// New creates a new TensaiLLM instance
+// New creates a new TensaiLLM instance with automatic GPU -> SIMD -> CPU fallback
 func New(modelPath string) (*TensaiLLM, error) {
+	return NewWithOptions(modelPath, false)
+}
+
+// NewWithOptions creates a new TensaiLLM instance with optional GPU bypass
+func NewWithOptions(modelPath string, noGPU bool) (*TensaiLLM, error) {
 	if modelPath == "" {
 		return nil, errors.New("model path cannot be empty")
 	}
 
-	// Try loading full neural engine
-	engine, err := LoadEngine(modelPath)
-	if err != nil {
-		// Log warning and keep engine nil for fallback
-		fmt.Printf("Note: Tensai neural engine load warning (%v), using lightweight analyzer\n", err)
-	}
+	accType, accDetail := DetectAccelerationWithOptions(noGPU)
+
+	// Try loading neural engine with GPU if available, or fallback to CPU
+	engine, _ := LoadEngineWithOptions(modelPath, noGPU)
 
 	return &TensaiLLM{
 		modelPath: modelPath,
 		engine:    engine,
+		accType:   accType,
+		accDetail: accDetail,
 	}, nil
+}
+
+// Acceleration returns the current active acceleration type and hardware details
+func (m *TensaiLLM) Acceleration() (AccelerationType, string) {
+	if m.engine != nil && m.engine.gpu != nil {
+		return AccelGPU, m.accDetail
+	}
+	return m.accType, m.accDetail
 }
 
 // Call generates text from a prompt

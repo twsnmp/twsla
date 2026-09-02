@@ -913,12 +913,12 @@ Flags:
       --aiBaseURL string       AI base URL
       --aiErrorLevels string   Words included in the error level log (default "error,fatal,fail,crit,alert")
       --aiLang string          Language of the response
-      --aiModel string         LLM Model name
-      --aiProvider string      AI provider(ollama|gemini|openai|claude)
+      --aiProvider string      AI provider(tensai|embedded|ollama|gemini|openai|claude)
       --aiSampleSize int       Number of sample logs to be analyzed by AI (default 50)
       --aiTopNError int        Number of error log patterns to be analyzed by AI (default 10)
       --aiWarnLevels string    Words included in the warning level log (default "warn")
       --aiNoMask               Do not mask PII in logs
+      --noGPU                  Disable GPU acceleration and use CPU/SIMD only
   -h, --help                   help for ai
 
 Global Flags:
@@ -931,7 +931,7 @@ Global Flags:
   -t, --timeRange string   Time range
 ```
 
-Specify provider, model, and filters. Environment variables are used for API keys. Ollama requires no key.
+Specify provider, model, and filters. Environment variables are used for API keys. Ollama requires no key. Use `--noGPU` to disable GPU acceleration and force CPU/SIMD mode (useful for benchmark comparisons or power saving).
 
 Starting with v1.21.0, PII (Personally Identifiable Information) such as IP addresses, email addresses, and phone numbers are automatically masked before being sent to the AI for analysis. Use the `--aiNoMask` flag if you want to send the original logs without masking.
 
@@ -961,30 +961,37 @@ Usage:
   twsla model [command]
 
 Available Commands:
-  download    Download a model from Hugging Face or URL
-  list        List locally downloaded models
-  presets     List available preset models
-  remove      Remove a local model
+  download      Download a model from Hugging Face or URL
+  download-gpu  Download and install wgpu-native library for GPU acceleration
+  list          List locally downloaded models
+  presets       List available preset models
+  remove        Remove a local model
+  status        Show model directory and hardware acceleration status
 
 Flags:
   -h, --help              help for model
+      --libDir string     Directory to store native libraries (default "$HOME/.twsla/lib")
       --modelDir string   Directory to store models (default "$HOME/.twsla/models")
 ```
 
-#### Downloading Models
+#### Managing Models and GPU Acceleration
 
-View preset models and download one for local inference:
+Check status, download GPU acceleration library, or download preset models for embedded inference:
 
 ```terminal
+# Check active hardware acceleration status (GPU / SIMD / CPU)
+$ twsla model status
+
+# Download and install wgpu-native library for GPU (Metal/Vulkan/D3D12) acceleration
+$ twsla model download-gpu
+
+# View available preset models
 $ twsla model presets
-Available Preset Models:
 
-  qwen2.5-0.5b     https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q8_0.gguf
-  qwen2.5-1.5b     https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf
-  smollm2-360m     https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct-GGUF/resolve/main/smollm2-360m-instruct-q8_0.gguf
-  tinyllama        https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf
-
+# Download a preset model (e.g. qwen2.5-0.5b)
 $ twsla model download qwen2.5-0.5b
+
+# List downloaded models
 $ twsla model list
 ```
 

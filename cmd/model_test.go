@@ -43,6 +43,18 @@ func TestModelCommands(t *testing.T) {
 		t.Fatalf("model presets failed: %v", err)
 	}
 
+	// Test status
+	rootCmd.SetArgs([]string{"model", "status", "--modelDir", tempDir})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("model status failed: %v", err)
+	}
+
+	// Test download-gpu help
+	rootCmd.SetArgs([]string{"model", "download-gpu", "--help"})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("model download-gpu help failed: %v", err)
+	}
+
 	// Test remove
 	rootCmd.SetArgs([]string{"model", "remove", "sample.gguf", "--modelDir", tempDir})
 	if err := rootCmd.Execute(); err != nil {

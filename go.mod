@@ -28,7 +28,7 @@ require (
 	github.com/knadh/go-pop3 v1.0.0
 	github.com/mattn/go-runewidth v0.0.16
 	github.com/mattn/go-sixel v0.0.5
-	github.com/mattn/tensai v0.0.12
+	github.com/mattn/tensai v0.0.22
 	github.com/modelcontextprotocol/go-sdk v1.4.1
 	github.com/montanaflynn/stats v0.7.1
 	github.com/muesli/reflow v0.3.0
@@ -44,6 +44,7 @@ require (
 	github.com/xhit/go-str2duration/v2 v2.1.0
 	go.etcd.io/bbolt v1.5.0
 	golang.org/x/crypto v0.55.0
+	golang.org/x/sys v0.47.0
 	golang.org/x/text v0.41.0
 	google.golang.org/grpc v1.82.1
 )
@@ -76,6 +77,7 @@ require (
 	github.com/charmbracelet/x/term v0.2.1 // indirect
 	github.com/dgraph-io/ristretto/v2 v2.2.0 // indirect
 	github.com/dlclark/regexp2 v1.10.0 // indirect
+	github.com/ebitengine/purego v0.10.2 // indirect
 	github.com/emersion/go-message v0.18.1 // indirect
 	github.com/emersion/go-sasl v0.0.0-20231106173351-e73c9f7bad43 // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
@@ -155,7 +157,6 @@ require (
 	golang.org/x/net v0.57.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
-	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	golang.org/x/tools v0.48.0 // indirect
 	google.golang.org/api v0.198.0 // indirect
