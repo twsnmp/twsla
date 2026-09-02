@@ -14,14 +14,16 @@
 ### ai
 - `ai <filter>...`: AI-powered log analysis
 - Flags
-    - `--aiProvider`: AI provider (ollama|gemini|openai|claude)
+    - `--aiProvider`: AI provider (tensai|embedded|ollama|gemini|openai|claude)
     - `--aiBaseURL`: AI base URL
-    - `--aiModel`: LLM Model name
+    - `--aiModel`: LLM Model name or preset (e.g. qwen2.5-0.5b, smollm2-135m)
     - `--aiErrorLevels`: Words included in the error level log (default "error,fatal,fail,crit,alert")
     - `--aiWarnLevels`: Words included in the warning level log (default "warn")
     - `--aiTopNError`: Number of error log patterns to be analyzed by AI (default 10)
     - `--aiSampleSize`: Number of sample log to be analyzed by AI (default 50)
     - `--aiLang`: Language of the response
+    - `--aiNoMask`: Do not mask PII in logs
+    - `--noGPU`: Disable GPU acceleration and use CPU/SIMD only
 
 ### anomaly
 - `anomaly`: Anomaly log detection
@@ -29,6 +31,7 @@
     - `-m, --mode`: Detection modes (tfidf|sql|os|dir|walu|number) (default "tfidf")
     - `-a, --algo`: Anomaly algorithm (iforest|autoencoder|lstm|lof|knn|mahalanobis|zscore) (default "iforest")
     - `-e, --extract`: Extract pattern
+    - `--noGPU`: Disable GPU acceleration and use CPU/SIMD only
 
 ### count
 - `count`: Count log
@@ -96,6 +99,10 @@
     - `--ftpPassword`: FTP password
     - `--ftpTLS`: FTP use TLS (Explicit TLS)
     - `--ftpSkip`: FTP skip verify certificate (default true)
+    - `--mlStart`: Multiline log start pattern (regex)
+    - `--mlSep`: Multiline log separator pattern (regex)
+    - `--mlLines`: Multiline log fixed lines
+    - `--mlInspect`: Inspect log to suggest multiline settings
 
 ### mcp
 - `mcp`: MCP server for AI agent
@@ -109,11 +116,14 @@
 - `model`: Manage local LLM models
 - Subcommands
     - `download <preset|url>`: Download a model from Hugging Face or URL
+    - `download-gpu`: Download and install wgpu-native library for GPU acceleration
     - `list`: List locally downloaded models
     - `presets`: List available preset models
     - `remove <name>`: Remove a local model
+    - `status`: Show model directory and hardware acceleration status
 - Flags
     - `--modelDir`: Directory to store models (default "$HOME/.twsla/models")
+    - `--libDir`: Directory to store native libraries (default "$HOME/.twsla/lib")
 
 ### relation
 - `relation <data1> <data2>...`: Relation Analysis
@@ -140,6 +150,7 @@
     - `-l, --limit`: Similarity threshold between logs (default 0.5)
     - `-c, --count`: Number of threshold crossings to exclude
     - `-n, --top`: Top N
+    - `--noGPU`: Disable GPU acceleration and use CPU/SIMD only
 
 ### time
 - `time`: Time analysis

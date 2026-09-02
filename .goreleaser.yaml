@@ -18,6 +18,9 @@ before:
 builds:
   - env:
       - CGO_ENABLED=0
+      - GOEXPERIMENT=simd
+    tags:
+      - wgpu24
     goos:
       - linux
       - windows

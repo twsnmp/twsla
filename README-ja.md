@@ -150,7 +150,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
+  -d, --datastore string   Log DataStore path (.db, .badger, .parquet) (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -303,7 +303,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
+  -d, --datastore string   Log DataStore path (.db, .badger, .parquet) (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -397,7 +397,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
+  -d, --datastore string   Log DataStore path (.db, .badger, .parquet) (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -476,7 +476,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
+  -d, --datastore string   Log DataStore path (.db, .badger, .parquet) (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -533,7 +533,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
+  -d, --datastore string   Log DataStore path (.db, .badger, .parquet) (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -592,7 +592,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
+  -d, --datastore string   Log DataStore path (.db, .badger, .parquet) (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -642,7 +642,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
+  -d, --datastore string   Log DataStore path (.db, .badger, .parquet) (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -683,7 +683,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
+  -d, --datastore string   Log DataStore path (.db, .badger, .parquet) (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -731,7 +731,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
+  -d, --datastore string   Log DataStore path (.db, .badger, .parquet) (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -777,7 +777,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
+  -d, --datastore string   Log DataStore path (.db, .badger, .parquet) (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -832,7 +832,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
+  -d, --datastore string   Log DataStore path (.db, .badger, .parquet) (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -872,7 +872,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
+  -d, --datastore string   Log DataStore path (.db, .badger, .parquet) (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -922,7 +922,7 @@ Flags:
       --strict           Strict rule check
 
 Global Flags:
-  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
+  -d, --datastore string   Log DataStore path (.db, .badger, .parquet) (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -1025,7 +1025,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
+  -d, --datastore string   Log DataStore path (.db, .badger, .parquet) (default "./twsla.db")
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
       --sixel              show chart by sixel
@@ -1179,7 +1179,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
+  -d, --datastore string   Log DataStore path (.db, .badger, .parquet) (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -1377,7 +1377,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
+  -d, --datastore string   Log DataStore path (.db, .badger, .parquet) (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
@@ -1446,7 +1446,7 @@ TWSLAのバージョンを表示します。
 
 ```terminal
 $twsla version
-twsla v2.0.0(commit) 2026-08-30T00:00:00Z
+twsla v2.1.0(commit) 2026-09-03T00:00:00Z
 ```
 
 ## 補足説明
@@ -1601,7 +1601,7 @@ Flags:
 
 Global Flags:
       --config string      config file (default is $HOME/.twsla.yaml)
-  -d, --datastore string   Bbolt Log DB (default "./twsla.db")
+  -d, --datastore string   Log DataStore path (.db, .badger, .parquet) (default "./twsla.db")
   -f, --filter string      Simple filter
   -v, --not string         Invert regexp filter
   -r, --regex string       Regexp filter
