@@ -16,11 +16,16 @@ limitations under the License.
 package cmd
 
 import (
+	"bufio"
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
+	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -54,6 +59,8 @@ func TestGetSourceType(t *testing.T) {
 		{"pop3://user:pass@host", "pop3"},
 		{"imap://user:pass@host", "imap"},
 		{"imaps://user:pass@host", "imap"},
+		{"ftp://user:pass@host/path", "ftp"},
+		{"ftps://user:pass@host/path", "ftp"},
 	}
 
 	for _, tt := range tests {
@@ -327,5 +334,351 @@ func TestResolveLokiQuery(t *testing.T) {
 		t.Errorf("expected auto-detected query {app=~\".+\"}, got %s", q2)
 	}
 }
+
+func startMockFTPServer(t *testing.T, files map[string]string) (string, func()) {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	stop := make(chan struct{})
+	go func() {
+		for {
+			conn, err := l.Accept()
+			if err != nil {
+				select {
+				case <-stop:
+					return
+				default:
+					continue
+				}
+			}
+			go handleMockFTPClient(conn, files)
+		}
+	}()
+	return l.Addr().String(), func() {
+		close(stop)
+		l.Close()
+	}
+}
+
+func handleMockFTPClient(conn net.Conn, files map[string]string) {
+	defer conn.Close()
+	r := bufio.NewReader(conn)
+	w := bufio.NewWriter(conn)
+
+	fmt.Fprintf(w, "220 Welcome to Mock FTP Server\r\n")
+	w.Flush()
+
+	var dataListener net.Listener
+
+	for {
+		line, err := r.ReadString('\n')
+		if err != nil {
+			return
+		}
+		line = strings.TrimSpace(line)
+		parts := strings.SplitN(line, " ", 2)
+		cmd := strings.ToUpper(parts[0])
+		arg := ""
+		if len(parts) > 1 {
+			arg = parts[1]
+		}
+
+		switch cmd {
+		case "USER":
+			fmt.Fprintf(w, "331 User name okay, need password\r\n")
+		case "PASS":
+			fmt.Fprintf(w, "230 User logged in, proceed\r\n")
+		case "TYPE":
+			fmt.Fprintf(w, "200 Type set to %s\r\n", arg)
+		case "FEAT":
+			fmt.Fprintf(w, "211-Features:\r\n UTF8\r\n211 End\r\n")
+		case "OPTS":
+			fmt.Fprintf(w, "200 OPTS OK\r\n")
+		case "EPSV":
+			dl, err := net.Listen("tcp", "127.0.0.1:0")
+			if err != nil {
+				fmt.Fprintf(w, "425 Can't open passive connection\r\n")
+				w.Flush()
+				continue
+			}
+			dataListener = dl
+			_, portStr, _ := net.SplitHostPort(dl.Addr().String())
+			port, _ := strconv.Atoi(portStr)
+			fmt.Fprintf(w, "229 Entering Extended Passive Mode (|||%d|)\r\n", port)
+		case "PASV":
+			dl, err := net.Listen("tcp", "127.0.0.1:0")
+			if err != nil {
+				fmt.Fprintf(w, "425 Can't open passive connection\r\n")
+				w.Flush()
+				continue
+			}
+			dataListener = dl
+			_, portStr, _ := net.SplitHostPort(dl.Addr().String())
+			port, _ := strconv.Atoi(portStr)
+			p1 := port / 256
+			p2 := port % 256
+			fmt.Fprintf(w, "227 Entering Passive Mode (127,0,0,1,%d,%d)\r\n", p1, p2)
+		case "LIST":
+			if dataListener == nil {
+				fmt.Fprintf(w, "425 Use PASV/EPSV first\r\n")
+				w.Flush()
+				continue
+			}
+			fmt.Fprintf(w, "150 Opening ASCII mode data connection\r\n")
+			w.Flush()
+			dataConn, err := dataListener.Accept()
+			if err == nil {
+				for fname, content := range files {
+					fmt.Fprintf(dataConn, "-rw-r--r-- 1 ftp ftp %d Jan 01 00:00 %s\r\n", len(content), fname)
+				}
+				dataConn.Close()
+			}
+			dataListener.Close()
+			dataListener = nil
+			fmt.Fprintf(w, "226 Transfer complete\r\n")
+		case "RETR":
+			if dataListener == nil {
+				fmt.Fprintf(w, "425 Use PASV/EPSV first\r\n")
+				w.Flush()
+				continue
+			}
+			fname := filepath.Base(arg)
+			content, exists := files[fname]
+			if !exists {
+				// try matching by full arg
+				content, exists = files[arg]
+			}
+			if !exists {
+				fmt.Fprintf(w, "550 File not found\r\n")
+				w.Flush()
+				dataListener.Close()
+				dataListener = nil
+				continue
+			}
+			fmt.Fprintf(w, "150 Opening BINARY mode data connection for %s\r\n", fname)
+			w.Flush()
+			dataConn, err := dataListener.Accept()
+			if err == nil {
+				dataConn.Write([]byte(content))
+				dataConn.Close()
+			}
+			dataListener.Close()
+			dataListener = nil
+			fmt.Fprintf(w, "226 Transfer complete\r\n")
+		case "QUIT":
+			fmt.Fprintf(w, "221 Goodbye\r\n")
+			w.Flush()
+			return
+		default:
+			fmt.Fprintf(w, "502 Command not implemented\r\n")
+		}
+		w.Flush()
+	}
+}
+
+func TestImportFromFTP(t *testing.T) {
+	setupTimeGrinder()
+
+	now := time.Now().Format("Jan 02 15:04:05")
+	testLogContent := fmt.Sprintf("%s host1 test ftp log line 1\n%s host1 test ftp log line 2\n", now, now)
+
+	mockFiles := map[string]string{
+		"test.log": testLogContent,
+	}
+
+	addr, closeServer := startMockFTPServer(t, mockFiles)
+	defer closeServer()
+
+	source = fmt.Sprintf("ftp://testuser:testpass@%s/test.log", addr)
+	filePat = ""
+	ftpUser = ""
+	ftpPassword = ""
+	ftpTLS = false
+	noDeltaCheck = true
+	noTimeStamp = false
+	stopImport = false
+	teaProg = nil
+	timeRange = ""
+
+	logCh = make(chan *LogEnt, 100)
+	var receivedLogs []*LogEnt
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for ent := range logCh {
+			receivedLogs = append(receivedLogs, ent)
+			if len(receivedLogs) >= 2 {
+				break
+			}
+		}
+	}()
+
+	importFromFTP()
+	close(logCh)
+	wg.Wait()
+
+	if len(receivedLogs) != 2 {
+		t.Fatalf("expected 2 logs from mock FTP, got %d", len(receivedLogs))
+	}
+	if !strings.Contains(receivedLogs[0].Log, "test ftp log line 1") {
+		t.Errorf("unexpected log content: %s", receivedLogs[0].Log)
+	}
+}
+
+func TestImportFromFTPGzip(t *testing.T) {
+	setupTimeGrinder()
+
+	now := time.Now().Format("Jan 02 15:04:05")
+	rawLog := fmt.Sprintf("%s host1 gzip ftp log line 1\n%s host1 gzip ftp log line 2\n", now, now)
+
+	buf := bytes.NewBuffer(nil)
+	gw := gzip.NewWriter(buf)
+	gw.Write([]byte(rawLog))
+	gw.Close()
+
+	mockFiles := map[string]string{
+		"test.log.gz": buf.String(),
+	}
+
+	addr, closeServer := startMockFTPServer(t, mockFiles)
+	defer closeServer()
+
+	source = fmt.Sprintf("ftp://%s/test.log.gz", addr)
+	filePat = ""
+	ftpUser = "testuser"
+	ftpPassword = "testpass"
+	ftpTLS = false
+	noDeltaCheck = true
+	noTimeStamp = false
+	stopImport = false
+	teaProg = nil
+	timeRange = ""
+
+	logCh = make(chan *LogEnt, 100)
+	var receivedLogs []*LogEnt
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for ent := range logCh {
+			receivedLogs = append(receivedLogs, ent)
+			if len(receivedLogs) >= 2 {
+				break
+			}
+		}
+	}()
+
+	importFromFTP()
+	close(logCh)
+	wg.Wait()
+
+	if len(receivedLogs) != 2 {
+		t.Fatalf("expected 2 logs from mock FTP gzip, got %d", len(receivedLogs))
+	}
+	if !strings.Contains(receivedLogs[0].Log, "gzip ftp log line 1") {
+		t.Errorf("unexpected log content: %s", receivedLogs[0].Log)
+	}
+}
+
+func TestImportFromFTPDir(t *testing.T) {
+	setupTimeGrinder()
+
+	now := time.Now().Format("Jan 02 15:04:05")
+	log1 := fmt.Sprintf("%s host1 match log 1\n", now)
+	log2 := fmt.Sprintf("%s host1 unmatch log 2\n", now)
+
+	mockFiles := map[string]string{
+		"app_syslog.log": log1,
+		"other.txt":       log2,
+	}
+
+	addr, closeServer := startMockFTPServer(t, mockFiles)
+	defer closeServer()
+
+	source = fmt.Sprintf("ftp://%s/logs/", addr)
+	filePat = "app_*"
+	ftpUser = "anonymous"
+	ftpPassword = "anonymous@"
+	ftpTLS = false
+	noDeltaCheck = true
+	noTimeStamp = false
+	stopImport = false
+	teaProg = nil
+	timeRange = ""
+
+	logCh = make(chan *LogEnt, 100)
+	var receivedLogs []*LogEnt
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for ent := range logCh {
+			receivedLogs = append(receivedLogs, ent)
+		}
+	}()
+
+	importFromFTP()
+	close(logCh)
+	wg.Wait()
+
+	if len(receivedLogs) != 1 {
+		t.Fatalf("expected 1 log from filtered dir FTP, got %d", len(receivedLogs))
+	}
+	if !strings.Contains(receivedLogs[0].Log, "match log 1") {
+		t.Errorf("unexpected log content: %s", receivedLogs[0].Log)
+	}
+}
+
+func TestImportFromFTPNestedPath(t *testing.T) {
+	setupTimeGrinder()
+
+	now := time.Now().Format("Jan 02 15:04:05")
+	rawLog := fmt.Sprintf("%s host1 nested ftp log line 1\n", now)
+
+	mockFiles := map[string]string{
+		"/httpdocs/twsnmp/twsnmpfc.log": rawLog,
+		"twsnmpfc.log":                   rawLog,
+	}
+
+	addr, closeServer := startMockFTPServer(t, mockFiles)
+	defer closeServer()
+
+	source = fmt.Sprintf("ftp://%s/httpdocs/twsnmp/twsnmpfc.log", addr)
+	filePat = ""
+	ftpUser = "anonymous"
+	ftpPassword = "anonymous@"
+	ftpTLS = false
+	noDeltaCheck = true
+	noTimeStamp = false
+	stopImport = false
+	teaProg = nil
+	timeRange = ""
+
+	logCh = make(chan *LogEnt, 100)
+	var receivedLogs []*LogEnt
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for ent := range logCh {
+			receivedLogs = append(receivedLogs, ent)
+		}
+	}()
+
+	importFromFTP()
+	close(logCh)
+	wg.Wait()
+
+	if len(receivedLogs) != 1 {
+		t.Fatalf("expected 1 log from nested path FTP, got %d", len(receivedLogs))
+	}
+	if !strings.Contains(receivedLogs[0].Log, "nested ftp log line 1") {
+		t.Errorf("unexpected log content: %s", receivedLogs[0].Log)
+	}
+}
+
+
 
 

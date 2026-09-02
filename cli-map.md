@@ -74,7 +74,7 @@
     - `-w, --week`: Week mode
 
 ### import
-- `import`: Import log from source (file | dir | scp | ssh | twsnmp | imap | pop3 | loki | es | opensearch | twlogeye)
+- `import`: Import log from source (file | dir | scp | ssh | twsnmp | imap | pop3 | loki | es | opensearch | twlogeye | ftp | ftps)
 - Flags
     - `--utc`: Force UTC
     - `-b, --size`: Batch Size (default 10000)
@@ -92,6 +92,10 @@
     - `--emailTLS`: IMAP use start TLS
     - `--emailUser`: IMAP or POP3 user name
     - `--emailPassword`: IMAP or POP3 password
+    - `--ftpUser`: FTP user name
+    - `--ftpPassword`: FTP password
+    - `--ftpTLS`: FTP use TLS (Explicit TLS)
+    - `--ftpSkip`: FTP skip verify certificate (default true)
 
 ### mcp
 - `mcp`: MCP server for AI agent

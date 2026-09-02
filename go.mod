@@ -100,6 +100,7 @@ require (
 	github.com/huandu/xstrings v1.3.3 // indirect
 	github.com/imdario/mergo v0.3.13 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/jlaffaye/ftp v0.2.4 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.19.2 // indirect
 	github.com/lrstanley/bubblezone v0.0.0-20240914071701-b48c55a5e78e // indirect

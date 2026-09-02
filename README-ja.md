@@ -254,6 +254,14 @@ Elasticsearch / OpenSearch からのインポート:
 `opensearch://user:pass@192.168.1.1:9200/logs-*`
 `--esIndex`（インデックス指定）、`--esQuery`（Lucene検索文字列またはQuery DSL）、`--esTimeField`（タイムスタンプフィールド、デフォルト: `@timestamp`）、`--esMessageField`（メッセージフィールド、デフォルト: `message`）、`--esApiKey`（API Key）が利用可能です。
 
+FTP / FTPS サーバーからのインポート:
+`ftp://user:pass@192.168.1.1/var/log/syslog`
+`ftp://192.168.1.1/logs/` (ディレクトリ指定時は `-p "syslog*"` でファイル名パターン指定可能)
+`ftps://user:pass@192.168.1.1/var/log/syslog`
+ユーザー名・パスワードはURLに含めることも、`--ftpUser` / `--ftpPassword` で指定することもできます（未指定時は匿名ログイン `anonymous`）。
+TLS接続は `ftps://` または `--ftpTLS` で有効化され、`--ftpSkip`（デフォルト: `true`）で証明書検証スキップを設定できます。
+`.gz` 圧縮ログファイルも自動的にストリーム解凍してインポートされます。
+
 emlファイルを読み込む場合は、
 ```terminal
 $ twsla import sample.eml

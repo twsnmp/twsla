@@ -63,6 +63,11 @@ var emailUser string
 var emailPassword string
 var emailTLS bool
 
+var ftpUser string
+var ftpPassword string
+var ftpTLS bool
+var ftpSkip bool
+
 var tg *timegrinder.TimeGrinder
 var importFilter *regexp.Regexp
 
@@ -93,7 +98,7 @@ var importCmd = &cobra.Command{
 	Use:   "import",
 	Short: "Import log from source",
 	Long: `Import log from source
-source is file | dir | scp | ssh | twsnmp | twlogeye | loki | es | opensearch | imap | pop3
+source is file | dir | scp | ssh | twsnmp | twlogeye | loki | es | opensearch | imap | pop3 | ftp | ftps
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		if listIMAPFolder {
@@ -129,6 +134,10 @@ func init() {
 	importCmd.Flags().BoolVar(&emailTLS, "emailTLS", false, "IMAP use start TLS")
 	importCmd.Flags().StringVar(&emailUser, "emailUser", "", "IMAP or POP3 user name")
 	importCmd.Flags().StringVar(&emailPassword, "emailPassword", "", "IMAP or POP3 password")
+	importCmd.Flags().StringVar(&ftpUser, "ftpUser", "", "FTP user name")
+	importCmd.Flags().StringVar(&ftpPassword, "ftpPassword", "", "FTP password")
+	importCmd.Flags().BoolVar(&ftpTLS, "ftpTLS", false, "FTP use TLS (Explicit TLS)")
+	importCmd.Flags().BoolVar(&ftpSkip, "ftpSkip", true, "FTP skip verify certificate")
 	importCmd.Flags().StringVar(&mlStart, "mlStart", "", "Multiline log start pattern (regex)")
 	importCmd.Flags().StringVar(&mlSep, "mlSep", "", "Multiline log separator pattern (regex)")
 	importCmd.Flags().IntVar(&mlLines, "mlLines", 0, "Multiline log fixed lines")
@@ -221,6 +230,8 @@ func importOne() {
 		importEMailIMAP()
 	case "pop3":
 		importEMailPOP3()
+	case "ftp":
+		importFromFTP()
 	default:
 		teaProg.Send(fmt.Errorf("invalid source: %s", source))
 		return
@@ -228,6 +239,9 @@ func importOne() {
 }
 
 func getSourceType() string {
+	if strings.HasPrefix(source, "ftp:") || strings.HasPrefix(source, "ftps:") {
+		return "ftp"
+	}
 	if strings.HasPrefix(source, "scp:") {
 		return "scp"
 	}
@@ -402,7 +416,7 @@ func doImport(path string, r io.Reader) {
 		}
 
 		if totalLines%2000 == 0 {
-			teaProg.Send(ImportMsg{
+			sendImportMsg(ImportMsg{
 				Done:  false,
 				Path:  path,
 				Bytes: readBytes,
@@ -412,7 +426,7 @@ func doImport(path string, r io.Reader) {
 		}
 	}
 	commitLog()
-	teaProg.Send(ImportMsg{
+	sendImportMsg(ImportMsg{
 		Done:  false,
 		Path:  path,
 		Bytes: readBytes,

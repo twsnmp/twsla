@@ -251,6 +251,13 @@ To import from Elasticsearch / OpenSearch:
 `opensearch://user:pass@192.168.1.1:9200/logs-*`
 Flags: `--esIndex`, `--esQuery`, `--esTimeField` (default `@timestamp`), `--esMessageField` (default `message`), `--esApiKey`.
 
+To import from an FTP / FTPS server:
+`ftp://user:pass@192.168.1.1/var/log/syslog`
+`ftp://192.168.1.1/logs/` (Use `-p "syslog*"` to filter filenames in directories)
+`ftps://user:pass@192.168.1.1/var/log/syslog`
+Flags: `--ftpUser` (default `anonymous`), `--ftpPassword` (default `anonymous@`), `--ftpTLS` (enable Explicit TLS), `--ftpSkip` (skip TLS cert verification, default `true`).
+`.gz` compressed logs are automatically decompressed during stream import.
+
 If you specify `--json` when reading an EVTX file from v1.1.0, the Windows event log is read in JSON format, allowing detailed information to be displayed.
 
 <video src="images/winevent.mp4" width="800" controls></video>

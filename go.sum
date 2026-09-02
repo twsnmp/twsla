@@ -231,6 +231,8 @@ github.com/inconshreveable/go-update v0.0.0-20160112193335-8152e7eb6ccf h1:WfD7V
 github.com/inconshreveable/go-update v0.0.0-20160112193335-8152e7eb6ccf/go.mod h1:hyb9oH7vZsitZCiBt0ZvifOrB+qc8PS5IiilCIb87rg=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
+github.com/jlaffaye/ftp v0.2.4 h1:JqI85DdkfZj8ntaHk8W9U2SC3jNfiPUU70+wtIWmlfE=
+github.com/jlaffaye/ftp v0.2.4/go.mod h1:Y1ZnkzxownGIuX7xQ1mQzzkZ21+DbjVIyeKL/V+IIz4=
 github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnrnM=
 github.com/json-iterator/go v1.1.12/go.mod h1:e30LSqwooZae/UwlEbR2852Gd8hjQvJoHmT4TnhNGBo=
 github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0/go.mod h1:1NbS8ALrpOvjt0rHPNLyCIeMtbizbir8U//inJ+zuB8=
