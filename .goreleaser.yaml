@@ -18,7 +18,6 @@ before:
 builds:
   - env:
       - CGO_ENABLED=0
-      - GOEXPERIMENT=simd
     tags:
       - wgpu24
     goos:
@@ -46,12 +45,6 @@ changelog:
       - "^test:"
 
 homebrew_casks:
-  - repository:
-      owner: twsnmp
-      name: homebrew-tap
-      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
-
-brews:
   - repository:
       owner: twsnmp
       name: homebrew-tap
