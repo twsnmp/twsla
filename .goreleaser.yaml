@@ -44,6 +44,9 @@ changelog:
       - "^docs:"
       - "^test:"
 
+release:
+  mode: replace
+
 homebrew_casks:
   - repository:
       owner: twsnmp
