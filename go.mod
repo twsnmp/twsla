@@ -1,6 +1,6 @@
 module github.com/twsnmp/twsla
 
-go 1.25.12
+go 1.26.0
 
 require (
 	blitiri.com.ar/go/spf v1.5.1
@@ -43,7 +43,7 @@ require (
 	github.com/wcharczuk/go-chart/v2 v2.1.1
 	github.com/xhit/go-str2duration/v2 v2.1.0
 	go.etcd.io/bbolt v1.5.0
-	golang.org/x/crypto v0.55.0
+	golang.org/x/crypto v0.56.0
 	golang.org/x/sys v0.47.0
 	golang.org/x/text v0.41.0
 	google.golang.org/grpc v1.83.2
