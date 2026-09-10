@@ -382,6 +382,7 @@ type sigmaModel struct {
 	viewport   viewport.Model
 	viewMode   int
 	sixel      string
+	lastSort   string
 }
 
 func initSigmaModel() sigmaModel {
@@ -475,6 +476,59 @@ type sigmaTagCountEnt struct {
 var sigmaCountList = []*sigmaCountEnt{}
 var sigmaTagCountList = []*sigmaTagCountEnt{}
 
+func getLevelScore(l string) int {
+	switch strings.ToLower(l) {
+	case "critical":
+		return 5
+	case "high":
+		return 4
+	case "medium":
+		return 3
+	case "low":
+		return 2
+	case "informational", "info":
+		return 1
+	default:
+		return 0
+	}
+}
+
+func updateSigmaRows() {
+	sigmaRows = []table.Row{}
+	for _, r := range sigmaList {
+		tagsStr := strings.Join(r.Evaluator.Rule.Tags, ", ")
+		sigmaRows = append(sigmaRows, []string{
+			r.Evaluator.Level,
+			time.Unix(0, times[r.Log]).Format("01/02 15:04"),
+			r.Evaluator.Title,
+			tagsStr,
+			results[r.Log],
+		})
+	}
+}
+
+func updateSigmaCountRows() {
+	sigmaCountRows = []table.Row{}
+	for _, r := range sigmaCountList {
+		sigmaCountRows = append(sigmaCountRows, []string{
+			r.Level,
+			r.Title,
+			r.Tag,
+			fmt.Sprintf("%d", r.Count),
+		})
+	}
+}
+
+func updateSigmaTagCountRows() {
+	sigmaTagCountRows = []table.Row{}
+	for _, t := range sigmaTagCountList {
+		sigmaTagCountRows = append(sigmaTagCountRows, []string{
+			t.Tag,
+			fmt.Sprintf("%d", t.Count),
+		})
+	}
+}
+
 func (m sigmaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.save {
 		return m.SaveUpdate(msg)
@@ -549,29 +603,104 @@ func (m sigmaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.save = true
 			}
 			return m, nil
-		case "c":
+		case "m":
 			if m.done {
 				m.viewMode = (m.viewMode + 1) % 3
+				m.lastSort = ""
 			}
-		case "r":
+			return m, nil
+		case "l", "t", "r", "c":
 			if m.done {
-				// Reverse
+				k := msg.String()
 				switch m.viewMode {
-				case viewModeTagCount:
-					for i, j := 0, len(sigmaTagCountRows)-1; i < j; i, j = i+1, j-1 {
-						sigmaTagCountRows[i], sigmaTagCountRows[j] = sigmaTagCountRows[j], sigmaTagCountRows[i]
+				case viewModeEvents:
+					if k == "l" || k == "t" {
+						if k == m.lastSort {
+							for i, j := 0, len(sigmaRows)-1; i < j; i, j = i+1, j-1 {
+								sigmaRows[i], sigmaRows[j] = sigmaRows[j], sigmaRows[i]
+							}
+							for i, j := 0, len(sigmaList)-1; i < j; i, j = i+1, j-1 {
+								sigmaList[i], sigmaList[j] = sigmaList[j], sigmaList[i]
+							}
+						} else {
+							m.lastSort = k
+							if k == "l" {
+								sort.Slice(sigmaList, func(i, j int) bool {
+									si := getLevelScore(sigmaList[i].Evaluator.Level)
+									sj := getLevelScore(sigmaList[j].Evaluator.Level)
+									if si != sj {
+										return si > sj
+									}
+									return times[sigmaList[i].Log] > times[sigmaList[j].Log]
+								})
+							} else {
+								sort.Slice(sigmaList, func(i, j int) bool {
+									return times[sigmaList[i].Log] < times[sigmaList[j].Log]
+								})
+							}
+							updateSigmaRows()
+						}
+						m.table.SetRows(sigmaRows)
 					}
-					m.tagTable.SetRows(sigmaTagCountRows)
 				case viewModeRuleCount:
-					for i, j := 0, len(sigmaCountRows)-1; i < j; i, j = i+1, j-1 {
-						sigmaCountRows[i], sigmaCountRows[j] = sigmaCountRows[j], sigmaCountRows[i]
+					if k == "l" || k == "r" || k == "c" {
+						if k == m.lastSort {
+							for i, j := 0, len(sigmaCountRows)-1; i < j; i, j = i+1, j-1 {
+								sigmaCountRows[i], sigmaCountRows[j] = sigmaCountRows[j], sigmaCountRows[i]
+							}
+							for i, j := 0, len(sigmaCountList)-1; i < j; i, j = i+1, j-1 {
+								sigmaCountList[i], sigmaCountList[j] = sigmaCountList[j], sigmaCountList[i]
+							}
+						} else {
+							m.lastSort = k
+							switch k {
+							case "l":
+								sort.Slice(sigmaCountList, func(i, j int) bool {
+									si := getLevelScore(sigmaCountList[i].Level)
+									sj := getLevelScore(sigmaCountList[j].Level)
+									if si != sj {
+										return si > sj
+									}
+									return sigmaCountList[i].Count > sigmaCountList[j].Count
+								})
+							case "r":
+								sort.Slice(sigmaCountList, func(i, j int) bool {
+									return sigmaCountList[i].Title < sigmaCountList[j].Title
+								})
+							case "c":
+								sort.Slice(sigmaCountList, func(i, j int) bool {
+									return sigmaCountList[i].Count > sigmaCountList[j].Count
+								})
+							}
+							updateSigmaCountRows()
+						}
+						m.countTable.SetRows(sigmaCountRows)
 					}
-					m.countTable.SetRows(sigmaCountRows)
-				default:
-					for i, j := 0, len(sigmaRows)-1; i < j; i, j = i+1, j-1 {
-						sigmaRows[i], sigmaRows[j] = sigmaRows[j], sigmaRows[i]
+				case viewModeTagCount:
+					if k == "t" || k == "c" {
+						if k == m.lastSort {
+							for i, j := 0, len(sigmaTagCountRows)-1; i < j; i, j = i+1, j-1 {
+								sigmaTagCountRows[i], sigmaTagCountRows[j] = sigmaTagCountRows[j], sigmaTagCountRows[i]
+							}
+							for i, j := 0, len(sigmaTagCountList)-1; i < j; i, j = i+1, j-1 {
+								sigmaTagCountList[i], sigmaTagCountList[j] = sigmaTagCountList[j], sigmaTagCountList[i]
+							}
+						} else {
+							m.lastSort = k
+							switch k {
+							case "t":
+								sort.Slice(sigmaTagCountList, func(i, j int) bool {
+									return sigmaTagCountList[i].Tag < sigmaTagCountList[j].Tag
+								})
+							case "c":
+								sort.Slice(sigmaTagCountList, func(i, j int) bool {
+									return sigmaTagCountList[i].Count > sigmaTagCountList[j].Count
+								})
+							}
+							updateSigmaTagCountRows()
+						}
+						m.tagTable.SetRows(sigmaTagCountRows)
 					}
-					m.table.SetRows(sigmaRows)
 				}
 			}
 			return m, nil
@@ -700,15 +829,7 @@ func (m sigmaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			sort.Slice(sigmaCountList, func(i, j int) bool {
 				return sigmaCountList[i].Count > sigmaCountList[j].Count
 			})
-			sigmaCountRows = []table.Row{}
-			for _, r := range sigmaCountList {
-				sigmaCountRows = append(sigmaCountRows, []string{
-					r.Level,
-					r.Title,
-					r.Tag,
-					fmt.Sprintf("%d", r.Count),
-				})
-			}
+			updateSigmaCountRows()
 			m.countTable.SetRows(sigmaCountRows)
 
 			// Populate Tag Count
@@ -722,13 +843,7 @@ func (m sigmaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			sort.Slice(sigmaTagCountList, func(i, j int) bool {
 				return sigmaTagCountList[i].Count > sigmaTagCountList[j].Count
 			})
-			sigmaTagCountRows = []table.Row{}
-			for _, t := range sigmaTagCountList {
-				sigmaTagCountRows = append(sigmaTagCountRows, []string{
-					t.Tag,
-					fmt.Sprintf("%d", t.Count),
-				})
-			}
+			updateSigmaTagCountRows()
 			m.tagTable.SetRows(sigmaTagCountRows)
 
 			for _, v := range heatmapMap {
@@ -839,20 +954,22 @@ func (m sigmaModel) View() string {
 }
 
 func (m sigmaModel) headerView() string {
-	modeLabel := "Events"
 	ruleCount := 0
 	if sigmaEngine != nil {
 		ruleCount = len(sigmaEngine.RuleEntries)
 	}
+	title := titleStyle.Render(fmt.Sprintf("Results %d/%d/%d s:%s r:%d",
+		len(sigmaList), m.msg.Hit, m.msg.Lines, m.msg.Dur.Truncate(time.Millisecond), ruleCount))
+	var helpText string
 	switch m.viewMode {
 	case viewModeTagCount:
-		modeLabel = "Tag Count"
+		helpText = "s: Save / t|c: Sort / m: Mode / g|h: Chart / q: Quit"
 	case viewModeRuleCount:
-		modeLabel = "Rule Count"
+		helpText = "s: Save / l|r|c: Sort / m: Mode / g|h: Chart / q: Quit"
+	default:
+		helpText = "enter: Show / s: Save / l|t: Sort / m: Mode / g|h: Chart / q: Quit"
 	}
-	title := titleStyle.Render(fmt.Sprintf("[%s] Results %d/%d/%d s:%s r:%d",
-		modeLabel, len(sigmaList), m.msg.Hit, m.msg.Lines, m.msg.Dur.Truncate(time.Millisecond), ruleCount))
-	help := helpStyle("enter: Show / s: Save / r: Sort / c: Mode / g|h: Chart / q: Quit") + "  "
+	help := helpStyle(helpText) + "  "
 	gap := strings.Repeat(" ", max(0, m.table.Width()-lipgloss.Width(title)-lipgloss.Width(help)))
 	return lipgloss.JoinHorizontal(lipgloss.Center, title, gap, help)
 }
