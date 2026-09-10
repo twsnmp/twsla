@@ -137,8 +137,21 @@
 
 ### sigma
 - `sigma`: Detect threats using SIGMA rules
+- Subcommands
+    - `packs`: List available embedded rule packs
+    - `list`: List active rules with metadata
+    - `stat`: Show rule, source, and tag statistics
+    - `logsrc`: List log sources
+    - `field`: List log fields
+    - `test <log1> [log2...]`: Test log strings against active rules
+    - `convert-wazuh <xml-file-or-dir>`: Convert Wazuh XML rules to Sigma YAML
+    - `convert-wazuh-decoder <xml-file-or-dir>`: Convert Wazuh XML decoders to regex patterns
 - Flags
     - `-s, --rules`: Sigma rules path
+    - `-p, --sigmaPacks`: Sigma rule packs (e.g. windows-essential,linux-auth or all)
+    - `--pack`: Filter rules by pack name (for list)
+    - `--custom`: Filter custom (file) rules only (for list)
+    - `--namedCaptures`: Path to custom named captures regex file
     - `--strict`: Strict rule check
     - `-c, --sigmaConfig`: config path
     - `-x, --grokPat`: grok pattern if empty json mode

@@ -1334,7 +1334,7 @@ Displays the `twsla` version.
 
 ```terminal
 $ twsla version
-twsla v2.1.1(commit) 2026-09-08T00:00:00Z
+twsla v2.2.0(commit) 2026-09-10T00:00:00Z
 ```
 
 ## Basic explanation
