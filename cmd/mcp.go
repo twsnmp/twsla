@@ -38,7 +38,6 @@ import (
 	"unicode"
 
 	"github.com/0xrawsec/golang-evtx/evtx"
-	"github.com/bradleyjkemp/sigma-go/evaluator"
 	"github.com/domainr/dnsr"
 	"github.com/dustin/go-humanize"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -46,6 +45,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/twsnmp/twsla/pkg/anomaly"
 	"github.com/twsnmp/twsla/pkg/datastore"
+	sigmaPkg "github.com/twsnmp/twsla/pkg/sigma"
 )
 
 var (
@@ -189,6 +189,13 @@ func addResources(s *mcp.Server) {
 		Description: "List of embedded Sigma rule configuration definitions available in TWSLA.",
 		MIMEType:    "application/json",
 	}, sigmaRulesResourceHandler)
+
+	s.AddResource(&mcp.Resource{
+		URI:         "twsla://sigma/packs",
+		Name:        "Built-in Sigma Rule Packs",
+		Description: "List of embedded Sigma rule packs available in TWSLA.",
+		MIMEType:    "application/json",
+	}, sigmaPacksResourceHandler)
 }
 
 func dbStatusResourceHandler(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
@@ -216,20 +223,68 @@ func dbStatusResourceHandler(ctx context.Context, req *mcp.ReadResourceRequest) 
 		return true
 	})
 
-	type statusResp struct {
-		DataStore string `json:"datastore"`
-		TotalLogs int64  `json:"total_logs"`
-		FirstLog  string `json:"first_log,omitempty"`
-		LastLog   string `json:"last_log,omitempty"`
+	type dbStatusResp struct {
+		Path       string `json:"path"`
+		Type       string `json:"type"`
+		TotalLogs  int64  `json:"total_logs"`
+		StartTime  string `json:"start_time,omitempty"`
+		EndTime    string `json:"end_time,omitempty"`
+		SpanHuman  string `json:"span_human,omitempty"`
+		SizeHuman  string `json:"size_human,omitempty"`
+		SizeBytes  int64  `json:"size_bytes,omitempty"`
+		IsReadOnly bool   `json:"is_read_only"`
 	}
 
-	res := statusResp{
-		DataStore: dataStore,
-		TotalLogs: total,
+	resp := dbStatusResp{
+		Path:       dataStore,
+		Type:       filepath.Ext(dataStore),
+		TotalLogs:  total,
+		IsReadOnly: true,
 	}
+
+	if fi, err := os.Stat(dataStore); err == nil {
+		resp.SizeBytes = fi.Size()
+		resp.SizeHuman = humanize.Bytes(uint64(fi.Size()))
+	}
+
 	if total > 0 && minTime != math.MaxInt64 {
-		res.FirstLog = time.Unix(0, minTime).Format(time.RFC3339)
-		res.LastLog = time.Unix(0, maxTime).Format(time.RFC3339)
+		stT := time.Unix(0, minTime)
+		etT := time.Unix(0, maxTime)
+		resp.StartTime = stT.Format(time.RFC3339Nano)
+		resp.EndTime = etT.Format(time.RFC3339Nano)
+		resp.SpanHuman = etT.Sub(stT).String()
+	}
+
+	data, err := json.MarshalIndent(resp, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+
+	return &mcp.ReadResourceResult{
+		Contents: []*mcp.ResourceContents{
+			{
+				URI:      req.Params.URI,
+				MIMEType: "application/json",
+				Text:     string(data),
+			},
+		},
+	}, nil
+}
+
+func sigmaRulesResourceHandler(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+	configs := []string{}
+	sigmaPkg.ForEachSigmaConfig("", func(c string, _ []byte) {
+		configs = append(configs, c)
+	})
+
+	type sigmaRulesResp struct {
+		AvailableConfigs []string `json:"available_configs"`
+		Description      string   `json:"description"`
+	}
+
+	res := sigmaRulesResp{
+		AvailableConfigs: configs,
+		Description:      "Embedded Sigma configuration mappings. Use these names in the 'config' argument of detect_threats_sigma.",
 	}
 
 	data, err := json.MarshalIndent(res, "", "  ")
@@ -248,28 +303,9 @@ func dbStatusResourceHandler(ctx context.Context, req *mcp.ReadResourceRequest) 
 	}, nil
 }
 
-func sigmaRulesResourceHandler(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
-	configs := []string{}
-	entries, err := sigmaConfigs.ReadDir("sigma")
-	if err == nil {
-		for _, e := range entries {
-			if !e.IsDir() && (strings.HasSuffix(e.Name(), ".yml") || strings.HasSuffix(e.Name(), ".yaml")) {
-				configs = append(configs, strings.TrimSuffix(strings.TrimSuffix(e.Name(), ".yaml"), ".yml"))
-			}
-		}
-	}
-
-	type sigmaRulesResp struct {
-		AvailableConfigs []string `json:"available_configs"`
-		Description      string   `json:"description"`
-	}
-
-	res := sigmaRulesResp{
-		AvailableConfigs: configs,
-		Description:      "Embedded Sigma configuration mappings. Use these names in the 'config' argument of detect_threats_sigma.",
-	}
-
-	data, err := json.MarshalIndent(res, "", "  ")
+func sigmaPacksResourceHandler(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+	packs := sigmaPkg.GetAllSigmaPacksInfo()
+	data, err := json.MarshalIndent(packs, "", "  ")
 	if err != nil {
 		return nil, err
 	}
@@ -1415,14 +1451,15 @@ func getLogSummaryPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.G
 // -------------------------------------------------------------
 
 type detectThreatsSigmaParams struct {
-	Filter  string `json:"filter,omitempty" jsonschema:"Filter logs by regular expression. Empty is no filter"`
-	Rules   string `json:"rules,omitempty" jsonschema:"Path to Sigma rule file or directory. If empty, all built-in rules will be checked."`
-	Config  string `json:"config,omitempty" jsonschema:"Sigma config mapping name (e.g. sysmon, apache, windows)."`
-	GrokPat string `json:"grok_pat,omitempty" jsonschema:"Grok pattern if logs are not JSON formatted."`
-	Strict  bool   `json:"strict,omitempty" jsonschema:"Strict rule parsing check. Default: false"`
-	Limit   int    `json:"limit,omitempty" jsonschema:"Limit on matching results returned. Default: 100"`
-	Start   string `json:"start,omitempty" jsonschema:"Start date and time for log search. Empty is 1970/1/1."`
-	End     string `json:"end,omitempty" jsonschema:"End date and time for log search. Empty is now."`
+	Filter  string   `json:"filter,omitempty" jsonschema:"Filter logs by regular expression. Empty is no filter"`
+	Rules   string   `json:"rules,omitempty" jsonschema:"Path to Sigma rule file or directory. If empty, built-in rules will be checked."`
+	Packs   []string `json:"packs,omitempty" jsonschema:"Optional Sigma rule packs to enable (e.g. ['windows-essential', 'linux-auth']). If empty, all built-in packs are enabled."`
+	Config  string   `json:"config,omitempty" jsonschema:"Sigma config mapping name or directory path (e.g. windows, linux, web, network)."`
+	GrokPat string   `json:"grok_pat,omitempty" jsonschema:"Grok pattern if logs are not JSON formatted."`
+	Strict  bool     `json:"strict,omitempty" jsonschema:"Strict rule parsing check. Default: false"`
+	Limit   int      `json:"limit,omitempty" jsonschema:"Limit on matching results returned. Default: 100"`
+	Start   string   `json:"start,omitempty" jsonschema:"Start date and time for log search. Empty is 1970/1/1."`
+	End     string   `json:"end,omitempty" jsonschema:"End date and time for log search. Empty is now."`
 }
 
 type mcpSigmaHit struct {
@@ -1440,8 +1477,6 @@ func detectThreatsSigma(ctx context.Context, req *mcp.CallToolRequest, args dete
 
 	regexpFilter = args.Filter
 	timeRange = args.Start + "," + args.End
-	sigmaConfig = args.Config
-	sigmaRules = args.Rules
 	strict = args.Strict
 	grokPat = args.GrokPat
 	limit := args.Limit
@@ -1453,21 +1488,24 @@ func detectThreatsSigma(ctx context.Context, req *mcp.CallToolRequest, args dete
 	}
 
 	setupFilter([]string{})
-	setGrok()
 
-	evaluators = []*evaluator.RuleEvaluator{}
-	if sigmaRules != "" {
-		loadSigmaRules()
-	} else {
-		// Load embedded sigma configs / rules if available
-		config := getSigmaConfig()
-		if config == nil && sigmaConfig != "" {
-			return nil, nil, fmt.Errorf("sigma config '%s' not found", sigmaConfig)
-		}
+	var grokPats []string
+	if args.GrokPat != "" {
+		grokPats = []string{args.GrokPat}
+	}
+	eng, err := sigmaPkg.NewEngine(sigmaPkg.Config{
+		RulesPath: args.Rules,
+		Packs:     args.Packs,
+		ConfigDir: args.Config,
+		GrokPat:   grokPats,
+		Strict:    args.Strict,
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to initialize sigma engine: %w", err)
 	}
 
-	if len(evaluators) == 0 {
-		return nil, nil, fmt.Errorf("no sigma rules loaded. Please specify valid 'rules' path or embedded config")
+	if len(eng.RuleEntries) == 0 {
+		return nil, nil, fmt.Errorf("no sigma rules loaded")
 	}
 
 	if err := openDB(); err != nil {
@@ -1481,7 +1519,8 @@ func detectThreatsSigma(ctx context.Context, req *mcp.CallToolRequest, args dete
 		l := entry.Log
 		t := entry.Time
 		if matchFilter(&l) {
-			if ev := matchSigmaRule(&l); ev != nil {
+			if matched := eng.Match(l, t); matched != nil {
+				ev := matched.Evaluator
 				hits = append(hits, mcpSigmaHit{
 					Time:        time.Unix(0, t).Format(time.RFC3339Nano),
 					Log:         l,
