@@ -929,65 +929,54 @@ Global Flags:
   -t, --timeRange string   Time range
 ```
 
-sオプションでsigmaルールの保存されたディレクトリを指定してください。ログはjsonで保存された形式を前提としています。jsonではないログを扱う場合は、grokでデータを抽出する必要があります。
--gオプションでgrokの定義を指定します。指定しなければデフォルト定義、fullを指定すれば、全組み込み定義を利用します。定義ファイルへのパスを指定すれば、定義を読み込みます。
+twsla には標準で **11種類の組み込みルールパック（合計75ルール）** を内蔵しており、外部ルールファイルを用意しなくても `twsla sigma` を実行するだけですぐに高精度な脅威検知を開始できます（各パックの対象ログや収録ルール一覧は [組み込みルールパック詳細ガイド](sigma-packs-ja.md) を参照）。
+
+`-p, --sigmaPacks` オプションで特定のパック（`windows-essential`, `linux-auth`, `wazuh-compliance` 等）に絞り込むことや、`-s` オプションで外部カスタムルールディレクトリを指定することも可能です（外部ルールと同一IDのルールがある場合、外部ルールが組み込みパックを自動的にオーバーライドします）。
+
+また、Windows、Linux、ネットワーク機器、Web サーバーアクセスログ用の各種 Sigma 設定ファイル（`windows`, `linux`, `network`, `web`）が組み込まれており、ログのタイムスタンプに基づいたスライディングウィンドウによる相関検知（短時間での複数回認証失敗など）も自動で判定されます。
+
+ログは JSON 形式のほか、Syslog、Splunk 風 key=val 形式、名前付き正規表現キャプチャ（`wazuh-linux` 有効時は SSHD/Sudo/PAM デコーダーを自動適用）および GROK パターンでの抽出に対応しています。
 組み込みのGROK定義は
 
 https://github.com/elastic/go-grok
 
 を参照してください。
-自分で定義する場合は、
-
-```regexp
-TEST  from\s+%{IP}
-```
-
-のように、
-定義名<SP>定義
-とします。
--xオプションで定義名を指定します。
--c オプションでsigmaの設定ファイルを指定します。windowsのイベントログ用に
-
-```yaml
-
-title: Sigma config for windows event log
-backends:
-  - github.com/bradleyjkemp/sigma-go
-
-fieldmappings:
-  Image: $.Event.EventData.Image
-  CommandLine: $.Event.EventData.CommandLine
-  ParentProcessName: $.Event.EventData.ParentProcessName
-  NewProcessName:  $.Event.EventData.NewProcessName
-  User:  $.Event.EventData.User
-  ParentUser:  $.Event.EventData.ParentUser
-  Channel:  $.Event.System.Channel
-  Computer:  $.Event.System.Computer
-  EventID:  $.Event.System.EventID
-  Level:  $.Event.System.Level
-  Provider.Guid:  $.Event.System.Provider.Guid
-  Provider.Name:  $.Event.System.Provider.Name
-
-```
-
-という形式のファイルを組み込んであります。-c windowsと指定すれば、この定義を利用します。fieldmappingsの部分で変数名を変換しています。
-sigmaルールの中でImageと書いたものは、イベントログの$.Event.EventData.Imageの値になるという設定です。jsonpathで指定します。
 
 sigmaコマンドを実行すると
 
 ![](https://assets.st-note.com/img/1731635833-qlgh6Id4OZj27BNMse8aYSQP.png?width=1200)
 
-のような結果表示になります。検知したsigmaルールの情報を表示します。リターンキーを押せば、対象のログを含む詳しいログを表示します。
+のような結果表示になります。検知したsigmaルールの情報（重要度、時刻、ルール名、MITRE ATT&CK / 規格タグ等）を表示します。リターンキーを押せば、対象のログを含む詳しいログを表示します。
 
 ![](https://assets.st-note.com/img/1731635833-SWxOoXL9CMaAVirgnBf0RD81.png?width=1200)
 
-cキーを押せば、検知したルール毎に集計した表示になります。
+`c` キーを押すことで、**イベント一覧 ⇄ ルール別集計 ⇄ タグ別集計（MITRE ATT&CK / コンプライアンス規格）** を順次切り替えることができます。
 
 ![](https://assets.st-note.com/img/1731635833-dxpwm309QjiPok5Ss1eMz6NR.png?width=1200)
 
+`g` キーまたは `h` キーで、表示中のモード（ルール別・タグ別）に応じた集計グラフ（ブラウザ表示 HTML または Sixel / PNG）を表示できます。
+`s` キーでデータやグラフをファイルに保存できます。
 
-gキーまたはhキーでグラフを表示します。
-ｓキーでデータやグラフをファイルに保存できます。
+### CLI サブアクション・Wazuh 変換コマンド
+```bash
+# 利用可能なパックの一覧表示
+twsla sigma packs
+
+# ルール総数、ログソース数、Top Tags（MITRE / コンプライアンス規格別）の統計
+twsla sigma stat
+
+# 有効なルール一覧の確認
+twsla sigma list -p linux-auth
+
+# 単一ログに対するルールマッチングテスト
+twsla sigma test '{"content":"Failed password for invalid user admin from 192.168.1.100 port 45678 ssh2"}'
+
+# Wazuh ルール XML から Sigma YAML への一括/個別変換
+twsla sigma convert-wazuh -o ./converted-rules ./ruleset/rules/0095-sshd_rules.xml
+
+# Wazuh デコーダー XML から名前付き正規表現パターンへの変換
+twsla sigma convert-wazuh-decoder -o ./captures ./0310-ssh_decoders.xml
+```
 
 ### twlogeyeコマンド
 

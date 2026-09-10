@@ -849,12 +849,13 @@ Usage:
   twsla sigma [flags]
 
 Flags:
-  -c, --config string    config path
-  -g, --grok string      grok definitions
-  -x, --grokPat string   grok pattern if empty json mode
-  -h, --help             help for sigma
-  -s, --rules string     Sigma rules path
-      --strict           Strict rule check
+  -c, --config string        config path
+  -g, --grok string          grok definitions
+  -x, --grokPat string       grok pattern if empty json mode
+  -h, --help                 help for sigma
+  -s, --rules string         Sigma rules path
+  -p, --sigmaPacks string    Comma-separated list of built-in rule packs
+      --strict               Strict rule check
 
 Global Flags:
   -d, --datastore string   Log DataStore path (.db, .badger, .parquet) (default "./twsla.db")
@@ -864,11 +865,51 @@ Global Flags:
   -t, --timeRange string   Time range
 ```
 
-Specify the SIGMA rules directory with `-s`. Logs are expected in JSON format; non-JSON logs require GROK extraction via `-g` and `-x`. Use `-c Windows` for built-in Windows event log mappings.
+`twsla` includes **11 built-in rule packs (75 rules in total)** out of the box. You can perform high-accuracy threat detection with `twsla sigma` without needing external rule files. See the [Detailed Sigma Rule Packs Guide](sigma-packs.md) for target log sources and the complete list of rules for each pack.
+
+You can select specific rule packs using `-p, --sigmaPacks` (e.g., `windows-essential`, `linux-auth`, `wazuh-compliance`), or provide an external custom rules directory with `-s` (external rules with the same ID automatically override built-in rules).
+
+Built-in Sigma configurations are provided for Windows, Linux, network appliances, and Web server access logs (`windows`, `linux`, `network`, `web`). In addition, timestamp-based sliding-window correlation detection (e.g., multiple authentication failures within a short time window) is automatically evaluated based on log event timestamps.
+
+Logs in JSON format, Syslog, Splunk-style `key=val` format, named regular expression captures (SSHD/Sudo/PAM decoders are automatically applied when `wazuh-linux` is enabled), and GROK patterns are supported.
+For built-in GROK pattern definitions, see:
+https://github.com/elastic/go-grok
+
+When running the `sigma` command:
 
 ![](https://assets.st-note.com/img/1731635833-qlgh6Id4OZj27BNMse8aYSQP.png?width=1200)
 
-Detected rules are displayed. Press `Enter` for details, `C` for rule-based display, or `G`/`H` for graphs. Save data/graphs with `S`.
+Detected rules and threat events are displayed with severity, timestamp, rule name, and global tags (MITRE ATT&CK techniques, PCI-DSS, etc.). Press `Enter` to view detailed logs and raw payloads.
+
+![](https://assets.st-note.com/img/1731635833-SWxOoXL9CMaAVirgnBf0RD81.png?width=1200)
+
+Press the `c` key to cycle between **Event List ⇄ Rule Aggregation ⇄ Tag Aggregation (MITRE ATT&CK & Compliance)**.
+
+![](https://assets.st-note.com/img/1731635833-dxpwm309QjiPok5Ss1eMz6NR.png?width=1200)
+
+Press `g` or `h` to display aggregated bar charts (browser HTML or Sixel / PNG terminal graphics) for the current view mode (by Rule or by Tag).
+Press `s` to save the data or charts to a file.
+
+### CLI Subactions & Wazuh Conversion Commands
+```bash
+# List available built-in packs
+twsla sigma packs
+
+# Display rule statistics, log sources, and top tags (MITRE / Compliance)
+twsla sigma stat
+
+# List active rules in a pack
+twsla sigma list -p linux-auth
+
+# Test rule matching against a single log line
+twsla sigma test '{"content":"Failed password for invalid user admin from 192.168.1.100 port 45678 ssh2"}'
+
+# Convert Wazuh rule XML files to Sigma YAML rules
+twsla sigma convert-wazuh -o ./converted-rules ./ruleset/rules/0095-sshd_rules.xml
+
+# Convert Wazuh decoder XML files to named regex capture patterns
+twsla sigma convert-wazuh-decoder -o ./captures ./0310-ssh_decoders.xml
+```
 
 ### twlogeye command
 
