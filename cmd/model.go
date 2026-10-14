@@ -19,14 +19,13 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"sort"
+	"runtime"
 	"strings"
 
 	"github.com/dustin/go-humanize"
 	"github.com/spf13/cobra"
 	aitensai "github.com/twsnmp/twsla/pkg/ai/tensai"
 	"github.com/twsnmp/twsla/pkg/model"
-	"runtime"
 )
 
 var modelDirFlag string
@@ -119,11 +118,10 @@ var modelPresetsCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Available Preset Models:")
 		fmt.Println()
-		presets := model.GetPresetNames()
-		sort.Strings(presets)
-		for _, name := range presets {
-			url := model.PresetModels[name]
-			fmt.Printf("  %-16s %s\n", name, url)
+		fmt.Printf("%-20s %-8s %-10s %s\n", "NAME", "PARAMS", "SIZE", "DESCRIPTION")
+		fmt.Println(strings.Repeat("-", 80))
+		for _, info := range model.PresetModelMetadata {
+			fmt.Printf("%-20s %-8s %-10s %s\n", info.Name, info.Params, info.Size, info.Description)
 		}
 		fmt.Println("\nTo download, run: twsla model download <preset_name>")
 	},

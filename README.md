@@ -1065,15 +1065,24 @@ $ twsla model rm qwen2.5-coder-0.5b
 
 | Preset Name | Model | Approx Size | Features / Recommended Use |
 |---|---|---|---|
-| `qwen2.5-0.5b` | Qwen2.5-0.5B-Instruct (Q8_0) | ~500MB | Default ultra-lightweight general model |
-| `qwen2.5-1.5b` | Qwen2.5-1.5B-Instruct (Q4_K_M) | ~1.0GB | High quality lightweight general model |
+| `qwen2.5-0.5b` | Qwen2.5-0.5B-Instruct (Q8_0) | ~500MB | Default ultra-lightweight general model (fast) |
+| `qwen2.5-1.5b` | Qwen2.5-1.5B-Instruct (Q4_K_M) | ~980MB | High quality lightweight general model |
+| `qwen2.5-3b` | Qwen2.5-3B-Instruct (Q4_K_M) | ~1.9GB | High-accuracy general-purpose model |
 | `qwen2.5-coder-0.5b` | Qwen2.5-Coder-0.5B-Instruct (Q8_0) | ~500MB | Specialized for logs, JSON & code analysis |
-| `qwen2.5-coder-1.5b` | Qwen2.5-Coder-1.5B-Instruct (Q4_K_M) | ~1.0GB | High-accuracy structured log & code analysis |
-| `smollm2-135m` | SmolLM2-135M-Instruct (Q8_0) | ~145MB | Ultra-fast & minimal footprint (IoT / low resources) |
+| `qwen2.5-coder-1.5b` | Qwen2.5-Coder-1.5B-Instruct (Q4_K_M) | ~980MB | High-accuracy structured log & code analysis |
+| `qwen2.5-coder-3b` | Qwen2.5-Coder-3B-Instruct (Q4_K_M) | ~2.0GB | Advanced structured log & code analysis |
+| `qwen3-4b` | Qwen3-4B-Instruct (Q4_K_M) | ~2.5GB | Reasoning model with `<think>` step-by-step thinking |
+| `llm-jp-3-1.8b` | LLM-jp-3-1.8B-Instruct (Q4_K_M) | ~1.2GB | Japanese domestic specialized open model |
+| `gemma-2-2b` | Gemma-2-2B-it (Q4_K_M) | ~1.6GB | Google high quality lightweight model |
+| `gemma-3-1b` | Gemma-3-1B-it (Q4_K_M) | ~1.0GB | Google ultra-lightweight edge model |
+| `gemma-4-e2b` | Gemma-4-E2B-it (Q4_K_M) | ~3.1GB | Google multimodal / edge optimized model |
+| `smollm2-135m` | SmolLM2-135M-Instruct (Q8_0) | ~150MB | Ultra-fast & minimal footprint (IoT / low resources) |
 | `smollm2-360m` | SmolLM2-360M-Instruct (Q8_0) | ~380MB | Balanced compact model |
-| `smollm2-1.7b` | SmolLM2-1.7B-Instruct (Q4_K_M) | ~1.1GB | SmolLM2 top-tier reasoning model |
-| `deepseek-r1-1.5b` | DeepSeek-R1-Distill-Qwen-1.5B (Q4_K_M) | ~1.1GB | Reasoning model with `<think>` step-by-step thinking |
-| `llama-3.2-1b` | Llama-3.2-1B-Instruct (Q4_K_M) | ~800MB | Meta Llama 3.2 1B model |
+| `smollm2-1.7b` | SmolLM2-1.7B-Instruct (Q4_K_M) | ~1.1GB | SmolLM2 top-tier model |
+| `smollm3-3b` | SmolLM3-3B-Instruct (Q4_K_M) | ~2.0GB | Multilingual & reasoning compact model |
+| `phi-3.5-mini` | Phi-3.5-mini-instruct (Q4_K_M) | ~2.3GB | Microsoft high reasoning small model |
+| `llama-3.2-1b` | Llama-3.2-1B-Instruct (Q4_K_M) | ~750MB | Meta Llama 3.2 1B model |
+| `deepseek-r1-1.5b` | DeepSeek-R1-Distill-Qwen-1.5B (Q4_K_M) | ~1.1GB | Distilled reasoning model |
 | `tinyllama` | TinyLlama-1.1B-Chat-v1.0 (Q4_K_M) | ~670MB | Classic lightweight model |
 
 

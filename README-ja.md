@@ -1114,15 +1114,24 @@ $ twsla model rm qwen2.5-coder-0.5b
 
 | プリセット名 | モデル | サイズ目安 | 特徴・用途 |
 |---|---|---|---|
-| `qwen2.5-0.5b` | Qwen2.5-0.5B-Instruct (Q8_0) | 約 500MB | 標準軽量モデル（汎用） |
-| `qwen2.5-1.5b` | Qwen2.5-1.5B-Instruct (Q4_K_M) | 約 1.0GB | 高精度軽量モデル（汎用） |
+| `qwen2.5-0.5b` | Qwen2.5-0.5B-Instruct (Q8_0) | 約 500MB | 標準軽量モデル（汎用・高速） |
+| `qwen2.5-1.5b` | Qwen2.5-1.5B-Instruct (Q4_K_M) | 約 980MB | 高精度軽量モデル（汎用） |
+| `qwen2.5-3b` | Qwen2.5-3B-Instruct (Q4_K_M) | 約 1.9GB | 高精度・高性能汎用モデル |
 | `qwen2.5-coder-0.5b` | Qwen2.5-Coder-0.5B-Instruct (Q8_0) | 約 500MB | ログ・JSON・コード構造解析特化 |
-| `qwen2.5-coder-1.5b` | Qwen2.5-Coder-1.5B-Instruct (Q4_K_M) | 約 1.0GB | 高精度コード・ログ解析 |
-| `smollm2-135m` | SmolLM2-135M-Instruct (Q8_0) | 約 145MB | 極小超軽量・高速（IoT/省リソース向け） |
-| `smollm2-360m` | SmolLM2-360M-Instruct (Q8_0) | 約 380MB | 軽量バランスモデル |
-| `smollm2-1.7b` | SmolLM2-1.7B-Instruct (Q4_K_M) | 約 1.1GB | SmolLM2上位高精度モデル |
-| `deepseek-r1-1.5b` | DeepSeek-R1-Distill-Qwen-1.5B (Q4_K_M) | 約 1.1GB | `<think>` 思考プロセスを持つ推論型モデル |
-| `llama-3.2-1b` | Llama-3.2-1B-Instruct (Q4_K_M) | 約 800MB | Meta Llama 3.2 1B モデル |
+| `qwen2.5-coder-1.5b` | Qwen2.5-Coder-1.5B-Instruct (Q4_K_M) | 約 980MB | 高精度コード・ログ解析 |
+| `qwen2.5-coder-3b` | Qwen2.5-Coder-3B-Instruct (Q4_K_M) | 約 2.0GB | 高度コード・構造ログ解析 |
+| `qwen3-4b` | Qwen3-4B-Instruct (Q4_K_M) | 約 2.5GB | `<think>` 思考プロセス対応推論型モデル |
+| `llm-jp-3-1.8b` | LLM-jp-3-1.8B-Instruct (Q4_K_M) | 約 1.2GB | 日本語特化国産オープンモデル |
+| `gemma-2-2b` | Gemma-2-2B-it (Q4_K_M) | 約 1.6GB | Google 高品質軽量モデル |
+| `gemma-3-1b` | Gemma-3-1B-it (Q4_K_M) | 約 1.0GB | Google 超軽量最新モデル |
+| `gemma-4-e2b` | Gemma-4-E2B-it (Q4_K_M) | 約 3.1GB | Google マルチモーダル/エッジ向け最新モデル |
+| `smollm2-135m` | SmolLM2-135M-Instruct (Q8_0) | 約 150MB | 極小超軽量・高速（IoT/省リソース向け） |
+| `smollm2-360m` | SmolLM2-360M-Instruct (Q8_0) | 約 380MB | 超軽量バランスモデル |
+| `smollm2-1.7b` | SmolLM2-1.7B-Instruct (Q4_K_M) | 約 1.1GB | SmolLM2 上位高精度モデル |
+| `smollm3-3b` | SmolLM3-3B-Instruct (Q4_K_M) | 約 2.0GB | 多言語・推論対応モデル |
+| `phi-3.5-mini` | Phi-3.5-mini-instruct (Q4_K_M) | 約 2.3GB | Microsoft 高性能小型モデル |
+| `llama-3.2-1b` | Llama-3.2-1B-Instruct (Q4_K_M) | 約 750MB | Meta Llama 3.2 1B モデル |
+| `deepseek-r1-1.5b` | DeepSeek-R1-Distill-Qwen-1.5B (Q4_K_M) | 約 1.1GB | 蒸留推論型モデル |
 | `tinyllama` | TinyLlama-1.1B-Chat-v1.0 (Q4_K_M) | 約 670MB | クラシック軽量モデル |
 
 

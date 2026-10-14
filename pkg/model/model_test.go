@@ -61,6 +61,22 @@ func TestListAndFindModels(t *testing.T) {
 	if foundPartial != presetFile {
 		t.Errorf("expected %s, got %s", presetFile, foundPartial)
 	}
+
+	// Test RemoveModel and .cache cleanup
+	cacheFile := dummyFile + ".cache"
+	if err := os.WriteFile(cacheFile, []byte("dummy-cache-data"), 0644); err != nil {
+		t.Fatalf("failed to write dummy cache: %v", err)
+	}
+
+	if err := RemoveModel(tempDir, "test-model.gguf"); err != nil {
+		t.Fatalf("RemoveModel failed: %v", err)
+	}
+	if _, err := os.Stat(dummyFile); !os.IsNotExist(err) {
+		t.Errorf("expected dummyFile to be removed")
+	}
+	if _, err := os.Stat(cacheFile); !os.IsNotExist(err) {
+		t.Errorf("expected cacheFile to be removed")
+	}
 }
 
 
